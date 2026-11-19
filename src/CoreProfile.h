@@ -5,6 +5,7 @@
 #include <string>
 
 #include <QString>
+#include <QStringList>
 
 // SEGA pad buttons as the frontend sees them, independent of any core's libretro mapping.
 enum class PadButton { Up, Down, Left, Right, A, B, C, X, Y, Z, Start, Mode };
@@ -20,6 +21,8 @@ struct CoreProfile {
     std::map<std::string, std::string> options;
     // Some cores keep state across games and need a fresh load for each one.
     bool reloadPerGame = false;
+    // Sega CD BIOS file names the core looks for in the system directory, by disc region.
+    QStringList segaCdBiosFiles;
     // libretro joypad id for each PadButton, indexed by the enum value.
     std::array<unsigned, kPadButtonCount> retroIds{};
 

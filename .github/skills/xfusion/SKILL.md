@@ -49,6 +49,7 @@ ninja -C build
 - **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.
 - **Zip:** PicoDrive lee zips por sí mismo (`need_fullpath=true`). Xfusion solo inspecciona el zip para detectar el sistema por la extensión de la primera entrada reconocida.
 - **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).
+- **Sega CD:** el core elige el BIOS por la región del disco y lo busca en `system\` como `bios_CD_E.bin`, `bios_CD_U.bin` o `bios_CD_J.bin` (lista en `CoreProfile::segaCdBiosFiles`). Los BIOS con copyright viven en `Sega CD BIOS/`, ignorada por git, y se copian a mano al directorio de datos. Con `Copy-Item` hay que usar `-LiteralPath`: los nombres llevan `[b]`, que PowerShell toma como comodín. Una región PAL corre a 50 fotogramas por segundo; no es un fallo.
 - **Temporización (ADR-0005):** el hilo de emulación marca el ritmo con la cola de audio de SDL3 (objetivo de 1,5 fotogramas de audio) y cae al reloj del sistema si el core no produce audio o no hay dispositivo. El dispositivo de audio arranca pausado hasta que la cola se llena. La entrada también se lee en ese hilo.
 
 ## Cómo probar

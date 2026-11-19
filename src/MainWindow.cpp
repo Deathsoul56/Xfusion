@@ -103,6 +103,10 @@ void MainWindow::openGame(const QString& path)
 
     QString error;
     if (!m_core.loadGame(path, &error)) {
+        if (*system == System::SegaCD) {
+            error += QString("\n\nSega CD games need the BIOS for the disc's region in:\n%1\nExpected file names: %2")
+                         .arg(AppPaths::systemDir(), m_core.profile().segaCdBiosFiles.join(", "));
+        }
         QMessageBox::critical(this, "Xfusion", error);
         return;
     }

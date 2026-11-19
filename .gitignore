@@ -4,6 +4,8 @@ external/
 *.srm
 
 Roms/
+Sega CD BIOS/
+BIOS/
 *.sg
 *.sc
 *.sms

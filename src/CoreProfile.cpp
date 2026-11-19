@@ -25,6 +25,7 @@ const CoreProfile& picoDriveProfile()
         // clear, while its cycle counter restarts at zero. A/B read inverted until the new game has run as long as
         // the previous one, so each game after the first gets a freshly loaded core (ADR-0004).
         p.reloadPerGame = true;
+        p.segaCdBiosFiles = {"bios_CD_E.bin", "bios_CD_U.bin", "bios_CD_J.bin"};
         // PicoDrive translates libretro ids as B=B, Y=A, A=C, L=X, X=Y, R=Z, Select=Mode.
         auto set = [&p](PadButton button, unsigned id) { p.retroIds[static_cast<std::size_t>(button)] = id; };
         set(PadButton::Up, RETRO_DEVICE_ID_JOYPAD_UP);

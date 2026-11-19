@@ -34,7 +34,7 @@ de firmware requeridos.
 
 | Core | Uso | Consideraciones |
 |---|---|---|
-| PicoDrive | **Core único por ahora** para SG-1000, Master System, Game Gear, Genesis, Sega CD y 32X (ADR-0007) | Probado con 611 de 634 ROMs locales; Sega CD sin probar |
+| PicoDrive | **Core único por ahora** para SG-1000, Master System, Game Gear, Genesis, Sega CD y 32X (ADR-0007) | Probado con 611 de 634 ROMs locales y con un juego de Sega CD |
 | Genesis Plus GX | Candidato futuro | Solo si aporta compatibilidad o precisión que PicoDrive no ofrece; requiere perfil, pruebas y revisión de licencia |
 | BlastEm | Candidato futuro (Genesis) | Igual que el anterior |
 
@@ -242,7 +242,8 @@ avanzadas si el ciclo de vida del core todavía es inestable.
   teclado.)*
 - [x] Añadir controles básicos: abrir juego, pausar, reanudar, reiniciar y salir.
 - [x] Mostrar errores accionables para core, ROM o firmware ausentes/inválidos.
-  *(Cubre core ausente y juego rechazado; falta validar BIOS de Sega CD.)*
+  *(Cubre core ausente, juego rechazado y BIOS de Sega CD ausente, con la
+  carpeta y los nombres esperados; no valida el contenido del BIOS.)*
 
 **Salida:** abrir, jugar y cerrar repetidamente juegos de prueba de Genesis y
 Master System sin bloquear la aplicación, filtrar recursos ni perder el control
@@ -295,6 +296,9 @@ sin duplicados innecesarios.
   manifiesto, búsqueda manual de actualizaciones, verificación y reversión.
 - [ ] Incorporar SG-1000 y Game Gear con casos de prueba propios.
 - [ ] Añadir Sega CD, incluyendo configuración de BIOS y juegos multidisco.
+  *(Parcial: un disco `.iso` con pistas `.mp3` funciona con el BIOS copiado a
+  mano. Pendiente: instalar y validar BIOS desde Xfusion, juegos multidisco y
+  discos `.cue`/`.chd`.)*
 - [ ] Añadir 32X mediante PicoDrive u otro core seleccionado.
 - [ ] Implementar selección manual de core y reglas de compatibilidad por juego.
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando
@@ -414,15 +418,25 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
 - Solo teclado; faltan mandos, bindings configurables y estados.
 - No hay detección de colisión de nombres dentro de un mismo sistema, ni
   escritura periódica de SRAM (solo al cerrar; un cierre brusco la pierde).
-- Sin biblioteca, opciones del core, gestión de versiones de cores ni
-  validación de BIOS de Sega CD.
+- Sin biblioteca, opciones del core ni gestión de versiones de cores. Para Sega
+  CD el BIOS se copia a mano (ver abajo); no hay validación del archivo.
 - Probado con una ROM sintética de Genesis y con la colección local (634 ROMs,
   también en `.zip`; la detección de sistema lee el contenido del zip): 611
   arrancan con video y audio (SG-1000 62, Master System 327, Game Gear 50,
   Genesis 140, 32X 32). 13 zips son formatos fuera de alcance (`.sf7`
   SF-7000 y `.mv` MyVision) y ~10 muestran pantalla negra más de 700
   fotogramas (intros lentas o posibles fallos; pendiente de revisar a mano).
-  No probado con Sega CD.
+- **Sega CD** probado con *Final Fight CD* (imagen `.iso` de región EU más 25
+  pistas `.mp3` sin `.cue`): arranca el BIOS, carga el disco y se juega a 50
+  fotogramas por segundo (PAL), sin vacíos de audio; la copia de seguridad
+  interna se guarda en `saves\Sega CD\`. PicoDrive encontró solo las pistas por
+  su nombre (`<juego> NN.mp3`). Solo se probó un juego y una región.
+- **BIOS de Sega CD:** PicoDrive busca en `system\` un archivo por región del
+  disco, elegida por el propio disco: `bios_CD_E.bin` (Europa), `bios_CD_U.bin`
+  (EE. UU.) o `bios_CD_J.bin` (Japón); también acepta otros nombres como
+  `eu_mcd2_9306`. Por ahora se copian a mano a `%APPDATA%\Xfusion\Xfusion\system\`.
+  La carpeta `Sega CD BIOS/` del repositorio está ignorada por git. Si falta,
+  Xfusion muestra la carpeta y los nombres esperados.
 - Al cargar un segundo juego, PicoDrive conservaba contadores de latencia del
   mando en variables estáticas (`padTHLatency`, `padTLLatency` en `pico/memory.c`)
   y los botones A y B se leían invertidos durante tanto tiempo emulado como duró
