@@ -2,40 +2,12 @@
 
 #include <QMouseEvent>
 #include <QPainter>
-#include <QPainterPath>
 #include <QRadialGradient>
 
 namespace {
 
 constexpr double kMargin = 10.0;
-constexpr double kLabelStrip = 30.0; // room above the picture for the MODE label
-
-struct Spot {
-    PadButton button;
-    double x;
-    double y;
-    double radius; // fraction of the body height
-    const char* text;
-};
-
-const std::vector<Spot>& schematicSpots()
-{
-    static const std::vector<Spot> spots = {
-        {PadButton::Up, 0.20, 0.30, 0.085, ""},
-        {PadButton::Down, 0.20, 0.70, 0.085, ""},
-        {PadButton::Left, 0.10, 0.50, 0.085, ""},
-        {PadButton::Right, 0.30, 0.50, 0.085, ""},
-        {PadButton::B, 0.64, 0.58, 0.14, "1"},
-        {PadButton::C, 0.84, 0.46, 0.14, "2"},
-        {PadButton::Start, 0.44, 0.72, 0.06, "START"},
-    };
-    return spots;
-}
-
-bool isDirection(PadButton button)
-{
-    return button == PadButton::Up || button == PadButton::Down || button == PadButton::Left || button == PadButton::Right;
-}
+constexpr double kLabelStrip = 30.0; // room above the picture for buttons that are not on the pad
 
 // Highlight colour per button, like the printed button caps.
 QColor glowColor(PadButton button, const QColor& fallback)
@@ -60,6 +32,7 @@ ControllerDiagram::ControllerDiagram(QWidget* parent)
     : QWidget(parent)
     , m_threeButton(":/controllers/genesis_3button.png")
     , m_sixButton(":/controllers/genesis_6button.png")
+    , m_masterSystem(":/controllers/mastersystem.png")
 {
 }
 
@@ -79,6 +52,13 @@ void ControllerDiagram::setHighlight(std::optional<PadButton> button)
 {
     m_highlight = button;
     update();
+}
+
+const QPixmap& ControllerDiagram::picture() const
+{
+    if (m_group == InputGroup::MasterSystem)
+        return m_masterSystem;
+    return m_padType == PadType::SixButton ? m_sixButton : m_threeButton;
 }
 
 const std::vector<ControllerDiagram::Hotspot>& ControllerDiagram::hotspots() const
@@ -107,7 +87,29 @@ const std::vector<ControllerDiagram::Hotspot>& ControllerDiagram::hotspots() con
         {PadButton::B, 0.756, 0.476, 0.075},
         {PadButton::C, 0.857, 0.440, 0.075},
     };
+    // The two buttons are labelled 1 and 2 on the pad; PicoDrive takes them as B and C.
+    static const std::vector<Hotspot> masterSystem = {
+        {PadButton::Up, 0.257, 0.321, 0.095},
+        {PadButton::Down, 0.257, 0.663, 0.095},
+        {PadButton::Left, 0.185, 0.492, 0.095},
+        {PadButton::Right, 0.326, 0.492, 0.095},
+        {PadButton::B, 0.693, 0.622, 0.140},
+        {PadButton::C, 0.861, 0.622, 0.140},
+    };
+    if (m_group == InputGroup::MasterSystem)
+        return masterSystem;
     return m_padType == PadType::SixButton ? six : three;
+}
+
+std::optional<ControllerDiagram::OffPadButton> ControllerDiagram::offPadButton() const
+{
+    // The Master System has its pause button on the console, not on the pad.
+    if (m_group == InputGroup::MasterSystem)
+        return OffPadButton{PadButton::Start, "PAUSE (console)"};
+    // The 6 button picture has no MODE button on its face.
+    if (m_padType == PadType::SixButton)
+        return OffPadButton{PadButton::Mode, "MODE"};
+    return std::nullopt;
 }
 
 QRectF ControllerDiagram::pictureRect() const
@@ -129,10 +131,13 @@ QPointF ControllerDiagram::hotspotCentre(const Hotspot& hotspot, const QRectF& p
     return {picture.left() + picture.width() * hotspot.x, picture.top() + picture.height() * hotspot.y};
 }
 
-QRectF ControllerDiagram::modeLabelRect() const
+QRectF ControllerDiagram::offPadLabelRect() const
 {
+    const auto label = offPadButton();
     const QRectF image = pictureRect();
-    const double width = 64;
+    QFont font = this->font();
+    font.setBold(true);
+    const double width = QFontMetricsF(font).horizontalAdvance(label ? label->text : "") + 28;
     const double height = 22;
     return {image.center().x() - width / 2, image.top() - height - 6, width, height};
 }
@@ -142,14 +147,7 @@ void ControllerDiagram::paintEvent(QPaintEvent*)
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setRenderHint(QPainter::SmoothPixmapTransform);
-    if (usesPicture())
-        paintPicture(painter);
-    else
-        paintSchematic(painter);
-}
 
-void ControllerDiagram::paintPicture(QPainter& painter)
-{
     const QRectF image = pictureRect();
     painter.drawPixmap(image, picture(), QRectF(picture().rect()));
 
@@ -177,10 +175,11 @@ void ControllerDiagram::paintPicture(QPainter& painter)
         }
     }
 
-    if (m_padType != PadType::SixButton)
+    const auto offPad = offPadButton();
+    if (!offPad)
         return;
-    const QRectF label = modeLabelRect();
-    const bool selected = m_highlight && *m_highlight == PadButton::Mode;
+    const QRectF label = offPadLabelRect();
+    const bool selected = m_highlight && *m_highlight == offPad->button;
     QFont font = painter.font();
     font.setBold(true);
     painter.setFont(font);
@@ -188,84 +187,18 @@ void ControllerDiagram::paintPicture(QPainter& painter)
     painter.setBrush(selected ? accent.darker(130) : palette().color(QPalette::Button));
     painter.drawRoundedRect(label, label.height() / 2, label.height() / 2);
     painter.setPen(palette().color(QPalette::WindowText));
-    painter.drawText(label, Qt::AlignCenter, "MODE");
-}
-
-void ControllerDiagram::paintSchematic(QPainter& painter)
-{
-    const QPalette& colors = palette();
-    const QColor body = colors.color(QPalette::Mid);
-    const QColor outline = colors.color(QPalette::Light);
-    const QColor button = colors.color(QPalette::Button).lighter(140);
-    const QColor accent = colors.color(QPalette::Highlight);
-    const QColor text = colors.color(QPalette::WindowText);
-
-    const double width = qMin(this->width() - 20.0, (this->height() - 20.0) * 2.4);
-    const double height = width / 2.4;
-    const QRectF pad((this->width() - width) / 2, (this->height() - height) / 2, width, height);
-
-    painter.setPen(QPen(outline, 2));
-    painter.setBrush(body);
-    painter.drawRoundedRect(pad, height * 0.28, height * 0.28);
-
-    QFont font = painter.font();
-    font.setBold(true);
-    font.setPixelSize(qMax(8, int(height * 0.075)));
-    painter.setFont(font);
-
-    // The direction pad is one cross; each arm is highlighted on its own.
-    const double armHalf = height * 0.075;
-    const QPointF center(pad.left() + pad.width() * 0.20, pad.top() + pad.height() * 0.50);
-    QPainterPath cross;
-    const double reach = pad.width() * 0.10;
-    cross.addRoundedRect(QRectF(center.x() - reach, center.y() - armHalf, reach * 2, armHalf * 2), 4, 4);
-    cross.addRoundedRect(QRectF(center.x() - armHalf, center.y() - reach, armHalf * 2, reach * 2), 4, 4);
-    painter.setPen(QPen(outline, 1.5));
-    painter.setBrush(colors.color(QPalette::Dark));
-    painter.drawPath(cross.simplified());
-
-    for (const Spot& spot : schematicSpots()) {
-        const QPointF position(pad.left() + pad.width() * spot.x, pad.top() + pad.height() * spot.y);
-        const double radius = pad.height() * spot.radius;
-        const bool highlighted = m_highlight && *m_highlight == spot.button;
-
-        if (isDirection(spot.button)) {
-            if (highlighted) {
-                painter.setPen(Qt::NoPen);
-                painter.setBrush(accent);
-                painter.drawEllipse(position, armHalf * 0.9, armHalf * 0.9);
-            }
-            continue;
-        }
-
-        const bool pill = spot.button == PadButton::Start;
-        painter.setPen(QPen(highlighted ? accent : outline, highlighted ? 3 : 1.5));
-        painter.setBrush(highlighted ? accent.darker(160) : button);
-        if (pill) {
-            const QFontMetricsF metrics(painter.font());
-            const double pillWidth = metrics.horizontalAdvance(spot.text) + radius * 1.4;
-            const double pillHeight = metrics.height() + radius * 0.5;
-            const QRectF rect(position.x() - pillWidth / 2, position.y() - pillHeight / 2, pillWidth, pillHeight);
-            painter.drawRoundedRect(rect, pillHeight * 0.5, pillHeight * 0.5);
-            painter.setPen(text);
-            painter.drawText(rect, Qt::AlignCenter, spot.text);
-        } else {
-            painter.drawEllipse(position, radius, radius);
-            painter.setPen(text);
-            painter.drawText(QRectF(position.x() - radius, position.y() - radius, radius * 2, radius * 2), Qt::AlignCenter, spot.text);
-        }
-    }
+    painter.drawText(label, Qt::AlignCenter, offPad->text);
 }
 
 void ControllerDiagram::mousePressEvent(QMouseEvent* event)
 {
-    if (!usesPicture() || event->button() != Qt::LeftButton) {
+    if (event->button() != Qt::LeftButton) {
         QWidget::mousePressEvent(event);
         return;
     }
     const QPointF position = event->position();
-    if (m_padType == PadType::SixButton && modeLabelRect().contains(position)) {
-        emit buttonClicked(PadButton::Mode);
+    if (const auto offPad = offPadButton(); offPad && offPadLabelRect().contains(position)) {
+        emit buttonClicked(offPad->button);
         return;
     }
     const QRectF image = pictureRect();

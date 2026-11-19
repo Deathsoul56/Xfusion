@@ -7,9 +7,9 @@
 
 #include "SystemInfo.h"
 
-// The pad of one input group. Genesis-family groups show a picture of the 3 or 6 button pad; the button
-// of the selected binding row glows on it and clicking a button selects its row. The Master System pad is
-// drawn schematically.
+// The pad of one input group: a picture of the pad where the button of the selected binding row glows and
+// clicking a button selects its row. Buttons that are not on the face of the pad (MODE on the 6 button
+// pad, PAUSE on the Master System console) are drawn as a label above the picture.
 class ControllerDiagram : public QWidget {
     Q_OBJECT
 public:
@@ -37,19 +37,22 @@ private:
         double radius; // fraction of the picture height
     };
 
-    bool usesPicture() const { return m_group == InputGroup::Genesis; }
-    const QPixmap& picture() const { return m_padType == PadType::SixButton ? m_sixButton : m_threeButton; }
+    struct OffPadButton {
+        PadButton button;
+        const char* text;
+    };
+
+    const QPixmap& picture() const;
     QRectF pictureRect() const;
     QPointF hotspotCentre(const Hotspot& hotspot, const QRectF& picture) const;
     const std::vector<Hotspot>& hotspots() const;
-    // The 6-button picture has no MODE button on its face, so it is drawn as a label above the picture.
-    QRectF modeLabelRect() const;
-    void paintPicture(QPainter& painter);
-    void paintSchematic(QPainter& painter);
+    std::optional<OffPadButton> offPadButton() const;
+    QRectF offPadLabelRect() const;
 
     InputGroup m_group = InputGroup::Genesis;
     PadType m_padType = PadType::SixButton;
     std::optional<PadButton> m_highlight;
     QPixmap m_threeButton;
     QPixmap m_sixButton;
+    QPixmap m_masterSystem;
 };
