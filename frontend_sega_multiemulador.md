@@ -75,7 +75,9 @@ técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
 (ADR-0001 a ADR-0009; el ADR-0008, kit compartido, quedó sustituido por el
-ADR-0009 y diferido. Las de hilos y licencias aún están sin implementar).
+ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
+licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
+terceros llegará en la Fase 6).
 
 ### 3.1 Jerarquía de saves
 
@@ -153,6 +155,11 @@ Reglas de diseño:
 
 Tomar como referencia su frontend Qt y su flujo de uso, no asumir que las
 funciones propias de Snes9x están disponibles en todos los cores.
+
+La referencia de diseño de ambos proyectos es DuckStation (estructura de
+paneles, menús y flujo). Es inspiración: su licencia actual (CC BY-NC-ND 4.0)
+no permite derivar su código ni sus recursos, así que Xfusion los implementa por
+su cuenta.
 
 | Aprendizaje o función | Adaptación al proyecto |
 |---|---|
@@ -381,6 +388,10 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   (`src\CoreProfile.*`, ADR-0007); la ventana usa botones SEGA lógicos.
 - Audio con SDL3 (`src\AudioOutput.*`) y video en un widget de Qt con relación de
   aspecto del core (`src\VideoWidget.*`).
+- Hilo de emulación (`src\EmuThread.*`, ADR-0005): ejecuta el core, lee el
+  teclado y marca el ritmo con la cola de audio. `xfusion.exe --stats` imprime
+  cada segundo los fotogramas emulados y el estado del audio;
+  `scripts\stress-ui.ps1` arrastra la ventana y abre menús para medirlo.
 - Menús: abrir/cerrar juego, pausa, reinicio y pantalla completa (`F11`).
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
@@ -418,6 +429,11 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
   instantes al abrir; revisar si hay una forma más ligera cuando se gestionen
   los cores (sección 3.2).
 - Windows: el teclado se consulta por polling en cada fotograma
-  (`GetAsyncKeyState`), y el core recibe un mando de 6 botones.
+  (`GetAsyncKeyState`) desde el hilo de emulación, y el core recibe un mando de
+  6 botones.
 - `.bin` se asume Genesis.
-- La temporización es por reloj del sistema, no sincronizada con el audio.
+- Los diagnósticos de rendimiento se obtienen con `xfusion.exe --stats` y
+  `scripts\stress-ui.ps1`.
+- Las mediciones de rendimiento se hicieron en un solo equipo, con un solo juego
+  y el dispositivo de audio predeterminado; no se probó el audio desconectado en
+  caliente ni plataformas distintas de Windows (ADR-0005).

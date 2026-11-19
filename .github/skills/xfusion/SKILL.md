@@ -23,7 +23,8 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 - Comentar solo lo que no es obvio (por ejemplo, la razón de una limitación del core).
 - Mantener cada archivo con una responsabilidad: host libretro (`LibretroCore`), perfil de core (`CoreProfile`), audio (`AudioOutput`), video (`VideoWidget`), rutas (`AppPaths`), sistemas (`SystemInfo`), ventana (`MainWindow`).
 - Lo específico de un core (nombre de biblioteca, opciones `picodrive_*`, mapeo de botones, recarga por juego) vive solo en `CoreProfile`. La ventana habla en `PadButton`, nunca en ids de libretro.
-- No dejar código de diagnóstico (variables de entorno, logs temporales) en `src/`.
+- No dejar código de diagnóstico temporal (variables de entorno, logs ad hoc) en `src/`. La medición permanente es `xfusion.exe --stats`.
+- **Hilos:** el core solo lo toca el hilo de emulación (`EmuThread`). Cargar, descargar, recargar el core y leer o escribir SRAM se hacen con el hilo detenido (`m_emu.reset()`); `reset` pasa por `EmuThread::withCore`. El video entra por `VideoWidget::submitFrame` y la entrada por botones atómicos; nada de la interfaz se llama desde el hilo de emulación.
 
 ## Compilar y ejecutar (Windows, MSYS2)
 
@@ -48,7 +49,7 @@ ninja -C build
 - **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.
 - **Zip:** PicoDrive lee zips por sí mismo (`need_fullpath=true`). Xfusion solo inspecciona el zip para detectar el sistema por la extensión de la primera entrada reconocida.
 - **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).
-- **Temporización:** por reloj del sistema con acumulador, en el hilo de la interfaz. No está sincronizada con el audio (limitación abierta).
+- **Temporización (ADR-0005):** el hilo de emulación marca el ritmo con la cola de audio de SDL3 (objetivo de 1,5 fotogramas de audio) y cae al reloj del sistema si el core no produce audio o no hay dispositivo. El dispositivo de audio arranca pausado hasta que la cola se llena. La entrada también se lee en ese hilo.
 
 ## Cómo probar
 
@@ -57,6 +58,8 @@ ninja -C build
 - Criterio mínimo por ROM: vídeo no uniforme y audio no silencioso tras la intro.
 - Una ROM sintética de Genesis (código 68000 que pinta un color y escribe un byte en SRAM) sirve como prueba reproducible sin material con copyright.
 - Ante un error de entrada, comparar el estado visible del juego con y sin recarga del core antes de culpar al teclado: el problema anterior estaba en el core, no en la lectura del teclado.
+- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
+- Los procesos de prueba se cierran con `Stop-Process -Id <PID>` literal o `$p.Kill()`; no con el nombre.
 
 ## Antes de dar una tarea por terminada
 

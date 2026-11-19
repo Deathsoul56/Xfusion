@@ -55,6 +55,7 @@ A partir del segundo juego, `LibretroCore::loadGame` descarga y vuelve a cargar 
 
 - **IMP-001**: No retirar la recarga sin reproducir el caso: cargar Castlevania - Bloodlines tras otro juego y mantener un botón mientras se aprieta otro.
 - **IMP-002**: Pendiente: investigar la causa dentro de PicoDrive (`libretro.c` y estado estático) y, si se encuentra, sustituir la recarga por una solución más ligera.
+- **IMP-003**: Con el hilo de emulación (ADR-0005) la recarga ocurre con el hilo detenido: `closeGame` lo detiene antes de tocar el core y `openGame` lo crea después de cargar el juego. Verificado reabriendo juegos y cambiando de sistema en una misma sesión.
 
 ## References
 
