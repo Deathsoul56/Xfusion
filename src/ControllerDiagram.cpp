@@ -48,9 +48,11 @@ void ControllerDiagram::setPadType(PadType type)
     update();
 }
 
-void ControllerDiagram::setHighlight(std::optional<PadButton> button)
+void ControllerDiagram::setPressed(const std::array<bool, kPadButtonCount>& pressed)
 {
-    m_highlight = button;
+    if (pressed == m_pressed)
+        return;
+    m_pressed = pressed;
     update();
 }
 
@@ -152,34 +154,32 @@ void ControllerDiagram::paintEvent(QPaintEvent*)
     painter.drawPixmap(image, picture(), QRectF(picture().rect()));
 
     const QColor accent = palette().color(QPalette::Highlight);
-    if (m_highlight) {
-        for (const Hotspot& hotspot : hotspots()) {
-            if (hotspot.button != *m_highlight)
-                continue;
-            const QPointF centre = hotspotCentre(hotspot, image);
-            const double radius = image.height() * hotspot.radius;
-            const QColor glow = glowColor(hotspot.button, accent);
+    for (const Hotspot& hotspot : hotspots()) {
+        if (!m_pressed[static_cast<std::size_t>(hotspot.button)])
+            continue;
+        const QPointF centre = hotspotCentre(hotspot, image);
+        const double radius = image.height() * hotspot.radius;
+        const QColor glow = glowColor(hotspot.button, accent);
 
-            QRadialGradient halo(centre, radius * 1.9);
-            halo.setColorAt(0.0, QColor(glow.red(), glow.green(), glow.blue(), 170));
-            halo.setColorAt(1.0, QColor(glow.red(), glow.green(), glow.blue(), 0));
-            painter.setPen(Qt::NoPen);
-            painter.setBrush(halo);
-            painter.drawEllipse(centre, radius * 1.9, radius * 1.9);
+        QRadialGradient halo(centre, radius * 1.9);
+        halo.setColorAt(0.0, QColor(glow.red(), glow.green(), glow.blue(), 170));
+        halo.setColorAt(1.0, QColor(glow.red(), glow.green(), glow.blue(), 0));
+        painter.setPen(Qt::NoPen);
+        painter.setBrush(halo);
+        painter.drawEllipse(centre, radius * 1.9, radius * 1.9);
 
-            QColor fill = glow.lighter(130);
-            fill.setAlpha(150);
-            painter.setPen(QPen(QColor(255, 255, 255, 235), 2.5));
-            painter.setBrush(fill);
-            painter.drawEllipse(centre, radius, radius);
-        }
+        QColor fill = glow.lighter(130);
+        fill.setAlpha(150);
+        painter.setPen(QPen(QColor(255, 255, 255, 235), 2.5));
+        painter.setBrush(fill);
+        painter.drawEllipse(centre, radius, radius);
     }
 
     const auto offPad = offPadButton();
     if (!offPad)
         return;
     const QRectF label = offPadLabelRect();
-    const bool selected = m_highlight && *m_highlight == offPad->button;
+    const bool selected = m_pressed[static_cast<std::size_t>(offPad->button)];
     QFont font = painter.font();
     font.setBold(true);
     painter.setFont(font);

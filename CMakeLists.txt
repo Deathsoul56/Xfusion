@@ -1,10 +1,33 @@
 cmake_minimum_required(VERSION 3.21)
 project(Xfusion VERSION 0.1.0 LANGUAGES CXX)
+if(WIN32)
+    enable_language(RC) # the exe icon
+endif()
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
+
+# On Windows the default build is one executable: Qt (MSYS2 package mingw-w64-clang-x86_64-qt6-static), SDL3 and
+# the C++ runtime are linked statically. -DXFUSION_STATIC=OFF uses the shared libraries and deploys their DLLs.
+option(XFUSION_STATIC "Link Qt, SDL3 and the C++ runtime statically" ${WIN32})
+if(XFUSION_STATIC)
+    get_filename_component(toolchainPrefix "${CMAKE_CXX_COMPILER}/../.." ABSOLUTE)
+    list(PREPEND CMAKE_PREFIX_PATH "${toolchainPrefix}/qt6-static")
+    # Qt's own dependencies (freetype, harfbuzz, png, ...) are found as .a files, not as DLL import libraries.
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+    set(CMAKE_IMPORT_LIBRARY_SUFFIX .a) # harfbuzz's CMake package builds its path from this
+    set(XFUSION_SDL3 SDL3::SDL3-static)
+    # FreeType and HarfBuzz, used by static Qt, need these but their CMake packages do not list them.
+    find_library(BROTLI_DEC_LIB brotlidec REQUIRED)
+    find_library(BROTLI_COMMON_LIB brotlicommon REQUIRED)
+    find_library(BZIP2_LIB bz2 REQUIRED)
+    find_library(GRAPHITE2_LIB graphite2 REQUIRED)
+    set(XFUSION_STATIC_LIBS ${BROTLI_DEC_LIB} ${BROTLI_COMMON_LIB} ${BZIP2_LIB} ${GRAPHITE2_LIB} rpcrt4 usp10)
+else()
+    set(XFUSION_SDL3 SDL3::SDL3)
+endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 find_package(SDL3 REQUIRED CONFIG)
@@ -29,7 +52,7 @@ add_library(xfusion_input STATIC
     src/InputManager.h
 )
 target_include_directories(xfusion_input PUBLIC src)
-target_link_libraries(xfusion_input PUBLIC Qt6::Gui SDL3::SDL3)
+target_link_libraries(xfusion_input PUBLIC Qt6::Gui ${XFUSION_SDL3} ${XFUSION_STATIC_LIBS})
 
 add_executable(xfusion
     src/main.cpp
@@ -56,10 +79,54 @@ add_executable(xfusion
     src/EmuThread.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
-target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets SDL3::SDL3 Threads::Threads)
+if(WIN32)
+    target_sources(xfusion PRIVATE src/resources/xfusion.rc)
+    set_target_properties(xfusion PROPERTIES WIN32_EXECUTABLE ON) # no console window
+endif()
+target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets ${XFUSION_SDL3} Threads::Threads)
+
+# `cmake --install build --prefix build` leaves a runnable build\xfusion.exe; another prefix makes a portable folder.
+if(WIN32)
+    install(TARGETS xfusion RUNTIME DESTINATION .)
+endif()
+
+# The shared build also needs the Qt plugins and every DLL the exe depends on next to it.
+if(WIN32 AND NOT XFUSION_STATIC)
+    install(CODE [[
+        execute_process(
+            COMMAND "$<TARGET_FILE:Qt6::windeployqt>" --release --no-translations --no-system-d3d-compiler
+                    --no-opengl-sw --no-compiler-runtime --skip-plugin-types generic,imageformats,networkinformation,tls
+                    --dir "${CMAKE_INSTALL_PREFIX}" "$<TARGET_FILE:xfusion>"
+            RESULT_VARIABLE deployResult ERROR_VARIABLE deployError OUTPUT_QUIET)
+        if(deployResult)
+            message(FATAL_ERROR "windeployqt failed: ${deployError}")
+        endif()
+
+        # windeployqt copies Qt only; the MSYS2 libraries Qt and the exe depend on are resolved here.
+        if(POLICY CMP0207)
+            cmake_policy(SET CMP0207 NEW)
+        endif()
+        file(GET_RUNTIME_DEPENDENCIES
+            EXECUTABLES "$<TARGET_FILE:xfusion>"
+            RESOLVED_DEPENDENCIES_VAR resolved
+            UNRESOLVED_DEPENDENCIES_VAR unresolved
+            DIRECTORIES "$<TARGET_FILE_DIR:SDL3::SDL3>"
+            PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*"
+            POST_EXCLUDE_REGEXES ".*/[Ss]ystem32/.*")
+        file(INSTALL ${resolved} DESTINATION "${CMAKE_INSTALL_PREFIX}")
+    ]])
+endif()
 
 enable_testing()
 add_executable(input_tests tests/InputTests.cpp)
 target_link_libraries(input_tests PRIVATE xfusion_input Qt6::Test)
+if(XFUSION_STATIC)
+    target_link_options(xfusion PRIVATE -static $<$<CONFIG:Release>:-s>)
+    target_link_options(input_tests PRIVATE -static)
+    # Static Qt links its plugins into the exe; take only the ones used instead of every default one
+    # (image formats, TLS, ... would pull in more libraries).
+    qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
+    qt_import_plugins(input_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+endif()
 add_test(NAME input_tests COMMAND input_tests)
 set_tests_properties(input_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

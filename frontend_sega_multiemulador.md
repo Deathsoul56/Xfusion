@@ -396,6 +396,14 @@ ninja -C build
 build\xfusion.exe [--core ruta\al\core.dll] [juego]
 ```
 
+Por defecto en Windows el ejecutable es **uno solo** (ADR-0012): Qt, SDL3 y la
+runtime de C++ van enlazados de forma estática y solo importa DLL del sistema
+(~27 MB); no hace falta `PATH` ni copiar DLL. Requiere en MSYS2
+`mingw-w64-clang-x86_64-qt6-static` (≈2,4 GB) y `mingw-w64-clang-x86_64-libwebp`.
+Con `-DXFUSION_STATIC=OFF` se usan las DLL compartidas y
+`cmake --install build --prefix <carpeta>` las reúne junto al ejecutable. El
+core de PicoDrive sigue siendo una DLL externa (`cores\`).
+
 `scripts\setup-picodrive.ps1` clona PicoDrive en `external\` (ignorado por git),
 lo fija al commit `26ecb2b`, lo compila con GCC y copia
 `picodrive_libretro.dll` a `build\cores\` (junto al ejecutable).
@@ -431,9 +439,10 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   mandos SDL3, Auto-Assign y conflictos resueltos moviendo la fuente. Se guarda
   en `config\input.json`. El grupo Genesis permite elegir mando de 3 o 6
   botones (por defecto 6); el cambio se aplica en caliente y en 3 botones se
-  ocultan X, Y, Z y Mode. El diagrama usa una imagen por mando (la de Master
-  System incluye una etiqueta "PAUSE (console)" porque esa tecla está en la
-  consola) y el clic en un botón selecciona su fila. Pruebas: `ctest` (20 casos con joysticks
+  ocultan X, Y, Z y Mode. El diagrama usa una imagen por mando y se ilumina el
+  botón que se aprieta en ese momento (teclado o mando, según los bindings en
+  edición), como en `snes9xrd`; la de Master System incluye una etiqueta
+  "PAUSE (console)" porque esa tecla está en la consola. Pruebas: `ctest` (21 casos con joysticks
   virtuales); el cambio 3/6 se comprobó con una ROM sintética que detecta el
   mando.
 

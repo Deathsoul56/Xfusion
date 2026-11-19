@@ -15,6 +15,8 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 - **Nunca versionar** ROMs, BIOS, firmware, `build/` ni `external/`. `Roms/` y las extensiones de ROM están en `.gitignore`. No añadir juegos con copyright como fixtures.
 - **Cores = bibliotecas externas** cargadas en tiempo de ejecución, descritas por un perfil de core (ADR-0007). No enlazar un core en el ejecutable ni versionar su binario. Los paquetes de publicación pueden incluir PicoDrive sin modificar, con su `COPYING` y avisos, y no pueden venderse ni usarse comercialmente (ADR-0006).
 - Escrituras de saves con `QSaveFile` (atómicas). Un fallo de escritura debe notificarse, no ocultarse.
+- **Commits solo cuando el propietario lo pida explícitamente.** No hacer `git commit` (ni `push`) por iniciativa propia, ni al terminar una tarea o una fase. Se deja el trabajo sin commitear y se avisa de qué cambió. Regla fijada por el propietario el 2026-11-19.
+- **Datos de usuario junto al `.exe`**, nunca en `%APPDATA%` (ADR-0011).
 
 ## Estilo de código
 
@@ -35,8 +37,10 @@ cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
 ninja -C build
 ```
 
+- Por defecto el exe es único: Qt, SDL3 y libc++ van **estáticos** (ADR-0012; MSYS2 necesita `mingw-w64-clang-x86_64-qt6-static` y `mingw-w64-clang-x86_64-libwebp`). Corre sin `PATH` especial. `-DXFUSION_STATIC=OFF` da la variante con DLL; `cmake --install build --prefix <carpeta>` las reúne.
+- Al cambiar de variante hay que reconfigurar desde cero (`rm -rf build/CMakeCache.txt build/CMakeFiles`); **no borrar `build\` entero**: contiene saves, BIOS y config (copiarlos antes).
+- Si al enlazar aparecen símbolos sin definir de una biblioteca (freetype, harfbuzz...), falta su dependencia estática: añadirla a `XFUSION_STATIC_LIBS` en `CMakeLists.txt`.
 - Desde PowerShell: `$env:MSYSTEM='CLANG64'; $env:CHERE_INVOKING='1'; & C:\msys64\usr\bin\bash.exe -lc '<comando>'`.
-- Para ejecutar `build\xfusion.exe` desde PowerShell, anteponer `C:\msys64\clang64\bin` al `PATH`.
 - El core se compila con UCRT64 (GCC); el frontend con CLANG64. Funciona porque la ABI de libretro es C.
 - Si el enlazado falla con `Permission denied`, hay un `xfusion.exe` en ejecución: cerrarlo por su PID y reintentar.
 - Datos de usuario junto al ejecutable (nada en `%APPDATA%`; `XFUSION_DATA_DIR` lo sustituye): `cores\`, `system\`, `config\`, `saves\<sistema>\`. En desarrollo el exe está en `build\`, así que borrar `build\` borra saves y BIOS.
@@ -61,7 +65,7 @@ ninja -C build
 - Criterio mínimo por ROM: vídeo no uniforme y audio no silencioso tras la intro.
 - Una ROM sintética de Genesis (código 68000 que pinta un color y escribe un byte en SRAM) sirve como prueba reproducible sin material con copyright.
 - Ante un error de entrada, comparar el estado visible del juego con y sin recarga del core antes de culpar al teclado: el problema anterior estaba en el core, no en la lectura del teclado.
-- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
+- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. El exe es de subsistema GUI (sin ventana de consola): `--stats` imprime en la terminal desde la que se lanza (`AttachConsole` en `main.cpp`) o en el archivo si se redirige stderr (`Start-Process -RedirectStandardError`). `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
 - Los procesos de prueba se cierran con `Stop-Process -Id <PID>` literal o `$p.Kill()`; no con el nombre.
 - Para automatizar la interfaz en Windows: lanzar con `XFUSION_DATA_DIR` apuntando a una carpeta temporal (con una copia de `cores\picodrive_libretro.dll`) y `C:\msys64\clang64\bin` en `PATH` (sin él aparece "SDL3.dll was not found"). Esc en el diálogo de ajustes lo cierra si no hay una captura activa; el primer clic en una ventana recién abierta puede solo activarla. **Hacer todo el flujo (abrir, clics, capturas) en una sola llamada y comprobar con `GetWindowRect` que el diálogo existe antes de clicar**: entre llamadas VS Code recupera el foco y los clics y teclas acaban en el editor.
 

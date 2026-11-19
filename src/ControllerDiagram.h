@@ -2,6 +2,7 @@
 
 #include <QPixmap>
 #include <QWidget>
+#include <array>
 #include <optional>
 #include <vector>
 
@@ -17,7 +18,8 @@ public:
 
     void setGroup(InputGroup group);
     void setPadType(PadType type);
-    void setHighlight(std::optional<PadButton> button);
+    // The buttons shown as pressed.
+    void setPressed(const std::array<bool, kPadButtonCount>& pressed);
 
     QSize minimumSizeHint() const override { return {420, 210}; }
     QSize sizeHint() const override { return {600, 290}; }
@@ -51,7 +53,7 @@ private:
 
     InputGroup m_group = InputGroup::Genesis;
     PadType m_padType = PadType::SixButton;
-    std::optional<PadButton> m_highlight;
+    std::array<bool, kPadButtonCount> m_pressed{};
     QPixmap m_threeButton;
     QPixmap m_sixButton;
     QPixmap m_masterSystem;

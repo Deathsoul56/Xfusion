@@ -45,7 +45,7 @@ private:
     void clearRow(int row);
     void clearCell(int row, int slot);
     void showStatus(const QString& text);
-    void highlightCurrentRow();
+    void updateLiveButtons();
     void syncPadTypeCombo();
 
     InputManager& m_input;
@@ -58,6 +58,7 @@ private:
     QTableWidget* m_table;
     QTimer m_pollTimer;
     QTimer m_timeout;
+    QTimer m_liveTimer;
     std::optional<Capture> m_capture;
     std::vector<PadButton> m_rowButtons;
 };

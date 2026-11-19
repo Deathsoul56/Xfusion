@@ -242,6 +242,24 @@ private slots:
         QVERIFY(!state[index(PadButton::A)] && !state[index(PadButton::B)] && !state[index(PadButton::Up)]);
     }
 
+    void pressedWithUsesTheGivenBindingsAndIgnoresWindowFocus()
+    {
+        InputManager manager; // keeps the default bindings: no joystick input is bound
+        VirtualJoystick device(SDL_JOYSTICK_TYPE_UNKNOWN, 1, 4, 0);
+        QVERIFY2(device, SDL_GetError());
+        QCOMPARE(manager.controllerNames().size(), 1);
+
+        InputConfig edited = InputConfig::defaults();
+        edited.assign(InputGroup::Genesis, PadButton::C, 0, InputBinding::joyButton(3));
+        const auto index = [](PadButton button) { return static_cast<std::size_t>(button); };
+
+        SDL_SetJoystickVirtualButton(device, 3, true);
+        QVERIFY(manager.pressedWith(InputGroup::Genesis, edited)[index(PadButton::C)]);
+        QVERIFY(!manager.poll(InputGroup::Genesis, true)[index(PadButton::C)]);
+        SDL_SetJoystickVirtualButton(device, 3, false);
+        QVERIFY(!manager.pressedWith(InputGroup::Genesis, edited)[index(PadButton::C)]);
+    }
+
     void axisBelowTheThresholdIsIgnored()
     {
         InputManager manager;

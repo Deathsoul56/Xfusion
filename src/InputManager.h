@@ -30,6 +30,9 @@ public:
 
     // Nothing is pressed while the window is not active, so typing elsewhere never reaches the game.
     PadState poll(InputGroup group, bool windowActive);
+    // The buttons pressed right now under `config` (the settings dialog's unsaved copy), regardless of
+    // which window is active; used to light the buttons of the pad picture.
+    PadState pressedWith(InputGroup group, const InputConfig& config);
 
     // Keyboard state from Qt events; used for keys without a Windows virtual key and on other platforms.
     void setKeyDown(int qtKey, bool down);
@@ -52,6 +55,7 @@ private:
     };
 
     void refreshDevices();
+    PadState buttonsFor(InputGroup group, const InputConfig& config) const;
     std::vector<InputBinding> pressedJoystickInputs() const;
     bool isPressed(const InputBinding& binding) const;
 

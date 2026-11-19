@@ -185,15 +185,11 @@ bool InputManager::isPressed(const InputBinding& binding) const
     return false;
 }
 
-InputManager::PadState InputManager::poll(InputGroup group, bool windowActive)
+InputManager::PadState InputManager::buttonsFor(InputGroup group, const InputConfig& config) const
 {
     PadState state{};
-    std::lock_guard<std::mutex> lock(m_mutex);
-    refreshDevices();
-    if (!windowActive)
-        return state;
     for (const InputAction& action : inputGroupDef(group).actions) {
-        for (const InputBinding& binding : m_config.bindings(group, action.button)) {
+        for (const InputBinding& binding : config.bindings(group, action.button)) {
             if (isPressed(binding)) {
                 state[static_cast<std::size_t>(action.button)] = true;
                 break;
@@ -201,6 +197,22 @@ InputManager::PadState InputManager::poll(InputGroup group, bool windowActive)
         }
     }
     return state;
+}
+
+InputManager::PadState InputManager::poll(InputGroup group, bool windowActive)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    refreshDevices();
+    if (!windowActive)
+        return {};
+    return buttonsFor(group, m_config);
+}
+
+InputManager::PadState InputManager::pressedWith(InputGroup group, const InputConfig& config)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    refreshDevices();
+    return buttonsFor(group, config);
 }
 
 QStringList InputManager::controllerNames()

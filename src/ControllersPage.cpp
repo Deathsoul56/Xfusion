@@ -17,6 +17,7 @@ namespace {
 
 constexpr int kCaptureTimeoutMs = 8000;
 constexpr int kCapturePollMs = 16;
+constexpr int kLivePollMs = 30;
 constexpr int kFirstBindingColumn = 1;
 constexpr int kClearColumn = kFirstBindingColumn + InputConfig::kSlots;
 
@@ -115,7 +116,6 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     };
     connect(m_table, &QTableWidget::cellClicked, this, startCapture);
     connect(m_table, &QTableWidget::cellActivated, this, startCapture);
-    connect(m_table, &QTableWidget::currentCellChanged, this, [this] { highlightCurrentRow(); });
     connect(m_table, &QTableWidget::customContextMenuRequested, this, [this](const QPoint& position) {
         const QModelIndex index = m_table->indexAt(position);
         if (!index.isValid() || index.column() < kFirstBindingColumn || index.column() >= kClearColumn)
@@ -125,6 +125,10 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
         if (menu.exec(m_table->viewport()->mapToGlobal(position)) == clear)
             clearCell(index.row(), index.column() - kFirstBindingColumn);
     });
+
+    m_liveTimer.setInterval(kLivePollMs);
+    connect(&m_liveTimer, &QTimer::timeout, this, &ControllersPage::updateLiveButtons);
+    m_liveTimer.start();
 
     rebuildTable();
 }
@@ -178,7 +182,6 @@ void ControllersPage::rebuildTable()
         refreshRow(row);
     }
     m_table->setCurrentCell(0, kFirstBindingColumn);
-    highlightCurrentRow();
 }
 
 void ControllersPage::refreshCell(int row, int slot)
@@ -197,11 +200,16 @@ void ControllersPage::refreshRow(int row)
         refreshCell(row, slot);
 }
 
-void ControllersPage::highlightCurrentRow()
+// The pad picture shows what is pressed right now, using the bindings being edited. While a binding is being
+// captured it shows the button that will receive it instead.
+void ControllersPage::updateLiveButtons()
 {
-    const int row = m_table->currentRow();
-    if (row >= 0 && row < static_cast<int>(m_rowButtons.size()))
-        m_diagram->setHighlight(m_rowButtons[static_cast<std::size_t>(row)]);
+    InputManager::PadState pressed{};
+    if (m_capture)
+        pressed[static_cast<std::size_t>(m_capture->button)] = true;
+    else if (isActiveWindow())
+        pressed = m_input.pressedWith(currentGroup(), m_config);
+    m_diagram->setPressed(pressed);
 }
 
 void ControllersPage::showStatus(const QString& text)
