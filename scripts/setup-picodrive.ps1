@@ -17,7 +17,7 @@ $msysDest = (& "$msys\usr\bin\cygpath.exe" -u $dest)
 & "$msys\usr\bin\bash.exe" -lc "cd '$msysDest' && make -f Makefile.libretro platform=win -j8"
 if ($LASTEXITCODE -ne 0) { throw 'PicoDrive build failed' }
 
-$dataRoot = if ($env:XFUSION_DATA_DIR) { $env:XFUSION_DATA_DIR } else { Join-Path $env:APPDATA 'Xfusion\Xfusion' }
+$dataRoot = if ($env:XFUSION_DATA_DIR) { $env:XFUSION_DATA_DIR } else { Join-Path $repo 'build' }
 $coresDir = Join-Path $dataRoot 'cores'
 New-Item -ItemType Directory -Force $coresDir | Out-Null
 Copy-Item (Join-Path $dest 'picodrive_libretro.dll') $coresDir -Force

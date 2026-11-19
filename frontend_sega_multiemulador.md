@@ -398,7 +398,7 @@ build\xfusion.exe [--core ruta\al\core.dll] [juego]
 
 `scripts\setup-picodrive.ps1` clona PicoDrive en `external\` (ignorado por git),
 lo fija al commit `26ecb2b`, lo compila con GCC y copia
-`picodrive_libretro.dll` a `<datos>\cores\`.
+`picodrive_libretro.dll` a `build\cores\` (junto al ejecutable).
 
 ### 10.2 Qué incluye
 
@@ -415,7 +415,11 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
 - Menús: abrir/cerrar juego, pausa, reinicio y pantalla completa (`F11`).
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
-- Datos en `%APPDATA%\Xfusion\Xfusion\` (configurable con `XFUSION_DATA_DIR`):
+- Datos junto al ejecutable (`<carpeta del .exe>\`; configurable con `XFUSION_DATA_DIR`):
+  `cores\`, `system\` (BIOS), `config\` y `saves\<sistema>\` según la sección 3.1.
+  No se escribe nada en `%APPDATA%`. En desarrollo el ejecutable está en `build\`,
+  así que borrar `build\` también borra saves y BIOS: para conservarlos entre
+  compilaciones limpias, apuntar `XFUSION_DATA_DIR` a otra carpeta.
   `cores\`, `system\` (BIOS) y `saves\<sistema>\` según la sección 3.1.
 - SRAM: se carga al abrir y se guarda al cerrar el juego en
   `saves\<sistema>\<juego>.srm`. PicoDrive no reporta SRAM mientras esté a cero,
@@ -469,7 +473,7 @@ X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
 - **BIOS de Sega CD:** PicoDrive busca en `system\` un archivo por región del
   disco, elegida por el propio disco: `bios_CD_E.bin` (Europa), `bios_CD_U.bin`
   (EE. UU.) o `bios_CD_J.bin` (Japón); también acepta otros nombres como
-  `eu_mcd2_9306`. Por ahora se copian a mano a `%APPDATA%\Xfusion\Xfusion\system\`.
+  `eu_mcd2_9306`. Por ahora se copian a mano a `system\` junto al ejecutable.
   La carpeta `Sega CD BIOS/` del repositorio está ignorada por git. Si falta,
   Xfusion muestra la carpeta y los nombres esperados.
 - Al cargar un segundo juego, PicoDrive conservaba contadores de latencia del

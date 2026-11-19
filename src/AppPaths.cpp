@@ -1,7 +1,7 @@
 #include "AppPaths.h"
 
+#include <QCoreApplication>
 #include <QDir>
-#include <QStandardPaths>
 
 #include "CoreProfile.h"
 
@@ -15,10 +15,11 @@ static QString ensured(const QString& path)
 
 QString dataRoot()
 {
+    // Everything lives next to the executable so the folder can be moved or deleted as a unit.
     const QString overridePath = qEnvironmentVariable("XFUSION_DATA_DIR");
     if (!overridePath.isEmpty())
         return ensured(QDir(overridePath).absolutePath());
-    return ensured(QStandardPaths::writableLocation(QStandardPaths::AppDataLocation));
+    return ensured(QCoreApplication::applicationDirPath());
 }
 
 QString savesDir(System system)

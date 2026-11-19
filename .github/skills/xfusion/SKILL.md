@@ -39,7 +39,7 @@ ninja -C build
 - Para ejecutar `build\xfusion.exe` desde PowerShell, anteponer `C:\msys64\clang64\bin` al `PATH`.
 - El core se compila con UCRT64 (GCC); el frontend con CLANG64. Funciona porque la ABI de libretro es C.
 - Si el enlazado falla con `Permission denied`, hay un `xfusion.exe` en ejecución: cerrarlo por su PID y reintentar.
-- Datos de usuario: `%APPDATA%\Xfusion\Xfusion\` (o `XFUSION_DATA_DIR`): `cores\`, `system\`, `saves\<sistema>\`.
+- Datos de usuario junto al ejecutable (nada en `%APPDATA%`; `XFUSION_DATA_DIR` lo sustituye): `cores\`, `system\`, `config\`, `saves\<sistema>\`. En desarrollo el exe está en `build\`, así que borrar `build\` borra saves y BIOS.
 
 ## Trampas conocidas (verificadas)
 
