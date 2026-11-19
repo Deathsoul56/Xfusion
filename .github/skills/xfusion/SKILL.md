@@ -51,6 +51,8 @@ ninja -C build
 - **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).
 - **Sega CD:** el core elige el BIOS por la región del disco y lo busca en `system\` como `bios_CD_E.bin`, `bios_CD_U.bin` o `bios_CD_J.bin` (lista en `CoreProfile::segaCdBiosFiles`). Los BIOS con copyright viven en `Sega CD BIOS/`, ignorada por git, y se copian a mano al directorio de datos. Con `Copy-Item` hay que usar `-LiteralPath`: los nombres llevan `[b]`, que PowerShell toma como comodín. Una región PAL corre a 50 fotogramas por segundo; no es un fallo.
 - **Temporización (ADR-0005):** el hilo de emulación marca el ritmo con la cola de audio de SDL3 (objetivo de 1,5 fotogramas de audio) y cae al reloj del sistema si el core no produce audio o no hay dispositivo. El dispositivo de audio arranca pausado hasta que la cola se llena. La entrada también se lee en ese hilo.
+- **Entrada (ADR-0010):** los bindings son por grupo de plataforma (`InputGroup` en `SystemInfo`: Genesis/Sega CD/32X y SG-1000/Master System/Game Gear), 4 ranuras por acción, guardados en `<datos>\config\input.json`. Un sistema nuevo solo declara su grupo. `InputManager` lee teclado (`GetAsyncKeyState`) y mandos SDL3 en el hilo de emulación y no entrega nada si la ventana principal no está activa. **`slots` es una macro de Qt**: no usar ese nombre para miembros o métodos.
+- **Pruebas de entrada:** `QT_QPA_PLATFORM=offscreen ctest --test-dir build` (18 casos, joysticks virtuales de SDL). El test desactiva los controladores físicos con hints de SDL; sin eso un mando real (p. ej. el 8BitDo como `XInput Controller #1`) altera los recuentos.
 
 ## Cómo probar
 
@@ -61,6 +63,7 @@ ninja -C build
 - Ante un error de entrada, comparar el estado visible del juego con y sin recarga del core antes de culpar al teclado: el problema anterior estaba en el core, no en la lectura del teclado.
 - Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
 - Los procesos de prueba se cierran con `Stop-Process -Id <PID>` literal o `$p.Kill()`; no con el nombre.
+- Para automatizar la interfaz en Windows: lanzar con `XFUSION_DATA_DIR` apuntando a una carpeta temporal y `C:\msys64\clang64\bin` en `PATH` (sin él aparece "SDL3.dll was not found"). Esc en el diálogo de ajustes lo cierra si no hay una captura activa; el primer clic en una ventana recién abierta puede solo activarla.
 
 ## Antes de dar una tarea por terminada
 
