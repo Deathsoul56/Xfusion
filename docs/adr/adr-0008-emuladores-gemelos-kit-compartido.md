@@ -1,6 +1,6 @@
 ---
 title: "ADR-0008: Emuladores gemelos con un kit de frontend compartido"
-status: "Proposed"
+status: "Accepted"
 date: "2026-11-19"
 authors: "Rafa (@raravenam_bch), Copilot"
 tags: ["architecture", "reuse", "licensing", "snes9xrd", "decision"]
@@ -12,9 +12,9 @@ superseded_by: ""
 
 ## Status
 
-**Proposed** | Accepted | Rejected | Superseded | Deprecated
+Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
-Pendiente de aprobación. Matiza la frase "No se reutiliza código de `snes9xrd`" del ADR-0001 y de la sección 9 del plan (ver Decision, punto 1).
+Aprobado el 2026-11-19 con estas decisiones del propietario: el kit usa licencia **MIT** y empieza como carpeta `kit/` dentro de Xfusion, para separarlo a su propio repositorio después de la Fase 2. Matiza la frase "No se reutiliza código de `snes9xrd`" del ADR-0001 y de la sección 9 del plan (ver Decision, punto 1).
 
 ## Context
 
@@ -105,7 +105,8 @@ Lo que se verificó en `C:\Users\rafa_\Documents\VScode\snes9xrd` (rama `dev`):
 - **IMP-003**: Añadir el `NullBackend` y una prueba automática de que el kit compila sin cabeceras del producto.
 - **IMP-004**: Llevar un registro de procedencia (`kit/PROVENANCE.md`): origen y licencia de cada archivo. Cualquier código de terceros debe tener licencia permisiva compatible.
 - **IMP-005**: Antes de adoptar el kit en `snes9xrd`, decidir audio (cubeb o SDL3) y renderizado, y comprobar que compila con su cadena de herramientas.
-- **IMP-006**: Pendiente: elegir la licencia exacta del kit (MIT o MPL-2.0) y confirmar la propiedad de las contribuciones del dueño en `snes9xrd/qt` con `git blame`.
+- **IMP-006**: Licencia del kit decidida: MIT (`kit/LICENSE`, que se creará con la carpeta). Pendiente: confirmar la propiedad de las contribuciones del dueño en `snes9xrd/qt` con `git blame` antes de reutilizar cualquier fragmento.
+- **IMP-007**: Como `kit/` vive dentro de un repositorio GPL-3, cada archivo del kit lleva un encabezado `SPDX-License-Identifier: MIT` para que su licencia quede inequívoca al separarlo.
 
 ## References
 

@@ -74,8 +74,8 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0007 aceptadas; las de hilos y licencias aún sin implementar.
-ADR-0008, el kit compartido con `snes9xrd`, está propuesto).
+(ADR-0001 a ADR-0008 aceptadas; las de hilos, licencias y kit compartido aún sin
+implementar).
 
 ### 3.1 Jerarquía de saves
 
