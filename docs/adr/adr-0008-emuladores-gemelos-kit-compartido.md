@@ -1,20 +1,20 @@
 ---
 title: "ADR-0008: Emuladores gemelos con un kit de frontend compartido"
-status: "Accepted"
+status: "Superseded"
 date: "2026-11-19"
 authors: "Rafa (@raravenam_bch), Copilot"
 tags: ["architecture", "reuse", "licensing", "snes9xrd", "decision"]
 supersedes: ""
-superseded_by: ""
+superseded_by: "ADR-0009"
 ---
 
 # ADR-0008: Emuladores gemelos con un kit de frontend compartido
 
 ## Status
 
-Proposed | **Accepted** | Rejected | Superseded | Deprecated
+Proposed | Accepted | Rejected | **Superseded** | Deprecated
 
-Aprobado el 2026-11-19 con estas decisiones del propietario: el kit usa licencia **MIT** y empieza como carpeta `kit/` dentro de Xfusion, para separarlo a su propio repositorio después de la Fase 2. Matiza la frase "No se reutiliza código de `snes9xrd`" del ADR-0001 y de la sección 9 del plan (ver Decision, punto 1).
+Sustituido por el ADR-0009 el 2026-11-19: para un proyecto personal local el kit es más infraestructura de la necesaria. Queda diferido, no descartado; si se reabre, valen estas decisiones (licencia MIT, carpeta `kit/` primero y extracción con `git subtree split`). Aprobado antes ese mismo día con estas decisiones del propietario: licencia **MIT** y empezar en `kit/`, separándolo después de la Fase 2. Matiza la frase "No se reutiliza código de `snes9xrd`" del ADR-0001 y de la sección 9 del plan (ver Decision, punto 1).
 
 ## Context
 
@@ -22,7 +22,7 @@ Se quiere que `snes9xrd` (SNES) y Xfusion (SEGA) se comporten como emuladores ge
 
 Lo que se verificó en `C:\Users\rafa_\Documents\VScode\snes9xrd` (rama `dev`):
 
-- **Ya tiene un frontend Qt 6 completo** con tema estilo DuckStation (`duckstation.qss`): biblioteca de juegos con tiempo jugado, paneles de ajustes, bindings con SDL, shaders OpenGL/Vulkan, cheats, estados, RetroAchievements, netplay y grabación AVI. Xfusion va a necesitar casi todo eso en las Fases 2 a 4.
+- **Ya tiene un frontend Qt 6 completo** con temas por plantilla (`theme.qss`, antes `duckstation.qss`): biblioteca de juegos con tiempo jugado, paneles de ajustes, bindings con SDL, shaders OpenGL/Vulkan, cheats, estados, RetroAchievements, netplay y grabación AVI. Xfusion va a necesitar casi todo eso en las Fases 2 a 4.
 - **Los motores son distintos.** `snes9xrd` llama directamente al núcleo nativo (`Snes9xController` → `Memory`, `S9x*`). Xfusion habla con cores libretro. Esa es la verdadera costura entre ambos.
 - **Licencia:** `snes9xrd` es un fork de Snes9x y su `LICENSE` es la licencia Snes9x, que incluye "Under no circumstances will commercial rights be given". No es compatible con GPL-3. En el historial de `qt/`, 124 commits son de BearOso (autor original, licencia Snes9x) y 32 del dueño del fork; los del dueño están mezclados en archivos de BearOso.
 - **Consecuencia:** copiar código de `snes9xrd/qt` o `snes9xrd/common` a Xfusion (GPL-3) no es posible, ni tampoco copiar de Xfusion a `snes9xrd` sin reglas. Compartir exige una capa con licencia que ambos proyectos puedan usar y con procedencia limpia.

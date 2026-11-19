@@ -11,7 +11,7 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 
 - **Saves por sistema:** siempre `saves/<sistema>/<juego>.srm`. La carpeta la decide el sistema del juego, nunca el core. Se obtiene con `AppPaths::savesDir(System)`; no construir rutas de saves a mano.
 - **Una sola tabla de sistemas:** `src/SystemInfo.*` define carpeta y extensiones. Cualquier sistema o extensión nueva se añade ahí y en ningún otro lugar.
-- **No copiar código de `snes9xrd`** (licencia Snes9x, incompatible con GPL-3). Lo compartido va en un kit propio de licencia permisiva (ADR-0008, propuesto). Solo inspira la experiencia de uso.
+- **No copiar código de `snes9xrd`** (licencia Snes9x, incompatible con GPL-3). Sus mejoras se portan adaptándolas: entender qué hace el commit y escribir la versión propia. Antes de tomar algo, `scripts/porting-log.ps1 -Blame <archivo>` y anotarlo en `docs/porting-ledger.md` (ADR-0009). `blame` no prueba autoría si el archivo entró en un commit masivo.
 - **Nunca versionar** ROMs, BIOS, firmware, `build/` ni `external/`. `Roms/` y las extensiones de ROM están en `.gitignore`. No añadir juegos con copyright como fixtures.
 - **Cores = bibliotecas externas** cargadas en tiempo de ejecución, descritas por un perfil de core (ADR-0007). No enlazar un core en el ejecutable ni versionar su binario. Los paquetes de publicación pueden incluir PicoDrive sin modificar, con su `COPYING` y avisos, y no pueden venderse ni usarse comercialmente (ADR-0006).
 - Escrituras de saves con `QSaveFile` (atómicas). Un fallo de escritura debe notificarse, no ocultarse.

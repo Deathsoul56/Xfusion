@@ -8,8 +8,8 @@ varios sistemas SEGA mediante cores mantenidos.
 
 El proyecto implementará el frontend y la integración con libretro; no escribirá
 emuladores desde cero ni copiará código de `snes9xrd` (licencia Snes9x, no
-compatible con GPL-3). Lo que ambos proyectos compartan irá en un kit de
-frontend nuevo con licencia permisiva (ADR-0008, propuesto). La interfaz, los
+compatible con GPL-3). Las mejoras de `snes9xrd` se portan adaptándolas y
+quedan registradas en `docs/porting-ledger.md` (ADR-0009). La interfaz, los
 ajustes y los datos del usuario serán propios.
 
 ## 2. Alcance inicial
@@ -74,8 +74,8 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0008 aceptadas; las de hilos, licencias y kit compartido aún sin
-implementar).
+(ADR-0001 a ADR-0009; el ADR-0008, kit compartido, quedó sustituido por el
+ADR-0009 y diferido. Las de hilos y licencias aún están sin implementar).
 
 ### 3.1 Jerarquía de saves
 
@@ -346,8 +346,9 @@ incorporarse al alcance.
 ## 9. Fuera de alcance por ahora
 
 - Crear o modificar un core de emulación.
-- Copiar código de `snes9xrd` (licencia Snes9x). El código compartido entre
-  ambos proyectos solo vive en un kit con licencia permisiva (ADR-0008).
+- Copiar código de `snes9xrd` (licencia Snes9x). Sus mejoras se portan
+  adaptándolas, con registro en `docs/porting-ledger.md` (ADR-0009). Un kit
+  compartido queda diferido.
 - Saturn, Dreamcast y cualquier sistema posterior a la cuarta generación
   (descartados, no solo pospuestos).
 - Plataformas SEGA no enumeradas en el alcance.

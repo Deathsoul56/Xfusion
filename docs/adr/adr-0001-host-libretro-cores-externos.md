@@ -20,7 +20,7 @@ Xfusion quiere cubrir varios sistemas SEGA (hasta la cuarta generación) sin esc
 
 ## Decision
 
-Xfusion es un host libretro escrito desde cero (C++20, Qt 6, SDL3). Los cores se cargan en tiempo de ejecución con `QLibrary` desde `cores/` en el directorio de datos del usuario. Ningún core se enlaza dentro del ejecutable ni se versiona en el repositorio. No se copia código de `snes9xrd` (ver ADR-0008).
+Xfusion es un host libretro escrito desde cero (C++20, Qt 6, SDL3). Los cores se cargan en tiempo de ejecución con `QLibrary` desde `cores/` en el directorio de datos del usuario. Ningún core se enlaza dentro del ejecutable ni se versiona en el repositorio. No se copia código de `snes9xrd` (ver ADR-0009).
 
 ## Consequences
 
