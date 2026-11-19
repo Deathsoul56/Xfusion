@@ -12,31 +12,34 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
+
 #include "AppPaths.h"
 #include "SystemInfo.h"
 
 namespace {
 
-// Genesis buttons mapped onto the libretro pad ids PicoDrive translates (B=B, A=Y, C=A, X=L, Y=X, Z=R, Mode=Select).
-const QHash<int, unsigned>& keyMap()
-{
-    static const QHash<int, unsigned> map = {
-        {Qt::Key_Up, RETRO_DEVICE_ID_JOYPAD_UP},
-        {Qt::Key_Down, RETRO_DEVICE_ID_JOYPAD_DOWN},
-        {Qt::Key_Left, RETRO_DEVICE_ID_JOYPAD_LEFT},
-        {Qt::Key_Right, RETRO_DEVICE_ID_JOYPAD_RIGHT},
-        {Qt::Key_Z, RETRO_DEVICE_ID_JOYPAD_Y},
-        {Qt::Key_X, RETRO_DEVICE_ID_JOYPAD_B},
-        {Qt::Key_C, RETRO_DEVICE_ID_JOYPAD_A},
-        {Qt::Key_A, RETRO_DEVICE_ID_JOYPAD_L},
-        {Qt::Key_S, RETRO_DEVICE_ID_JOYPAD_X},
-        {Qt::Key_D, RETRO_DEVICE_ID_JOYPAD_R},
-        {Qt::Key_Return, RETRO_DEVICE_ID_JOYPAD_START},
-        {Qt::Key_Enter, RETRO_DEVICE_ID_JOYPAD_START},
-        {Qt::Key_Backspace, RETRO_DEVICE_ID_JOYPAD_SELECT},
-    };
-    return map;
-}
+struct KeyBinding {
+    int qtKey;
+    int winVk; // 0 when the key has no Windows polling equivalent
+    PadButton button;
+};
+
+// Default bindings: arrows, Z/X/C = A/B/C, A/S/D = X/Y/Z, Enter = Start, Backspace = Mode.
+const KeyBinding kBindings[] = {
+    {Qt::Key_Up, 0x26, PadButton::Up},
+    {Qt::Key_Down, 0x28, PadButton::Down},
+    {Qt::Key_Left, 0x25, PadButton::Left},
+    {Qt::Key_Right, 0x27, PadButton::Right},
+    {Qt::Key_Z, 'Z', PadButton::A},
+    {Qt::Key_X, 'X', PadButton::B},
+    {Qt::Key_C, 'C', PadButton::C},
+    {Qt::Key_A, 'A', PadButton::X},
+    {Qt::Key_S, 'S', PadButton::Y},
+    {Qt::Key_D, 'D', PadButton::Z},
+    {Qt::Key_Return, 0x0D, PadButton::Start},
+    {Qt::Key_Enter, 0, PadButton::Start},
+    {Qt::Key_Backspace, 0x08, PadButton::Mode},
+};
 
 }
 
@@ -144,17 +147,15 @@ void MainWindow::closeGame()
 void MainWindow::pollKeyboard()
 {
 #ifdef Q_OS_WIN
-    static const struct { int vk; unsigned id; } binds[] = {
-        {VK_UP, RETRO_DEVICE_ID_JOYPAD_UP},       {VK_DOWN, RETRO_DEVICE_ID_JOYPAD_DOWN},
-        {VK_LEFT, RETRO_DEVICE_ID_JOYPAD_LEFT},   {VK_RIGHT, RETRO_DEVICE_ID_JOYPAD_RIGHT},
-        {'Z', RETRO_DEVICE_ID_JOYPAD_Y},          {'X', RETRO_DEVICE_ID_JOYPAD_B},
-        {'C', RETRO_DEVICE_ID_JOYPAD_A},          {'A', RETRO_DEVICE_ID_JOYPAD_L},
-        {'S', RETRO_DEVICE_ID_JOYPAD_X},          {'D', RETRO_DEVICE_ID_JOYPAD_R},
-        {VK_RETURN, RETRO_DEVICE_ID_JOYPAD_START}, {VK_BACK, RETRO_DEVICE_ID_JOYPAD_SELECT},
-    };
-    const bool active = isActiveWindow();
-    for (const auto& b : binds)
-        m_core.setButton(b.id, active && (GetAsyncKeyState(b.vk) & 0x8000));
+    std::array<bool, kPadButtonCount> pressed{};
+    if (isActiveWindow()) {
+        for (const auto& binding : kBindings) {
+            if (binding.winVk && (GetAsyncKeyState(binding.winVk) & 0x8000))
+                pressed[static_cast<std::size_t>(binding.button)] = true;
+        }
+    }
+    for (std::size_t i = 0; i < pressed.size(); ++i)
+        m_core.setButton(static_cast<PadButton>(i), pressed[i]);
 #endif
 }
 
@@ -215,9 +216,10 @@ void MainWindow::handleKey(QKeyEvent* event, bool pressed)
 {
     if (event->isAutoRepeat())
         return;
-    const auto it = keyMap().constFind(event->key());
-    if (it != keyMap().constEnd())
-        m_core.setButton(it.value(), pressed);
+    for (const auto& binding : kBindings) {
+        if (binding.qtKey == event->key())
+            m_core.setButton(binding.button, pressed);
+    }
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)

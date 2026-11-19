@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <functional>
 
+#include "CoreProfile.h"
 #include "libretro.h"
 
 class LibretroCore {
@@ -20,7 +21,7 @@ public:
     using VideoCallback = std::function<void(const QImage&, double aspectRatio)>;
     using AudioCallback = std::function<void(const int16_t*, size_t frames)>;
 
-    LibretroCore();
+    LibretroCore(const CoreProfile& profile = defaultCoreProfile());
     ~LibretroCore();
     LibretroCore(const LibretroCore&) = delete;
     LibretroCore& operator=(const LibretroCore&) = delete;
@@ -39,7 +40,8 @@ public:
     void setDirectories(const QString& systemDir, const QString& saveDir);
     void setVideoCallback(VideoCallback cb) { m_video = std::move(cb); }
     void setAudioCallback(AudioCallback cb) { m_audio = std::move(cb); }
-    void setButton(unsigned retroId, bool pressed);
+    void setButton(PadButton button, bool pressed);
+    const CoreProfile& profile() const { return m_profile; }
 
     bool readSaveRam(const QString& path);
     bool writeSaveRam(const QString& path);
@@ -57,6 +59,7 @@ private:
     void updateAvInfo();
     bool reloadCore(QString* error);
 
+    const CoreProfile& m_profile;
     QLibrary m_lib;
     bool m_loaded = false;
     bool m_hasGame = false;

@@ -21,7 +21,8 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 - C++20, 4 espacios, llave de función en línea nueva, miembros con prefijo `m_`, clases en PascalCase, métodos en camelCase.
 - Errores del host libretro: `bool` + `QString* error` con mensaje accionable (no excepciones).
 - Comentar solo lo que no es obvio (por ejemplo, la razón de una limitación del core).
-- Mantener cada archivo con una responsabilidad: host libretro (`LibretroCore`), audio (`AudioOutput`), video (`VideoWidget`), rutas (`AppPaths`), sistemas (`SystemInfo`), ventana (`MainWindow`).
+- Mantener cada archivo con una responsabilidad: host libretro (`LibretroCore`), perfil de core (`CoreProfile`), audio (`AudioOutput`), video (`VideoWidget`), rutas (`AppPaths`), sistemas (`SystemInfo`), ventana (`MainWindow`).
+- Lo específico de un core (nombre de biblioteca, opciones `picodrive_*`, mapeo de botones, recarga por juego) vive solo en `CoreProfile`. La ventana habla en `PadButton`, nunca en ids de libretro.
 - No dejar código de diagnóstico (variables de entorno, logs temporales) en `src/`.
 
 ## Compilar y ejecutar (Windows, MSYS2)
@@ -41,9 +42,9 @@ ninja -C build
 
 ## Trampas conocidas (verificadas)
 
-- **El estado de PicoDrive persiste entre juegos.** Tras cargar un segundo juego en el mismo core, Castlevania leía los botones A/B invertidos (la A actuaba al soltar la tecla). `LibretroCore::loadGame` recarga el core completo a partir del segundo juego. La causa raíz exacta no está identificada; no quitar esa recarga sin reproducir el caso (cargar Castlevania - Bloodlines tras otro juego y mantener un botón mientras se aprieta otro).
-- **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. El host responde `picodrive_input1/2 = "6 button pad"` en `GET_VARIABLE`.
-- **Mapeo libretro → Genesis (PicoDrive):** B→B, Y→A, A→C, X→Y, L→X, R→Z, Select→Mode. Teclas: flechas, `Z/X/C` = A/B/C, `A/S/D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode.
+- **El estado de PicoDrive persiste entre juegos.** Tras cargar un segundo juego en el mismo core, Castlevania leía los botones A/B invertidos (la A actuaba al soltar la tecla). `LibretroCore::loadGame` recarga el core completo a partir del segundo juego (flag `reloadPerGame` del perfil). La causa raíz exacta no está identificada; no quitar esa recarga sin reproducir el caso (cargar Castlevania - Bloodlines tras otro juego y mantener un botón mientras se aprieta otro).
+- **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. Su perfil fuerza `picodrive_input1/2 = "6 button pad"`.
+- **Mapeo PadButton → libretro (PicoDrive):** A→Y, B→B, C→A, X→L, Y→X, Z→R, Mode→Select. Teclas: flechas, `Z/X/C` = A/B/C, `A/S/D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode.
 - **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.
 - **Zip:** PicoDrive lee zips por sí mismo (`need_fullpath=true`). Xfusion solo inspecciona el zip para detectar el sistema por la extensión de la primera entrada reconocida.
 - **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).

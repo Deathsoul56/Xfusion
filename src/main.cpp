@@ -20,7 +20,7 @@ int main(int argc, char* argv[])
     parser.addPositionalArgument("game", "Game to open on startup.", "[game]");
     parser.process(app);
 
-    LibretroCore core;
+    LibretroCore core(defaultCoreProfile());
     QString error;
     if (!core.load(parser.value(coreOption), &error)) {
         QMessageBox::critical(nullptr, "Xfusion", error);

@@ -28,6 +28,8 @@ add_executable(xfusion
     src/SystemInfo.h
     src/AppPaths.cpp
     src/AppPaths.h
+    src/CoreProfile.cpp
+    src/CoreProfile.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
 target_link_libraries(xfusion PRIVATE Qt6::Widgets SDL3::SDL3)

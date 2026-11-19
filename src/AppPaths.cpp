@@ -3,6 +3,8 @@
 #include <QDir>
 #include <QStandardPaths>
 
+#include "CoreProfile.h"
+
 namespace AppPaths {
 
 static QString ensured(const QString& path)
@@ -36,7 +38,7 @@ QString coresDir()
 
 QString defaultCorePath()
 {
-    return coresDir() + "/picodrive_libretro.dll";
+    return coresDir() + "/" + defaultCoreProfile().libraryFileName();
 }
 
 }

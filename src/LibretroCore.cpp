@@ -24,7 +24,8 @@ void logCb(enum retro_log_level level, const char* fmt, ...)
 
 }
 
-LibretroCore::LibretroCore()
+LibretroCore::LibretroCore(const CoreProfile& profile)
+    : m_profile(profile)
 {
     s_instance = this;
 }
@@ -110,9 +111,7 @@ bool LibretroCore::loadGame(const QString& gamePath, QString* error)
         *error = "No core is loaded";
         return false;
     }
-    // PicoDrive keeps state between games (the pad read protocol broke after a second load), so every
-    // game after the first starts from a freshly loaded core.
-    if (m_usedOnce && !reloadCore(error))
+    if (m_profile.reloadPerGame && m_usedOnce && !reloadCore(error))
         return false;
     m_usedOnce = true;
     unloadGame();
@@ -160,8 +159,9 @@ void LibretroCore::reset()
         m_reset();
 }
 
-void LibretroCore::setButton(unsigned retroId, bool pressed)
+void LibretroCore::setButton(PadButton button, bool pressed)
 {
+    const unsigned retroId = m_profile.retroId(button);
     if (retroId < m_buttons.size())
         m_buttons[retroId] = pressed;
 }
@@ -232,12 +232,13 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
         return true;
     case RETRO_ENVIRONMENT_GET_VARIABLE: {
         auto* var = static_cast<retro_variable*>(data);
-        // PicoDrive defaults to a 3-button pad, which ignores X/Y/Z.
-        if (var->key && (!strcmp(var->key, "picodrive_input1") || !strcmp(var->key, "picodrive_input2"))) {
-            var->value = "6 button pad";
-            return true;
-        }
-        return false;
+        if (!var->key)
+            return false;
+        const auto it = m_profile.options.find(var->key);
+        if (it == m_profile.options.end())
+            return false;
+        var->value = it->second.c_str();
+        return true;
     }
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
         *static_cast<bool*>(data) = false;

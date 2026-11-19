@@ -373,7 +373,8 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
 
 - Host libretro propio (`src\LibretroCore.*`): carga el core con `QLibrary`,
   valida la versión de API y los símbolos, y gestiona video (RGB565 y XRGB8888),
-  audio, entrada y entorno.
+  audio, entrada y entorno. Lo específico de cada core está en un perfil
+  (`src\CoreProfile.*`, ADR-0007); la ventana usa botones SEGA lógicos.
 - Audio con SDL3 (`src\AudioOutput.*`) y video en un widget de Qt con relación de
   aspecto del core (`src\VideoWidget.*`).
 - Menús: abrir/cerrar juego, pausa, reinicio y pantalla completa (`F11`).

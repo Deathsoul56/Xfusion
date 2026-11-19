@@ -64,10 +64,11 @@ Hoy las particularidades de PicoDrive están repartidas por el código:
 
 ## Implementation Notes
 
-- **IMP-001**: Orden sugerido: extraer `CoreProfile` con los datos actuales de PicoDrive sin cambiar el comportamiento, y verificar con la colección de ROMs.
-- **IMP-002**: Después, pasar `MainWindow` a acciones lógicas y mover el mapeo al perfil (esto prepara la Fase 2, controles configurables).
-- **IMP-003**: Un segundo perfil (por ejemplo Genesis Plus GX) sirve como prueba de que la abstracción funciona; no hace falta integrarlo todavía.
+- **IMP-001**: Hecho: `src/CoreProfile.*` reúne el nombre de la biblioteca, las opciones forzadas, la recarga por juego y el mapeo de botones de PicoDrive. `LibretroCore` recibe el perfil y `AppPaths` lo usa para la ruta del core. Verificado: los 12 botones llegan al core (incluidos X/Y/Z tras cargar un segundo juego) y Z sigue activando la A de Sega antes y después de reabrir un juego.
+- **IMP-002**: Hecho: `MainWindow` usa una sola tabla de teclas → `PadButton` (botones SEGA lógicos); ya no hay identificadores libretro fuera del perfil. Pendiente: bindings configurables y mando (Fase 2).
+- **IMP-003**: Pendiente: un segundo perfil (por ejemplo Genesis Plus GX) como prueba de la abstracción; no hace falta integrarlo todavía.
 - **IMP-004**: Las saves quedan por sistema, no por core (ADR-0002), por lo que el cambio de core conserva la SRAM.
+- **IMP-005**: Pendiente: tabla de reglas sistema → core como datos; hoy `defaultCoreProfile()` devuelve siempre PicoDrive.
 
 ## References
 
