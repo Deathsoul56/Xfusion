@@ -3,6 +3,7 @@
 #include <array>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <QString>
 #include <QStringList>
@@ -16,6 +17,10 @@ struct CoreProfile {
     QString libraryBaseName;
     // Core options forced to a fixed value; any other option falls back to the core's default.
     std::map<std::string, std::string> options;
+    // Options that select the Genesis-family pad and the value each PadType takes. Empty when the core has none.
+    std::vector<std::string> padTypeKeys;
+    std::string padTypeValues[2];
+    const std::string& padTypeValue(PadType type) const { return padTypeValues[static_cast<std::size_t>(type)]; }
     // Some cores keep state across games and need a fresh load for each one.
     bool reloadPerGame = false;
     // Sega CD BIOS file names the core looks for in the system directory, by disc region.

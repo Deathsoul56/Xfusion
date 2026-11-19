@@ -29,12 +29,14 @@ Hasta la Fase 1 las teclas estaban fijas en `MainWindow` y solo existía el pad 
 5. **Lectura en el hilo de emulación** (`InputManager::poll(grupo, ventanaActiva)`, seguro entre hilos); el botón lógico llega al core como `PadButton` (ADR-0007). El grupo activo lo fija `openGame` según el sistema.
 6. **Panel de ajustes** (`SettingsDialog` con una página `ControllersPage`): combo de plataforma, diagrama (`ControllerDiagram`, dibujado con `QPainter`, sin recursos de terceros), tabla de bindings y captura con tiempo límite de 8 s (Esc cancela, clic derecho borra). Trabaja sobre una copia: OK aplica y guarda, Cancelar descarta.
 7. **Pruebas** con Qt Test y joysticks virtuales de SDL (`tests/InputTests.cpp`), desactivando los controladores físicos para que un mando real no altere los resultados.
+8. **Mando de 3 o 6 botones** (solo grupo Genesis): `InputConfig::padType()`, guardado como `genesis_pad` (3 o 6) en `input.json`; por defecto 6. En 3 botones el panel oculta X, Y, Z y Mode (`InputAction::sixButtonOnly`). El perfil del core indica qué opciones lo seleccionan (`CoreProfile::padTypeKeys` y valores) y `LibretroCore::setPadType` las cambia y avisa con `GET_VARIABLE_UPDATE`, así que el cambio vale en caliente, sin reiniciar el juego. Se aplica al abrir un juego y al pulsar OK.
+9. **Diagrama con imágenes** (`resources/controllers/genesis_3button.png` y `genesis_6button.png`, registradas en `resources.qrc`): zonas sensibles medidas sobre cada imagen, brillo del botón seleccionado y clic en el botón para seleccionar su fila. La imagen de 6 botones no trae Mode en la cara, así que se dibuja una etiqueta MODE encima. El grupo Master System sigue con el esquema dibujado (no hay imagen).
 
 ## Consequences
 
 - Positivas: mismo flujo que `snes9xrd` con la jerarquía de plataformas pedida; añadir un sistema solo requiere asignarle un grupo; la lógica de bindings se prueba sin hardware.
 - Negativas: los bindings de mando son índices crudos, así que dos mandos con distinta numeración comparten los mismos valores; por ahora un solo jugador (sin "Controller Ports"); el teclado solo tiene lectura física en Windows.
-- Pendientes: dos jugadores, atajos de teclado del frontend, prueba de desconexión de mandos, y revisar si 32X y Sega CD necesitan ajustes propios.
+- Pendientes: dos jugadores, atajos de teclado del frontend, prueba de desconexión de mandos, revisar si 32X y Sega CD necesitan ajustes propios, y confirmar el origen y la licencia de las dos imágenes de mando (ver `THIRD_PARTY_NOTICES.md` pendiente).
 
 ## Implementation notes
 

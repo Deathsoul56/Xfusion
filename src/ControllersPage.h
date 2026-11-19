@@ -46,10 +46,13 @@ private:
     void clearCell(int row, int slot);
     void showStatus(const QString& text);
     void highlightCurrentRow();
+    void syncPadTypeCombo();
 
     InputManager& m_input;
     InputConfig m_config;
     QComboBox* m_platform;
+    QWidget* m_padRow;
+    QComboBox* m_padType;
     QLabel* m_status;
     ControllerDiagram* m_diagram;
     QTableWidget* m_table;

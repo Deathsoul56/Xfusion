@@ -43,6 +43,9 @@ public:
     void setVideoCallback(VideoCallback cb) { m_video = std::move(cb); }
     void setAudioCallback(AudioCallback cb) { m_audio = std::move(cb); }
     void setButton(PadButton button, bool pressed);
+    // Selects the pad the core emulates. Call from the emulation thread (or with it stopped): the core
+    // reads the new value at the start of its next frame.
+    void setPadType(PadType type);
     const CoreProfile& profile() const { return m_profile; }
 
     bool readSaveRam(const QString& path);
@@ -62,6 +65,8 @@ private:
     bool reloadCore(QString* error);
 
     const CoreProfile& m_profile;
+    std::map<std::string, std::string> m_options;
+    bool m_optionsChanged = false;
     QLibrary m_lib;
     bool m_loaded = false;
     bool m_hasGame = false;

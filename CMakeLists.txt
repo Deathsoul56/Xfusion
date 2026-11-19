@@ -4,6 +4,7 @@ project(Xfusion VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
 find_package(SDL3 REQUIRED CONFIG)
@@ -44,6 +45,7 @@ add_executable(xfusion
     src/AppPaths.h
     src/ControllerDiagram.cpp
     src/ControllerDiagram.h
+    src/resources/resources.qrc
     src/ControllersPage.cpp
     src/ControllersPage.h
     src/SettingsDialog.cpp

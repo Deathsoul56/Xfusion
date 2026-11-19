@@ -1,10 +1,12 @@
 #include "SettingsDialog.h"
 
 #include <QDialogButtonBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QScreen>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
@@ -15,7 +17,8 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, I
     , m_controllers(new ControllersPage(input, config, initialGroup, this))
 {
     setWindowTitle("Settings");
-    resize(960, 720);
+    const QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
+    resize(980, qMin(860, screen.height() - 80));
 
     auto* pages = new QListWidget(this);
     pages->setFixedWidth(190);

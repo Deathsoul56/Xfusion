@@ -126,6 +126,33 @@ private slots:
         QCOMPARE(InputConfig::fromJson(config.toJson()), config);
     }
 
+    void padTypeDefaultsToSixButtonAndHidesSixButtonActions()
+    {
+        QCOMPARE(InputConfig::defaults().padType(), PadType::SixButton);
+        for (const InputAction& action : inputGroupDef(InputGroup::Genesis).actions) {
+            QVERIFY(action.availableWith(PadType::SixButton));
+            const bool sixOnly = action.button == PadButton::X || action.button == PadButton::Y
+                || action.button == PadButton::Z || action.button == PadButton::Mode;
+            QCOMPARE(action.availableWith(PadType::ThreeButton), !sixOnly);
+        }
+        QVERIFY(inputGroupDef(InputGroup::Genesis).selectablePadType);
+        QVERIFY(!inputGroupDef(InputGroup::MasterSystem).selectablePadType);
+    }
+
+    void padTypeIsSavedAndResetWithTheGenesisGroup()
+    {
+        InputConfig config = InputConfig::defaults();
+        config.setPadType(PadType::ThreeButton);
+        const InputConfig loaded = InputConfig::fromJson(config.toJson());
+        QCOMPARE(loaded.padType(), PadType::ThreeButton);
+        QCOMPARE(loaded, config);
+
+        config.resetGroup(InputGroup::MasterSystem);
+        QCOMPARE(config.padType(), PadType::ThreeButton);
+        config.resetGroup(InputGroup::Genesis);
+        QCOMPARE(config.padType(), PadType::SixButton);
+    }
+
     void unsupportedVersionFallsBackToDefaults()
     {
         QString error;

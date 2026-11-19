@@ -23,7 +23,7 @@ El documento planteaba Genesis Plus GX como core principal, pero solo PicoDrive 
 Hoy las particularidades de PicoDrive están repartidas por el código:
 
 - `AppPaths::defaultCorePath()` fija `picodrive_libretro.dll`.
-- `LibretroCore::handleEnvironment` responde a `picodrive_input1/2` con `"6 button pad"`.
+- `LibretroCore::handleEnvironment` responde a `picodrive_input1/2` con `"6 button pad"` (desde el ADR-0010 el valor depende del tipo de mando elegido; 6 por defecto).
 - `LibretroCore::loadGame` recarga el core entero a partir del segundo juego (ADR-0004).
 - `MainWindow` asume el mapeo libretro → botón Genesis de PicoDrive.
 - La detección de sistema (`SystemInfo`) y los nombres de las opciones del core no son genéricos.
@@ -31,7 +31,7 @@ Hoy las particularidades de PicoDrive están repartidas por el código:
 ## Decision
 
 1. Se usa **solo PicoDrive** para todos los sistemas.
-2. Se introduce un **perfil de core** (`CoreProfile`) como única fuente de las particularidades de cada core: nombre de la biblioteca, opciones que se fuerzan (`picodrive_input1=6 button pad`), si necesita recarga por juego, mapeo de botones lógicos a identificadores libretro, y sistemas y extensiones que admite.
+2. Se introduce un **perfil de core** (`CoreProfile`) como única fuente de las particularidades de cada core: nombre de la biblioteca, opciones que se fuerzan (el tipo de mando ya no es fijo: lo elige el usuario y el perfil solo indica las claves, ver ADR-0010), si necesita recarga por juego, mapeo de botones lógicos a identificadores libretro, y sistemas y extensiones que admite.
 3. El resto del frontend habla en **acciones del frontend** (botones SEGA lógicos A, B, C, X, Y, Z, Start, Mode), no en identificadores de libretro. El perfil traduce.
 4. La asignación sistema → core es una **tabla de reglas** (datos), con selección manual posterior; no vive en el código de la interfaz.
 5. Todo core nuevo exige: su perfil, una prueba de arranque con la colección de ROMs de ejemplo, la revisión de licencia (ADR-0006) y una nota de compatibilidad de saves y estados.

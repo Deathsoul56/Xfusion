@@ -26,8 +26,11 @@ void logCb(enum retro_log_level level, const char* fmt, ...)
 
 LibretroCore::LibretroCore(const CoreProfile& profile)
     : m_profile(profile)
+    , m_options(profile.options)
 {
     s_instance = this;
+    setPadType(PadType::SixButton);
+    m_optionsChanged = false;
 }
 
 LibretroCore::~LibretroCore()
@@ -167,6 +170,17 @@ void LibretroCore::setButton(PadButton button, bool pressed)
         m_buttons[retroId].store(pressed, std::memory_order_relaxed);
 }
 
+void LibretroCore::setPadType(PadType type)
+{
+    for (const std::string& key : m_profile.padTypeKeys) {
+        std::string& value = m_options[key];
+        if (value != m_profile.padTypeValue(type)) {
+            value = m_profile.padTypeValue(type);
+            m_optionsChanged = true;
+        }
+    }
+}
+
 void LibretroCore::updateAvInfo()
 {
     retro_system_av_info av{};
@@ -235,14 +249,15 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
         auto* var = static_cast<retro_variable*>(data);
         if (!var->key)
             return false;
-        const auto it = m_profile.options.find(var->key);
-        if (it == m_profile.options.end())
+        const auto it = m_options.find(var->key);
+        if (it == m_options.end())
             return false;
         var->value = it->second.c_str();
         return true;
     }
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-        *static_cast<bool*>(data) = false;
+        *static_cast<bool*>(data) = m_optionsChanged;
+        m_optionsChanged = false;
         return true;
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         static_cast<retro_log_callback*>(data)->log = logCb;

@@ -78,6 +78,7 @@ void MainWindow::openGame(const QString& path)
     m_core.setDirectories(AppPaths::systemDir(), saveDir);
 
     QString error;
+    m_core.setPadType(m_input.config().padType());
     if (!m_core.loadGame(path, &error)) {
         if (*system == System::SegaCD) {
             error += QString("\n\nSega CD games need the BIOS for the disc's region in:\n%1\nExpected file names: %2")
@@ -154,6 +155,10 @@ void MainWindow::openSettings()
     if (dialog.exec() == QDialog::Accepted) {
         const InputConfig config = dialog.inputConfig();
         m_input.setConfig(config);
+        if (m_emu)
+            m_emu->withCore([this, &config] { m_core.setPadType(config.padType()); });
+        else
+            m_core.setPadType(config.padType());
         QString error;
         if (!config.save(AppPaths::inputConfigPath(), &error))
             QMessageBox::warning(this, "Xfusion", error);

@@ -27,6 +27,10 @@ public:
     void clearAction(InputGroup group, PadButton button);
     void resetGroup(InputGroup group);
 
+    // Which Genesis-family pad is plugged in; the MasterSystem group has a single pad type.
+    PadType padType() const { return m_padType; }
+    void setPadType(PadType type) { m_padType = type; }
+
     QJsonObject toJson() const;
     // Groups or actions missing from the object keep their defaults.
     static InputConfig fromJson(const QJsonObject& object, QString* error = nullptr);
@@ -40,4 +44,5 @@ public:
 private:
     using Actions = std::array<Slots, kPadButtonCount>;
     std::map<InputGroup, Actions> m_groups;
+    PadType m_padType = PadType::SixButton;
 };

@@ -74,6 +74,8 @@ void InputConfig::resetGroup(InputGroup group)
     for (const DefaultKey& key : defaultKeys().at(group))
         actions[static_cast<std::size_t>(key.button)][kKeyboardSlot] = InputBinding::key(key.qtKey, key.windowsVirtualKey);
     m_groups[group] = actions;
+    if (group == InputGroup::Genesis)
+        m_padType = PadType::SixButton;
 }
 
 const InputConfig::Slots& InputConfig::bindings(InputGroup group, PadButton button) const
@@ -126,7 +128,9 @@ QJsonObject InputConfig::toJson() const
         }
         groups.insert(group.key, actions);
     }
-    return {{"version", kFileVersion}, {"groups", groups}};
+    return {{"version", kFileVersion},
+            {"genesis_pad", m_padType == PadType::ThreeButton ? 3 : 6},
+            {"groups", groups}};
 }
 
 InputConfig InputConfig::fromJson(const QJsonObject& object, QString* error)
@@ -137,6 +141,9 @@ InputConfig InputConfig::fromJson(const QJsonObject& object, QString* error)
             *error = QString("Unsupported input configuration version %1").arg(object.value("version").toInt());
         return config;
     }
+
+    if (object.value("genesis_pad").toInt() == 3)
+        config.m_padType = PadType::ThreeButton;
 
     const QJsonObject groups = object.value("groups").toObject();
     for (const InputGroupDef& group : allInputGroups()) {

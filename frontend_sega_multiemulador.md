@@ -425,7 +425,12 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   Dos grupos de plataforma con bindings propios: Genesis / Sega CD / 32X y
   SG-1000 / Master System / Game Gear. Cuatro ranuras por acción, teclado y
   mandos SDL3, Auto-Assign y conflictos resueltos moviendo la fuente. Se guarda
-  en `config\input.json`. Pruebas: `ctest` (18 casos con joysticks virtuales).
+  en `config\input.json`. El grupo Genesis permite elegir mando de 3 o 6
+  botones (por defecto 6); el cambio se aplica en caliente y en 3 botones se
+  ocultan X, Y, Z y Mode. El diagrama usa una imagen por tipo de mando y el
+  clic en un botón selecciona su fila. Pruebas: `ctest` (20 casos con joysticks
+  virtuales); el cambio 3/6 se comprobó con una ROM sintética que detecta el
+  mando.
 
 Teclado por defecto (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` =
 X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
@@ -442,6 +447,9 @@ X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
   son índices crudos de SDL y valen para cualquier mando conectado. Probado con
   teclado y con un 8BitDo (XInput). SG-1000 comparte los bindings de Master
   System (supuesto).
+- **Imágenes de los mandos** (`src\resources\controllers\`): aportadas por el
+  propietario; falta confirmar su origen y licencia antes de publicar. Si no
+  se pueden redistribuir bajo GPL-3.0, hay que reemplazarlas por dibujos propios.
 - No hay detección de colisión de nombres dentro de un mismo sistema, ni
   escritura periódica de SRAM (solo al cerrar; un cierre brusco la pierde).
 - Sin biblioteca, opciones del core ni gestión de versiones de cores. Para Sega

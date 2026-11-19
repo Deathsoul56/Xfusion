@@ -22,12 +22,16 @@ struct SystemDef {
 struct InputAction {
     PadButton button;
     QString label;
+    bool sixButtonOnly = false;
+
+    bool availableWith(PadType type) const { return !sixButtonOnly || type == PadType::SixButton; }
 };
 
 struct InputGroupDef {
     InputGroup id;
     QString key; // stable identifier used in the configuration file
     std::vector<InputAction> actions;
+    bool selectablePadType = false; // the user can choose between the 3 and 6 button pad
 };
 
 const std::vector<SystemDef>& allSystems();

@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
+#include <algorithm>
 
 #include "ControllerDiagram.h"
 
@@ -26,6 +27,8 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     , m_input(input)
     , m_config(config)
     , m_platform(new QComboBox(this))
+    , m_padRow(new QWidget(this))
+    , m_padType(new QComboBox(this))
     , m_status(new QLabel(this))
     , m_diagram(new ControllerDiagram(this))
     , m_table(new QTableWidget(this))
@@ -44,6 +47,14 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     top->addWidget(m_platform, 1);
     top->addWidget(autoAssignButton);
 
+    m_padType->addItem("6 button pad", static_cast<int>(PadType::SixButton));
+    m_padType->addItem("3 button pad", static_cast<int>(PadType::ThreeButton));
+    m_padType->setToolTip("The pad the game sees. Some games misbehave with the 6 button pad; X, Y, Z and Mode only exist on it.");
+    auto* padLayout = new QHBoxLayout(m_padRow);
+    padLayout->setContentsMargins(0, 0, 0, 0);
+    padLayout->addWidget(new QLabel("Controller:", m_padRow));
+    padLayout->addWidget(m_padType, 1);
+
     m_status->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_status->setMinimumHeight(m_status->fontMetrics().height() + 6);
 
@@ -54,7 +65,7 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     headers << "Clear";
     m_table->setHorizontalHeaderLabels(headers);
     m_table->verticalHeader()->setVisible(false);
-    m_table->verticalHeader()->setDefaultSectionSize(30);
+    m_table->verticalHeader()->setDefaultSectionSize(26);
     m_table->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setSelectionBehavior(QAbstractItemView::SelectItems);
@@ -67,9 +78,10 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
 
     auto* layout = new QVBoxLayout(this);
     layout->addLayout(top);
+    layout->addWidget(m_padRow);
     layout->addWidget(m_status);
-    layout->addWidget(m_diagram, 1);
-    layout->addWidget(m_table, 2);
+    layout->addWidget(m_diagram, 3);
+    layout->addWidget(m_table, 4);
 
     m_pollTimer.setInterval(kCapturePollMs);
     connect(&m_pollTimer, &QTimer::timeout, this, &ControllersPage::pollController);
@@ -86,6 +98,17 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
         showStatus({});
     });
     connect(autoAssignButton, &QPushButton::clicked, this, &ControllersPage::autoAssign);
+    connect(m_padType, &QComboBox::currentIndexChanged, this, [this] {
+        endCapture();
+        m_config.setPadType(static_cast<PadType>(m_padType->currentData().toInt()));
+        rebuildTable();
+        showStatus({});
+    });
+    connect(m_diagram, &ControllerDiagram::buttonClicked, this, [this](PadButton button) {
+        const auto it = std::find(m_rowButtons.begin(), m_rowButtons.end(), button);
+        if (it != m_rowButtons.end())
+            m_table->setCurrentCell(static_cast<int>(it - m_rowButtons.begin()), kFirstBindingColumn);
+    });
     const auto startCapture = [this](int row, int column) {
         if (column >= kFirstBindingColumn && column < kClearColumn)
             beginCapture(row, column - kFirstBindingColumn);
@@ -111,16 +134,30 @@ InputGroup ControllersPage::currentGroup() const
     return static_cast<InputGroup>(m_platform->currentData().toInt());
 }
 
+void ControllersPage::syncPadTypeCombo()
+{
+    const QSignalBlocker blocker(m_padType);
+    m_padType->setCurrentIndex(m_padType->findData(static_cast<int>(m_config.padType())));
+}
+
 void ControllersPage::rebuildTable()
 {
     const InputGroupDef& group = inputGroupDef(currentGroup());
+    m_padRow->setVisible(group.selectablePadType);
+    syncPadTypeCombo();
     m_diagram->setGroup(group.id);
+    m_diagram->setPadType(m_config.padType());
     m_rowButtons.clear();
     m_table->clearContents();
-    m_table->setRowCount(static_cast<int>(group.actions.size()));
+
+    std::vector<const InputAction*> actions;
+    for (const InputAction& action : group.actions)
+        if (!group.selectablePadType || action.availableWith(m_config.padType()))
+            actions.push_back(&action);
+    m_table->setRowCount(static_cast<int>(actions.size()));
 
     for (int row = 0; row < m_table->rowCount(); ++row) {
-        const InputAction& action = group.actions[static_cast<std::size_t>(row)];
+        const InputAction& action = *actions[static_cast<std::size_t>(row)];
         m_rowButtons.push_back(action.button);
 
         auto* label = new QTableWidgetItem(action.label);
@@ -272,7 +309,6 @@ void ControllersPage::restoreDefaults()
 {
     endCapture();
     m_config.resetGroup(currentGroup());
-    for (int row = 0; row < m_table->rowCount(); ++row)
-        refreshRow(row);
+    rebuildTable();
     showStatus("Defaults restored");
 }
