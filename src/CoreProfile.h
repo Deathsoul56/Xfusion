@@ -7,10 +7,7 @@
 #include <QString>
 #include <QStringList>
 
-// SEGA pad buttons as the frontend sees them, independent of any core's libretro mapping.
-enum class PadButton { Up, Down, Left, Right, A, B, C, X, Y, Z, Start, Mode };
-
-constexpr std::size_t kPadButtonCount = 12;
+#include "PadButton.h"
 
 // Everything that is specific to one libretro core. The rest of the frontend must not
 // hardcode core names, option keys or button ids.

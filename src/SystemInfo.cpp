@@ -51,14 +51,62 @@ QStringList zipEntryNames(const QString& path)
 const std::vector<SystemDef>& allSystems()
 {
     static const std::vector<SystemDef> systems = {
-        {System::SG1000, "SG-1000", {"sg", "sc"}},
-        {System::MasterSystem, "Master System", {"sms"}},
-        {System::GameGear, "Game Gear", {"gg"}},
-        {System::Genesis, "Genesis", {"md", "gen", "smd", "bin"}},
-        {System::SegaCD, "Sega CD", {"cue", "iso", "chd"}},
-        {System::Sega32X, "32X", {"32x"}},
+        {System::SG1000, "SG-1000", {"sg", "sc"}, InputGroup::MasterSystem},
+        {System::MasterSystem, "Master System", {"sms"}, InputGroup::MasterSystem},
+        {System::GameGear, "Game Gear", {"gg"}, InputGroup::MasterSystem},
+        {System::Genesis, "Genesis", {"md", "gen", "smd", "bin"}, InputGroup::Genesis},
+        {System::SegaCD, "Sega CD", {"cue", "iso", "chd"}, InputGroup::Genesis},
+        {System::Sega32X, "32X", {"32x"}, InputGroup::Genesis},
     };
     return systems;
+}
+
+const std::vector<InputGroupDef>& allInputGroups()
+{
+    static const std::vector<InputGroupDef> groups = {
+        {InputGroup::Genesis,
+         "genesis",
+         {{PadButton::Up, "Up"},
+          {PadButton::Down, "Down"},
+          {PadButton::Left, "Left"},
+          {PadButton::Right, "Right"},
+          {PadButton::A, "A"},
+          {PadButton::B, "B"},
+          {PadButton::C, "C"},
+          {PadButton::X, "X"},
+          {PadButton::Y, "Y"},
+          {PadButton::Z, "Z"},
+          {PadButton::Start, "Start"},
+          {PadButton::Mode, "Mode"}}},
+        // PicoDrive maps the two pad buttons of these systems onto B and C.
+        {InputGroup::MasterSystem,
+         "master_system",
+         {{PadButton::Up, "Up"},
+          {PadButton::Down, "Down"},
+          {PadButton::Left, "Left"},
+          {PadButton::Right, "Right"},
+          {PadButton::B, "Button 1"},
+          {PadButton::C, "Button 2"},
+          {PadButton::Start, "Start / Pause"}}},
+    };
+    return groups;
+}
+
+const InputGroupDef& inputGroupDef(InputGroup id)
+{
+    for (const InputGroupDef& def : allInputGroups())
+        if (def.id == id)
+            return def;
+    return allInputGroups().front();
+}
+
+QString inputGroupTitle(InputGroup id)
+{
+    QStringList names;
+    for (const SystemDef& def : allSystems())
+        if (def.inputGroup == id)
+            names << def.folder;
+    return names.join(" / ");
 }
 
 const SystemDef& systemDef(System id)

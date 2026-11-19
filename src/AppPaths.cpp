@@ -36,6 +36,16 @@ QString coresDir()
     return ensured(dataRoot() + "/cores");
 }
 
+QString configDir()
+{
+    return ensured(dataRoot() + "/config");
+}
+
+QString inputConfigPath()
+{
+    return configDir() + "/input.json";
+}
+
 QString defaultCorePath()
 {
     return coresDir() + "/" + defaultCoreProfile().libraryFileName();
