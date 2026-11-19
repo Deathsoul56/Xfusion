@@ -13,7 +13,7 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 - **Una sola tabla de sistemas:** `src/SystemInfo.*` define carpeta y extensiones. Cualquier sistema o extensión nueva se añade ahí y en ningún otro lugar.
 - **No hay código de `snes9xrd`.** Solo inspira la experiencia de uso.
 - **Nunca versionar** ROMs, BIOS, firmware, `build/` ni `external/`. `Roms/` y las extensiones de ROM están en `.gitignore`. No añadir juegos con copyright como fixtures.
-- **Cores = bibliotecas externas** cargadas en tiempo de ejecución. No enlazar un core en el ejecutable. La licencia de PicoDrive prohíbe uso comercial; no empaquetarlo ni redistribuirlo sin resolver eso (ver sección 10.3 del documento).
+- **Cores = bibliotecas externas** cargadas en tiempo de ejecución, descritas por un perfil de core (ADR-0007). No enlazar un core en el ejecutable ni versionar su binario. Los paquetes de publicación pueden incluir PicoDrive sin modificar, con su `COPYING` y avisos, y no pueden venderse ni usarse comercialmente (ADR-0006).
 - Escrituras de saves con `QSaveFile` (atómicas). Un fallo de escritura debe notificarse, no ocultarse.
 
 ## Estilo de código

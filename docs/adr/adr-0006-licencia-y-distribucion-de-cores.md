@@ -1,6 +1,6 @@
 ---
 title: "ADR-0006: Licencia del proyecto y distribución de cores"
-status: "Proposed"
+status: "Accepted"
 date: "2026-11-19"
 authors: "Rafa (@raravenam_bch), Copilot"
 tags: ["licensing", "distribution", "decision"]
@@ -12,55 +12,66 @@ superseded_by: ""
 
 ## Status
 
-**Proposed** | Accepted | Rejected | Superseded | Deprecated
+Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
-Requiere decisión del propietario del proyecto. Esto es una nota técnica, no asesoría legal.
+Aprobada el 2026-11-19 (reemplaza la propuesta inicial de no empaquetar cores). Esto es una nota técnica, no asesoría legal.
 
 ## Context
 
-El `COPYING` de PicoDrive 2.04 (verificado en el repositorio clonado) prohíbe vender las redistribuciones y usarlas en un producto o actividad comercial. Es probable que otros cores candidatos (por ejemplo Genesis Plus GX) tengan restricciones similares, pero no se ha verificado. La licencia del propio Xfusion tampoco está elegida. Hasta resolverlo no se puede empaquetar ni publicar un instalador.
+Xfusion es un proyecto de código abierto, totalmente gratuito. El `COPYING` de PicoDrive 2.04 (verificado en el repositorio clonado) permite redistribuir y usar el código con estas condiciones:
+
+- Las redistribuciones no pueden venderse ni usarse en un producto o actividad comercial.
+- Las redistribuciones modificadas deben incluir el código fuente completo.
+- Toda redistribución debe reproducir el aviso de copyright y el descargo de responsabilidad.
+
+Un proyecto gratuito y abierto cumple la primera condición. PicoDrive incluye además componentes con licencia propia (`pico/cd/libchdr`, `pico/sound/emu2413`, `platform/common/dr_libs`, `cpu/cyclone`) que hay que listar.
 
 ## Decision
 
-Propuesta:
-
-1. No empaquetar cores en el instalador ni en el repositorio; el usuario los instala o los descarga en el primer uso (sección 3.2).
-2. Revisar y registrar la licencia de cada core y dependencia antes de cada versión.
-3. Elegir la licencia de Xfusion después de esa revisión y documentarla en un archivo `LICENSE`.
-4. No distribuir BIOS ni firmware con copyright.
+1. **Se puede incluir el core en los paquetes de publicación (release)**, sin modificarlo y fijado al commit `26ecb2b`. Va dentro del zip o instalador, en `cores/`, y sigue cargándose en tiempo de ejecución como biblioteca (ADR-0001).
+2. **El binario del core no se versiona en el repositorio.** El repositorio contiene el script que lo clona, fija y compila; los releases se generan con ese script.
+3. Cada paquete incluye el `COPYING` de PicoDrive, su aviso de copyright y un archivo `THIRD_PARTY_NOTICES.md` con las licencias de sus componentes.
+4. Si algún día se modifica el core, el paquete debe incluir el código fuente completo modificado.
+5. Los paquetes con el core **no pueden venderse ni usarse en actividad comercial**. Hay que evitar tienda de pago, publicidad en el paquete o cualquier monetización que dependa de él. Las donaciones voluntarias son una zona gris: no activarlas sin revisarlo.
+6. No se distribuyen BIOS ni firmware con copyright.
+7. El código de Xfusion usa una licencia propia compatible con esto. Está pendiente elegirla y añadir el archivo `LICENSE`.
 
 ## Consequences
 
 ### Positive
 
-- **POS-001**: Evita redistribuir código con restricciones de uso comercial.
-- **POS-002**: Mantiene abierta la decisión de licencia hasta tener los datos.
+- **POS-001**: Experiencia de usuario directa: descargar, descomprimir y jugar.
+- **POS-002**: El repositorio queda limpio de binarios y el core sigue siendo reemplazable.
+- **POS-003**: Se cumplen las condiciones de PicoDrive para un proyecto gratuito.
 
 ### Negative
 
-- **NEG-001**: El primer uso exige un paso extra (instalar o descargar un core).
-- **NEG-002**: Depende de la disponibilidad de la fuente de descarga (buildbot de libretro, sin validar).
-- **NEG-003**: Si se quiere vender o monetizar Xfusion, estos cores quedan descartados y habrá que revisar alternativas.
+- **NEG-001**: El paquete con el core queda atado a la restricción no comercial; quien lo redistribuya hereda esa restricción.
+- **NEG-002**: Si Xfusion quisiera monetizarse en el futuro, habría que dejar de incluir PicoDrive o cambiar de core.
+- **NEG-003**: Hay que mantener el archivo de avisos y actualizarlo en cada versión del core.
+- **NEG-004**: La licencia no comercial de PicoDrive no cumple la definición de código abierto de la OSI. Xfusion como proyecto sí puede serlo, pero el paquete combinado no.
 
 ## Alternatives Considered
 
-### Empaquetar los cores
+### Descargar el core en el primer uso
 
-- **ALT-001**: **Description**: Incluirlos en el instalador.
-- **ALT-002**: **Rejection Reason**: Choca con la restricción de PicoDrive; no resuelta para el resto.
+- **ALT-001**: **Description**: El paquete solo trae el frontend; el core se descarga después.
+- **ALT-002**: **Rejection Reason**: Más fricción para el usuario y depende de una fuente de descarga sin validar. Sigue siendo la opción de respaldo y la base de las actualizaciones (sección 3.2).
 
-### Elegir licencia ahora sin revisar los cores
+### Versionar el binario en el repositorio
 
-- **ALT-003**: **Description**: Fijar la licencia del frontend de inmediato.
-- **ALT-004**: **Rejection Reason**: Puede ser incompatible con lo que se decida distribuir después.
+- **ALT-003**: **Description**: Subir `picodrive_libretro.dll` a git.
+- **ALT-004**: **Rejection Reason**: Binarios en el historial y mezcla de licencias con el código fuente de Xfusion.
 
 ## Implementation Notes
 
-- **IMP-001**: Pendiente: verificar la licencia de Genesis Plus GX y BlastEm, y la política de redistribución del buildbot.
-- **IMP-002**: Pendiente: añadir `LICENSE` y un archivo `THIRD_PARTY_NOTICES.md`.
+- **IMP-001**: Pendiente: elegir la licencia de Xfusion y añadir `LICENSE`.
+- **IMP-002**: Pendiente: crear `THIRD_PARTY_NOTICES.md` y el empaquetado (Fase 6).
+- **IMP-003**: Pendiente: verificar las licencias de cada componente de PicoDrive antes de la primera publicación.
+- **IMP-004**: Si se incorpora otro core (ADR-0007), repetir esta revisión para él.
 
 ## References
 
 - **REF-001**: `external/picodrive/COPYING` (no versionado).
-- **REF-002**: ADR-0001.
+- **REF-002**: ADR-0001, ADR-0007.
 - **REF-003**: `frontend_sega_multiemulador.md`, secciones 3 y 10.3.

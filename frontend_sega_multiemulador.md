@@ -28,18 +28,18 @@ del proyecto porque ya están bien cubiertos por otros proyectos.
 La compatibilidad real dependerá del core, su versión, el juego y los archivos
 de firmware requeridos.
 
-### Cores candidatos
+### Cores
 
-| Core | Uso previsto | Consideraciones |
+| Core | Uso | Consideraciones |
 |---|---|---|
-| Genesis Plus GX | Core principal para SG-1000, Master System, Game Gear, Genesis y Sega CD | Verificar compatibilidad, formato de ROM y requisitos por sistema en la versión elegida |
-| PicoDrive | Alternativa para 32X; candidato adicional para Sega CD y Genesis | Evaluar la compatibilidad de cada sistema antes de asignar juegos |
-| BlastEm | Alternativa opcional para Genesis | Añadir solo si aporta una ventaja concreta de precisión o compatibilidad |
+| PicoDrive | **Core único por ahora** para SG-1000, Master System, Game Gear, Genesis, Sega CD y 32X (ADR-0007) | Probado con 611 de 634 ROMs locales; Sega CD sin probar |
+| Genesis Plus GX | Candidato futuro | Solo si aporta compatibilidad o precisión que PicoDrive no ofrece; requiere perfil, pruebas y revisión de licencia |
+| BlastEm | Candidato futuro (Genesis) | Igual que el anterior |
 
-El frontend debe tratar cada core como un componente independiente. La
-selección automática del core puede comenzar con reglas explícitas por sistema
-y permitir una selección manual; no debe prometer que todos los cores admiten
-las mismas funciones.
+El frontend trata cada core como un componente independiente descrito por un
+perfil (ADR-0007). La asignación sistema → core es una tabla de reglas con
+selección manual posterior; no se promete que todos los cores admitan las
+mismas funciones, y cambiar de core no garantiza compatibilidad de estados.
 
 ## 3. Principios y decisiones iniciales
 
@@ -59,9 +59,11 @@ las mismas funciones.
   distintas nunca se sobrescriban (ver sección 3.1).
 - **Portabilidad:** diseñar primero para Windows, pero evitar acoplar la lógica
   del frontend al cargador de bibliotecas o a rutas específicas de Windows.
-- **Licencias y distribución:** revisar y registrar la licencia de cada core y
-  dependencia antes de empaquetarla. No distribuir BIOS ni firmware con
-  copyright; documentar al usuario cómo indicar archivos obtenidos legalmente.
+- **Licencias y distribución:** proyecto gratuito y de código abierto. Los
+  paquetes de publicación incluyen PicoDrive sin modificar y con sus avisos; el
+  binario no se versiona y esos paquetes no pueden venderse ni usarse
+  comercialmente (ADR-0006). No distribuir BIOS ni firmware con copyright;
+  documentar al usuario cómo indicar archivos obtenidos legalmente.
 - **Actualización de cores:** los cores son componentes independientes y
   actualizables sin reinstalar la aplicación (ver sección 3.2).
 
@@ -70,7 +72,8 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0006; los ADR-0005 y ADR-0006 están propuestos, sin decidir).
+(ADR-0001 a ADR-0007, todas aceptadas; las de hilos y licencias aún sin
+implementar).
 
 ### 3.1 Jerarquía de saves
 
@@ -141,8 +144,8 @@ Reglas de diseño:
   eliminado, informando al usuario.
 - **Sin conexión:** el frontend debe funcionar con los cores ya instalados
   aunque no haya red o el servicio no esté disponible.
-- **Distribución:** si la licencia de un core impide incluirlo en el instalador,
-  se descarga en el primer uso en lugar de empaquetarlo.
+- **Distribución:** el paquete de publicación incluye el core (ADR-0006); la
+  descarga posterior sirve para actualizar o reemplazar versiones.
 
 ## 4. Inspiración en `snes9xrd`
 
@@ -388,9 +391,10 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
 ### 10.3 Limitaciones conocidas
 
 - **Licencia de PicoDrive:** su `COPYING` prohíbe vender las redistribuciones o
-  usarlas en un producto o actividad comercial. Xfusion lo carga como biblioteca
-  externa y no lo incluye en el repositorio, pero hay que resolver la
-  distribución antes de empaquetarlo. Esto es una nota técnica, no asesoría legal.
+  usarlas en un producto o actividad comercial, y exige conservar su aviso. Para
+  un proyecto gratuito se puede incluir en los paquetes (ADR-0006). Pendiente:
+  elegir la licencia de Xfusion, crear `LICENSE` y `THIRD_PARTY_NOTICES.md`.
+  Esto es una nota técnica, no asesoría legal.
 - Solo teclado; faltan mandos, bindings configurables y estados.
 - No hay detección de colisión de nombres dentro de un mismo sistema, ni
   escritura periódica de SRAM (solo al cerrar; un cierre brusco la pierde).

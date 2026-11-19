@@ -1,6 +1,6 @@
 ---
 title: "ADR-0005: Hilo de emulación y sincronización por audio"
-status: "Proposed"
+status: "Accepted"
 date: "2026-11-19"
 authors: "Rafa (@raravenam_bch), Copilot"
 tags: ["architecture", "performance", "audio", "decision"]
@@ -12,9 +12,9 @@ superseded_by: ""
 
 ## Status
 
-**Proposed** | Accepted | Rejected | Superseded | Deprecated
+**Proposed** | **Accepted** | Rejected | Superseded | Deprecated
 
-Propuesta pendiente de aprobación; no hay implementación.
+Aprobada el 2026-11-19. Sigue sin implementarse: antes hay que medir y validar el diseño con un prototipo (IMP-001).
 
 ## Context
 
