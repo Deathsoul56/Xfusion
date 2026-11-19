@@ -392,8 +392,8 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
 
 - **Licencia de PicoDrive:** su `COPYING` prohíbe vender las redistribuciones o
   usarlas en un producto o actividad comercial, y exige conservar su aviso. Para
-  un proyecto gratuito se puede incluir en los paquetes (ADR-0006). Pendiente:
-  elegir la licencia de Xfusion, crear `LICENSE` y `THIRD_PARTY_NOTICES.md`.
+  un proyecto gratuito se puede incluir en los paquetes (ADR-0006). Xfusion usa
+  GPL-3.0-or-later (`LICENSE`). Pendiente: `THIRD_PARTY_NOTICES.md`.
   Esto es una nota técnica, no asesoría legal.
 - Solo teclado; faltan mandos, bindings configurables y estados.
 - No hay detección de colisión de nombres dentro de un mismo sistema, ni

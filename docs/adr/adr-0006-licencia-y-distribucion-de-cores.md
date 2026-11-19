@@ -34,7 +34,7 @@ Un proyecto gratuito y abierto cumple la primera condición. PicoDrive incluye a
 4. Si algún día se modifica el core, el paquete debe incluir el código fuente completo modificado.
 5. Los paquetes con el core **no pueden venderse ni usarse en actividad comercial**. Hay que evitar tienda de pago, publicidad en el paquete o cualquier monetización que dependa de él. Las donaciones voluntarias son una zona gris: no activarlas sin revisarlo.
 6. No se distribuyen BIOS ni firmware con copyright.
-7. El código de Xfusion usa una licencia propia compatible con esto. Está pendiente elegirla y añadir el archivo `LICENSE`.
+7. El código de Xfusion se publica bajo **GPL-3.0-or-later** (archivo `LICENSE`). Es independiente de la licencia de PicoDrive: el core es una biblioteca aparte cargada en tiempo de ejecución a través de la API libretro y conserva la suya.
 
 ## Consequences
 
@@ -65,7 +65,7 @@ Un proyecto gratuito y abierto cumple la primera condición. PicoDrive incluye a
 
 ## Implementation Notes
 
-- **IMP-001**: Pendiente: elegir la licencia de Xfusion y añadir `LICENSE`.
+- **IMP-001**: Hecho: `LICENSE` con el texto oficial de GPL-3.0. Pendiente: confirmar los avisos de Qt (LGPL, enlace dinámico) y SDL3 al empaquetar, y añadir el encabezado de licencia a los archivos fuente si se desea.
 - **IMP-002**: Pendiente: crear `THIRD_PARTY_NOTICES.md` y el empaquetado (Fase 6).
 - **IMP-003**: Pendiente: verificar las licencias de cada componente de PicoDrive antes de la primera publicación.
 - **IMP-004**: Si se incorpora otro core (ADR-0007), repetir esta revisión para él.
