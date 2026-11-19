@@ -43,7 +43,7 @@ ninja -C build
 
 ## Trampas conocidas (verificadas)
 
-- **El estado de PicoDrive persiste entre juegos.** Tras cargar un segundo juego en el mismo core, Castlevania leía los botones A/B invertidos (la A actuaba al soltar la tecla). `LibretroCore::loadGame` recarga el core completo a partir del segundo juego (flag `reloadPerGame` del perfil). La causa raíz exacta no está identificada; no quitar esa recarga sin reproducir el caso (cargar Castlevania - Bloodlines tras otro juego y mantener un botón mientras se aprieta otro).
+- **El estado estático de PicoDrive persiste entre juegos.** `padTHLatency` y `padTLLatency` (`pico/memory.c`) no se reinician al cargar un juego mientras el contador de ciclos sí; A y B (línea TL, bit 4) se leen invertidos hasta que el juego nuevo haya corrido tanto como el anterior. `LibretroCore::loadGame` recarga el core completo a partir del segundo juego (`reloadPerGame` del perfil, 7 ms). Causa y evidencia en el ADR-0004. Para comprobarlo antes de tocarlo: cargar un juego, jugar unos segundos, abrir Castlevania - Bloodlines y leer el byte `0x9061` de la RAM en reposo: debe ser `00`, no `50`. Cada core nuevo puede tener su propio estado estático.
 - **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. Su perfil fuerza `picodrive_input1/2 = "6 button pad"`.
 - **Mapeo PadButton → libretro (PicoDrive):** A→Y, B→B, C→A, X→L, Y→X, Z→R, Mode→Select. Teclas: flechas, `Z/X/C` = A/B/C, `A/S/D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode.
 - **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.

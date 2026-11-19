@@ -423,11 +423,11 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
   SF-7000 y `.mv` MyVision) y ~10 muestran pantalla negra más de 700
   fotogramas (intros lentas o posibles fallos; pendiente de revisar a mano).
   No probado con Sega CD.
-- Al cargar un segundo juego, PicoDrive conservaba estado de la partida anterior y
-  el juego leía mal los botones (la A de Sega actuaba al soltar la tecla). Xfusion
-  recarga el core completo en cada juego después del primero. Esto cuesta unos
-  instantes al abrir; revisar si hay una forma más ligera cuando se gestionen
-  los cores (sección 3.2).
+- Al cargar un segundo juego, PicoDrive conservaba contadores de latencia del
+  mando en variables estáticas (`padTHLatency`, `padTLLatency` en `pico/memory.c`)
+  y los botones A y B se leían invertidos durante tanto tiempo emulado como duró
+  el juego anterior. Xfusion recarga el core completo en cada juego después del
+  primero; cuesta unos 7 ms. La causa y la evidencia están en el ADR-0004.
 - Windows: el teclado se consulta por polling en cada fotograma
   (`GetAsyncKeyState`) desde el hilo de emulación, y el core recibe un mando de
   6 botones.

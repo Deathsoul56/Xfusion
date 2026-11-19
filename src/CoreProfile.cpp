@@ -21,7 +21,9 @@ const CoreProfile& picoDriveProfile()
         p.libraryBaseName = "picodrive_libretro";
         // The default 3-button pad ignores X/Y/Z.
         p.options = {{"picodrive_input1", "6 button pad"}, {"picodrive_input2", "6 button pad"}};
-        // The pad protocol broke when a second game was loaded into the same core instance.
+        // PicoDrive keeps pad latency counters in file-level statics (pico/memory.c) that a new game does not
+        // clear, while its cycle counter restarts at zero. A/B read inverted until the new game has run as long as
+        // the previous one, so each game after the first gets a freshly loaded core (ADR-0004).
         p.reloadPerGame = true;
         // PicoDrive translates libretro ids as B=B, Y=A, A=C, L=X, X=Y, R=Z, Select=Mode.
         auto set = [&p](PadButton button, unsigned id) { p.retroIds[static_cast<std::size_t>(button)] = id; };
