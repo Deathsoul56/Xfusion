@@ -7,6 +7,7 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 find_package(SDL3 REQUIRED CONFIG)
+find_package(Threads REQUIRED)
 
 set(LIBRETRO_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/external/picodrive/platform/libretro/libretro-common/include"
     CACHE PATH "Directory containing libretro.h")
@@ -30,6 +31,8 @@ add_executable(xfusion
     src/AppPaths.h
     src/CoreProfile.cpp
     src/CoreProfile.h
+    src/EmuThread.cpp
+    src/EmuThread.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
-target_link_libraries(xfusion PRIVATE Qt6::Widgets SDL3::SDL3)
+target_link_libraries(xfusion PRIVATE Qt6::Widgets SDL3::SDL3 Threads::Threads)

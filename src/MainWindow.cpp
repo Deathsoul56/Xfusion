@@ -9,6 +9,7 @@
 #include <QMessageBox>
 #include <QStatusBar>
 
+#include <cstdio>
 #ifdef Q_OS_WIN
 #include <windows.h>
 #endif
@@ -53,7 +54,7 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     setFocusPolicy(Qt::StrongFocus);
     resize(960, 720);
 
-    m_core.setVideoCallback([this](const QImage& frame, double aspect) { m_video->setFrame(frame, aspect); });
+    m_core.setVideoCallback([this](const QImage& frame, double aspect) { m_video->submitFrame(frame, aspect); });
     m_core.setAudioCallback([this](const int16_t* samples, size_t frames) {
         if (m_audio)
             m_audio->push(samples, frames);
@@ -70,14 +71,10 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     m_pauseAction = emuMenu->addAction("&Pause", QKeySequence(Qt::Key_P));
     m_pauseAction->setCheckable(true);
     connect(m_pauseAction, &QAction::toggled, this, &MainWindow::setPaused);
-    m_resetAction = emuMenu->addAction("&Reset", QKeySequence("Ctrl+R"), this, [this] { m_core.reset(); });
+    m_resetAction = emuMenu->addAction("&Reset", QKeySequence("Ctrl+R"), this, &MainWindow::resetGame);
 
     QMenu* viewMenu = menuBar()->addMenu("&View");
     viewMenu->addAction("&Fullscreen", QKeySequence(Qt::Key_F11), this, &MainWindow::toggleFullscreen);
-
-    m_timer.setTimerType(Qt::PreciseTimer);
-    m_timer.setInterval(2);
-    connect(&m_timer, &QTimer::timeout, this, &MainWindow::tick);
 
     statusBar()->showMessage(QString("Core: %1 - open a game to start").arg(m_core.name()));
     updateActions();
@@ -115,11 +112,8 @@ void MainWindow::openGame(const QString& path)
 
     m_audio = std::make_unique<AudioOutput>(m_core.avInfo().sampleRate);
     m_pauseAction->setChecked(false);
-    m_paused = false;
-    m_accumNs = 0;
-    m_clock.start();
-    m_lastNs = 0;
-    m_timer.start();
+    m_emu = std::make_unique<EmuThread>(m_core, m_audio.get(), [this] { pollKeyboard(); });
+    m_emu->start();
 
     setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(path).completeBaseName()));
     statusBar()->showMessage(QString("%1 | %2 | saves: %3").arg(m_core.name(), systemDef(*system).folder, saveDir));
@@ -132,7 +126,7 @@ void MainWindow::closeGame()
     if (!m_core.hasGame())
         return;
 
-    m_timer.stop();
+    m_emu.reset();
     if (!m_core.writeSaveRam(m_saveRamPath))
         QMessageBox::warning(this, "Xfusion", QString("Could not write save file: %1").arg(m_saveRamPath));
     m_core.unloadGame();
@@ -143,12 +137,29 @@ void MainWindow::closeGame()
     updateActions();
 }
 
-// Polling the physical key state avoids losing press/release events after dialogs or focus changes.
+void MainWindow::enableStats()
+{
+    m_statsTimer.setInterval(1000);
+    connect(&m_statsTimer, &QTimer::timeout, this, &MainWindow::logStats);
+    m_statsTimer.start();
+}
+
+void MainWindow::logStats()
+{
+    if (!m_emu || !m_audio)
+        return;
+    const AudioOutput::Stats audio = m_audio->takeStats();
+    std::fprintf(stderr, "[stats] frames=%d underruns=%u audioQueue=%d..%d bytes\n", m_emu->takeFrameCount(),
+                 audio.underruns, audio.minQueuedBytes, audio.maxQueuedBytes);
+}
+
+// Runs on the emulation thread. Polling the physical key state avoids losing press/release events after
+// dialogs or focus changes, and keeps input independent of the GUI thread.
 void MainWindow::pollKeyboard()
 {
 #ifdef Q_OS_WIN
     std::array<bool, kPadButtonCount> pressed{};
-    if (isActiveWindow()) {
+    if (m_windowActive) {
         for (const auto& binding : kBindings) {
             if (binding.winVk && (GetAsyncKeyState(binding.winVk) & 0x8000))
                 pressed[static_cast<std::size_t>(binding.button)] = true;
@@ -159,38 +170,25 @@ void MainWindow::pollKeyboard()
 #endif
 }
 
-void MainWindow::tick()
+void MainWindow::resetGame()
 {
-    pollKeyboard();
-    const qint64 now = m_clock.nsecsElapsed();
-    m_accumNs += now - m_lastNs;
-    m_lastNs = now;
+    if (!m_emu)
+        return;
+    m_emu->withCore([this] { m_core.reset(); });
+}
 
-    const qint64 frameNs = qint64(1e9 / m_core.avInfo().fps);
-    int frames = 0;
-    while (m_accumNs >= frameNs && frames < 4) {
-        m_core.run();
-        m_accumNs -= frameNs;
-        ++frames;
-    }
-    if (m_accumNs > frameNs * 4)
-        m_accumNs = 0;
+void MainWindow::changeEvent(QEvent* event)
+{
+    if (event->type() == QEvent::ActivationChange)
+        m_windowActive = isActiveWindow();
+    QMainWindow::changeEvent(event);
 }
 
 void MainWindow::setPaused(bool paused)
 {
-    if (!m_core.hasGame())
+    if (!m_emu)
         return;
-    m_paused = paused;
-    if (paused) {
-        m_timer.stop();
-    } else {
-        m_lastNs = m_clock.nsecsElapsed();
-        m_accumNs = 0;
-        m_timer.start();
-    }
-    if (m_audio)
-        m_audio->setPaused(paused);
+    m_emu->setPaused(paused);
 }
 
 void MainWindow::toggleFullscreen()

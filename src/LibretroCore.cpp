@@ -124,7 +124,8 @@ bool LibretroCore::loadGame(const QString& gamePath, QString* error)
         return false;
     }
     m_hasGame = true;
-    m_buttons.fill(false);
+    for (auto& button : m_buttons)
+        button = false;
     updateAvInfo();
     return true;
 }
@@ -163,7 +164,7 @@ void LibretroCore::setButton(PadButton button, bool pressed)
 {
     const unsigned retroId = m_profile.retroId(button);
     if (retroId < m_buttons.size())
-        m_buttons[retroId] = pressed;
+        m_buttons[retroId].store(pressed, std::memory_order_relaxed);
 }
 
 void LibretroCore::updateAvInfo()
@@ -268,7 +269,7 @@ void LibretroCore::videoCb(const void* data, unsigned width, unsigned height, si
         ? QImage::Format_RGB16
         : QImage::Format_RGB32;
     const QImage frame(static_cast<const uchar*>(data), int(width), int(height), qsizetype(pitch), format);
-    s_instance->m_video(frame.copy(), s_instance->m_av.aspectRatio);
+    s_instance->m_video(frame, s_instance->m_av.aspectRatio);
 }
 
 void LibretroCore::audioSampleCb(int16_t left, int16_t right)
@@ -292,5 +293,5 @@ int16_t LibretroCore::inputStateCb(unsigned port, unsigned device, unsigned, uns
 {
     if (!s_instance || port != 0 || device != RETRO_DEVICE_JOYPAD || id >= s_instance->m_buttons.size())
         return 0;
-    return s_instance->m_buttons[id] ? 1 : 0;
+    return s_instance->m_buttons[id].load(std::memory_order_relaxed) ? 1 : 0;
 }

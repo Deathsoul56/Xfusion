@@ -4,6 +4,7 @@
 #include <QLibrary>
 #include <QString>
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <functional>
 
@@ -18,6 +19,7 @@ public:
         double aspectRatio = 4.0 / 3.0;
     };
 
+    // The image wraps core memory and is only valid during the call; copy it to keep it.
     using VideoCallback = std::function<void(const QImage&, double aspectRatio)>;
     using AudioCallback = std::function<void(const int16_t*, size_t frames)>;
 
@@ -70,7 +72,7 @@ private:
     QByteArray m_systemDir;
     QByteArray m_saveDir;
     QByteArray m_gamePath;
-    std::array<bool, 16> m_buttons{};
+    std::array<std::atomic<bool>, 16> m_buttons{};
     VideoCallback m_video;
     AudioCallback m_audio;
 

@@ -17,6 +17,8 @@ int main(int argc, char* argv[])
     parser.addHelpOption();
     QCommandLineOption coreOption("core", "Path to a libretro core.", "path", AppPaths::defaultCorePath());
     parser.addOption(coreOption);
+    QCommandLineOption statsOption("stats", "Log frames per second and audio buffer health to stderr.");
+    parser.addOption(statsOption);
     parser.addPositionalArgument("game", "Game to open on startup.", "[game]");
     parser.process(app);
 
@@ -29,6 +31,8 @@ int main(int argc, char* argv[])
 
     MainWindow window(core);
     window.show();
+    if (parser.isSet(statsOption))
+        window.enableStats();
     if (!parser.positionalArguments().isEmpty())
         window.openGame(QFileInfo(parser.positionalArguments().first()).absoluteFilePath());
 
