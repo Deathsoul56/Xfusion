@@ -3,14 +3,12 @@
 #include <array>
 #include <map>
 #include <string>
+#include <vector>
 
 #include <QString>
 #include <QStringList>
 
-// SEGA pad buttons as the frontend sees them, independent of any core's libretro mapping.
-enum class PadButton { Up, Down, Left, Right, A, B, C, X, Y, Z, Start, Mode };
-
-constexpr std::size_t kPadButtonCount = 12;
+#include "PadButton.h"
 
 // Everything that is specific to one libretro core. The rest of the frontend must not
 // hardcode core names, option keys or button ids.
@@ -19,6 +17,10 @@ struct CoreProfile {
     QString libraryBaseName;
     // Core options forced to a fixed value; any other option falls back to the core's default.
     std::map<std::string, std::string> options;
+    // Options that select the Genesis-family pad and the value each PadType takes. Empty when the core has none.
+    std::vector<std::string> padTypeKeys;
+    std::string padTypeValues[2];
+    const std::string& padTypeValue(PadType type) const { return padTypeValues[static_cast<std::size_t>(type)]; }
     // Some cores keep state across games and need a fresh load for each one.
     bool reloadPerGame = false;
     // Sega CD BIOS file names the core looks for in the system directory, by disc region.

@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0009; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0010; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).
@@ -265,8 +265,11 @@ de la ventana.
 
 ### Fase 2 — Controles y presentación
 
-- [ ] Definir acciones comunes del frontend y bindings de teclado y gamepad.
-- [ ] Añadir asignación y guardado de bindings, con prevención de conflictos.
+- [x] Definir acciones comunes del frontend y bindings de teclado y gamepad
+  (grupos de plataformas, ADR-0010).
+- [x] Añadir asignación y guardado de bindings, con prevención de conflictos
+  (`config\input.json`, panel Settings > Controllers, Auto-Assign).
+- [ ] Segundo jugador y atajos de teclado del frontend.
 - [ ] Implementar pantalla completa, relación de aspecto, escalado y volumen.
 - [ ] Probar cambios de foco, desconexión de mandos y cambio entre ventanas.
 - [ ] Establecer qué opciones de video/audio son globales y cuáles dependen del
@@ -393,9 +396,17 @@ ninja -C build
 build\xfusion.exe [--core ruta\al\core.dll] [juego]
 ```
 
+Por defecto en Windows el ejecutable es **uno solo** (ADR-0012): Qt, SDL3 y la
+runtime de C++ van enlazados de forma estática y solo importa DLL del sistema
+(~27 MB); no hace falta `PATH` ni copiar DLL. Requiere en MSYS2
+`mingw-w64-clang-x86_64-qt6-static` (≈2,4 GB) y `mingw-w64-clang-x86_64-libwebp`.
+Con `-DXFUSION_STATIC=OFF` se usan las DLL compartidas y
+`cmake --install build --prefix <carpeta>` las reúne junto al ejecutable. El
+core de PicoDrive sigue siendo una DLL externa (`cores\`).
+
 `scripts\setup-picodrive.ps1` clona PicoDrive en `external\` (ignorado por git),
 lo fija al commit `26ecb2b`, lo compila con GCC y copia
-`picodrive_libretro.dll` a `<datos>\cores\`.
+`picodrive_libretro.dll` a `build\cores\` (junto al ejecutable).
 
 ### 10.2 Qué incluye
 
@@ -412,14 +423,32 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
 - Menús: abrir/cerrar juego, pausa, reinicio y pantalla completa (`F11`).
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
-- Datos en `%APPDATA%\Xfusion\Xfusion\` (configurable con `XFUSION_DATA_DIR`):
+- Datos junto al ejecutable (`<carpeta del .exe>\`; configurable con `XFUSION_DATA_DIR`):
+  `cores\`, `system\` (BIOS), `config\` y `saves\<sistema>\` según la sección 3.1.
+  No se escribe nada en `%APPDATA%`. En desarrollo el ejecutable está en `build\`,
+  así que borrar `build\` también borra saves y BIOS: para conservarlos entre
+  compilaciones limpias, apuntar `XFUSION_DATA_DIR` a otra carpeta.
   `cores\`, `system\` (BIOS) y `saves\<sistema>\` según la sección 3.1.
 - SRAM: se carga al abrir y se guarda al cerrar el juego en
   `saves\<sistema>\<juego>.srm`. PicoDrive no reporta SRAM mientras esté a cero,
   así que no se crean archivos vacíos.
 
-Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
-`Enter` = Start, `Retroceso` = Mode.
+- Controles configurables (ADR-0010): `Settings > Controllers...` (`Ctrl+,`).
+  Dos grupos de plataforma con bindings propios: Genesis / Sega CD / 32X y
+  SG-1000 / Master System / Game Gear. Cuatro ranuras por acción, teclado y
+  mandos SDL3, Auto-Assign y conflictos resueltos moviendo la fuente. Se guarda
+  en `config\input.json`. El grupo Genesis permite elegir mando de 3 o 6
+  botones (por defecto 6); el cambio se aplica en caliente y en 3 botones se
+  ocultan X, Y, Z y Mode. El diagrama usa una imagen por mando y se ilumina el
+  botón que se aprieta en ese momento (teclado o mando, según los bindings en
+  edición), como en `snes9xrd`; la de Master System incluye una etiqueta
+  "PAUSE (console)" porque esa tecla está en la consola. Pruebas: `ctest` (21 casos con joysticks
+  virtuales); el cambio 3/6 se comprobó con una ROM sintética que detecta el
+  mando.
+
+Teclado por defecto (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` =
+X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
+`X` = Button 2.
 
 ### 10.3 Limitaciones conocidas
 
@@ -428,7 +457,13 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
   un proyecto gratuito se puede incluir en los paquetes (ADR-0006). Xfusion usa
   GPL-3.0-or-later (`LICENSE`). Pendiente: `THIRD_PARTY_NOTICES.md`.
   Esto es una nota técnica, no asesoría legal.
-- Solo teclado; faltan mandos, bindings configurables y estados.
+- Solo un jugador; sin atajos configurables ni estados. Los bindings de mando
+  son índices crudos de SDL y valen para cualquier mando conectado. Probado con
+  teclado y con un 8BitDo (XInput). SG-1000 comparte los bindings de Master
+  System (supuesto).
+- **Imágenes de los mandos** (`src\resources\controllers\`, tres): aportadas por el
+  propietario; falta confirmar su origen y licencia antes de publicar. Si no
+  se pueden redistribuir bajo GPL-3.0, hay que reemplazarlas por dibujos propios.
 - No hay detección de colisión de nombres dentro de un mismo sistema, ni
   escritura periódica de SRAM (solo al cerrar; un cierre brusco la pierde).
 - Sin biblioteca, opciones del core ni gestión de versiones de cores. Para Sega
@@ -447,7 +482,7 @@ Teclado (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` = X/Y/Z,
 - **BIOS de Sega CD:** PicoDrive busca en `system\` un archivo por región del
   disco, elegida por el propio disco: `bios_CD_E.bin` (Europa), `bios_CD_U.bin`
   (EE. UU.) o `bios_CD_J.bin` (Japón); también acepta otros nombres como
-  `eu_mcd2_9306`. Por ahora se copian a mano a `%APPDATA%\Xfusion\Xfusion\system\`.
+  `eu_mcd2_9306`. Por ahora se copian a mano a `system\` junto al ejecutable.
   La carpeta `Sega CD BIOS/` del repositorio está ignorada por git. Si falta,
   Xfusion muestra la carpeta y los nombres esperados.
 - Al cargar un segundo juego, PicoDrive conservaba contadores de latencia del

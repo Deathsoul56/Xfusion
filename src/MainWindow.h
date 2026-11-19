@@ -8,6 +8,7 @@
 
 #include "AudioOutput.h"
 #include "EmuThread.h"
+#include "InputManager.h"
 #include "LibretroCore.h"
 #include "VideoWidget.h"
 
@@ -30,7 +31,8 @@ protected:
 private:
     void promptOpenGame();
     void closeGame();
-    void pollKeyboard();
+    void pollInput();
+    void openSettings();
     void setPaused(bool paused);
     void resetGame();
     void toggleFullscreen();
@@ -44,6 +46,8 @@ private:
     std::unique_ptr<AudioOutput> m_audio;
     std::unique_ptr<EmuThread> m_emu;
     QTimer m_statsTimer;
+    InputManager m_input;
+    std::atomic<InputGroup> m_inputGroup{InputGroup::Genesis};
     std::atomic<bool> m_windowActive{true};
     QString m_saveRamPath;
     QString m_lastDir;

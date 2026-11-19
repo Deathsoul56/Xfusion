@@ -7,8 +7,27 @@
 #include "LibretroCore.h"
 #include "MainWindow.h"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <cstdio>
+
+// The exe is a GUI program with no console of its own. Started from a terminal, it borrows that terminal so
+// --stats can print there; redirected output (a file or a pipe) is left alone.
+static void attachParentConsole()
+{
+    if (GetStdHandle(STD_ERROR_HANDLE) || !AttachConsole(ATTACH_PARENT_PROCESS))
+        return;
+    FILE* stream = nullptr;
+    freopen_s(&stream, "CONOUT$", "w", stderr);
+    freopen_s(&stream, "CONOUT$", "w", stdout);
+}
+#endif
+
 int main(int argc, char* argv[])
 {
+#ifdef Q_OS_WIN
+    attachParentConsole();
+#endif
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Xfusion");
     QApplication::setApplicationName("Xfusion");

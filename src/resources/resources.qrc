@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/controllers">
+        <file alias="genesis_3button.png">controllers/genesis_3button.png</file>
+        <file alias="genesis_6button.png">controllers/genesis_6button.png</file>
+        <file alias="mastersystem.png">controllers/mastersystem.png</file>
+    </qresource>
+</RCC>

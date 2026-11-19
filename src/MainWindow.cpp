@@ -10,39 +10,10 @@
 #include <QStatusBar>
 
 #include <cstdio>
-#ifdef Q_OS_WIN
-#include <windows.h>
-#endif
 
 #include "AppPaths.h"
+#include "SettingsDialog.h"
 #include "SystemInfo.h"
-
-namespace {
-
-struct KeyBinding {
-    int qtKey;
-    int winVk; // 0 when the key has no Windows polling equivalent
-    PadButton button;
-};
-
-// Default bindings: arrows, Z/X/C = A/B/C, A/S/D = X/Y/Z, Enter = Start, Backspace = Mode.
-const KeyBinding kBindings[] = {
-    {Qt::Key_Up, 0x26, PadButton::Up},
-    {Qt::Key_Down, 0x28, PadButton::Down},
-    {Qt::Key_Left, 0x25, PadButton::Left},
-    {Qt::Key_Right, 0x27, PadButton::Right},
-    {Qt::Key_Z, 'Z', PadButton::A},
-    {Qt::Key_X, 'X', PadButton::B},
-    {Qt::Key_C, 'C', PadButton::C},
-    {Qt::Key_A, 'A', PadButton::X},
-    {Qt::Key_S, 'S', PadButton::Y},
-    {Qt::Key_D, 'D', PadButton::Z},
-    {Qt::Key_Return, 0x0D, PadButton::Start},
-    {Qt::Key_Enter, 0, PadButton::Start},
-    {Qt::Key_Backspace, 0x08, PadButton::Mode},
-};
-
-}
 
 MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     : QMainWindow(parent)
@@ -76,7 +47,12 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     QMenu* viewMenu = menuBar()->addMenu("&View");
     viewMenu->addAction("&Fullscreen", QKeySequence(Qt::Key_F11), this, &MainWindow::toggleFullscreen);
 
-    statusBar()->showMessage(QString("Core: %1 - open a game to start").arg(m_core.name()));
+    QMenu* settingsMenu = menuBar()->addMenu("&Settings");
+    settingsMenu->addAction("&Controllers...", QKeySequence("Ctrl+,"), this, &MainWindow::openSettings);
+
+    QString configError;
+    m_input.setConfig(InputConfig::load(AppPaths::inputConfigPath(), &configError));
+    statusBar()->showMessage(configError.isEmpty() ? QString("Core: %1 - open a game to start").arg(m_core.name()) : configError);
     updateActions();
 }
 
@@ -102,6 +78,7 @@ void MainWindow::openGame(const QString& path)
     m_core.setDirectories(AppPaths::systemDir(), saveDir);
 
     QString error;
+    m_core.setPadType(m_input.config().padType());
     if (!m_core.loadGame(path, &error)) {
         if (*system == System::SegaCD) {
             error += QString("\n\nSega CD games need the BIOS for the disc's region in:\n%1\nExpected file names: %2")
@@ -116,7 +93,8 @@ void MainWindow::openGame(const QString& path)
 
     m_audio = std::make_unique<AudioOutput>(m_core.avInfo().sampleRate);
     m_pauseAction->setChecked(false);
-    m_emu = std::make_unique<EmuThread>(m_core, m_audio.get(), [this] { pollKeyboard(); });
+    m_inputGroup = systemDef(*system).inputGroup;
+    m_emu = std::make_unique<EmuThread>(m_core, m_audio.get(), [this] { pollInput(); });
     m_emu->start();
 
     setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(path).completeBaseName()));
@@ -157,21 +135,37 @@ void MainWindow::logStats()
                  audio.underruns, audio.minQueuedBytes, audio.maxQueuedBytes);
 }
 
-// Runs on the emulation thread. Polling the physical key state avoids losing press/release events after
-// dialogs or focus changes, and keeps input independent of the GUI thread.
-void MainWindow::pollKeyboard()
+// Runs on the emulation thread. Reading the physical state each frame avoids losing press/release events
+// after dialogs or focus changes, and keeps input independent of the GUI thread.
+void MainWindow::pollInput()
 {
-#ifdef Q_OS_WIN
-    std::array<bool, kPadButtonCount> pressed{};
-    if (m_windowActive) {
-        for (const auto& binding : kBindings) {
-            if (binding.winVk && (GetAsyncKeyState(binding.winVk) & 0x8000))
-                pressed[static_cast<std::size_t>(binding.button)] = true;
-        }
+    const InputManager::PadState state = m_input.poll(m_inputGroup, m_windowActive);
+    for (std::size_t i = 0; i < state.size(); ++i)
+        m_core.setButton(static_cast<PadButton>(i), state[i]);
+}
+
+void MainWindow::openSettings()
+{
+    // The game would keep running behind the dialog, so it is held while the settings are open.
+    const bool pause = m_emu && !m_pauseAction->isChecked();
+    if (pause)
+        m_emu->setPaused(true);
+
+    SettingsDialog dialog(m_input, m_input.config(), m_inputGroup, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        const InputConfig config = dialog.inputConfig();
+        m_input.setConfig(config);
+        if (m_emu)
+            m_emu->withCore([this, &config] { m_core.setPadType(config.padType()); });
+        else
+            m_core.setPadType(config.padType());
+        QString error;
+        if (!config.save(AppPaths::inputConfigPath(), &error))
+            QMessageBox::warning(this, "Xfusion", error);
     }
-    for (std::size_t i = 0; i < pressed.size(); ++i)
-        m_core.setButton(static_cast<PadButton>(i), pressed[i]);
-#endif
+
+    if (pause && m_emu)
+        m_emu->setPaused(false);
 }
 
 void MainWindow::resetGame()
@@ -183,8 +177,11 @@ void MainWindow::resetGame()
 
 void MainWindow::changeEvent(QEvent* event)
 {
-    if (event->type() == QEvent::ActivationChange)
+    if (event->type() == QEvent::ActivationChange) {
         m_windowActive = isActiveWindow();
+        if (!m_windowActive)
+            m_input.clearKeys();
+    }
     QMainWindow::changeEvent(event);
 }
 
@@ -218,10 +215,7 @@ void MainWindow::handleKey(QKeyEvent* event, bool pressed)
 {
     if (event->isAutoRepeat())
         return;
-    for (const auto& binding : kBindings) {
-        if (binding.qtKey == event->key())
-            m_core.setButton(binding.button, pressed);
-    }
+    m_input.setKeyDown(event->key(), pressed);
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event)

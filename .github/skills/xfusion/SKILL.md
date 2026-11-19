@@ -15,6 +15,8 @@ Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, 
 - **Nunca versionar** ROMs, BIOS, firmware, `build/` ni `external/`. `Roms/` y las extensiones de ROM están en `.gitignore`. No añadir juegos con copyright como fixtures.
 - **Cores = bibliotecas externas** cargadas en tiempo de ejecución, descritas por un perfil de core (ADR-0007). No enlazar un core en el ejecutable ni versionar su binario. Los paquetes de publicación pueden incluir PicoDrive sin modificar, con su `COPYING` y avisos, y no pueden venderse ni usarse comercialmente (ADR-0006).
 - Escrituras de saves con `QSaveFile` (atómicas). Un fallo de escritura debe notificarse, no ocultarse.
+- **Commits solo cuando el propietario lo pida explícitamente.** No hacer `git commit` (ni `push`) por iniciativa propia, ni al terminar una tarea o una fase. Se deja el trabajo sin commitear y se avisa de qué cambió. Regla fijada por el propietario el 2026-11-19.
+- **Datos de usuario junto al `.exe`**, nunca en `%APPDATA%` (ADR-0011).
 
 ## Estilo de código
 
@@ -35,22 +37,26 @@ cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
 ninja -C build
 ```
 
+- Por defecto el exe es único: Qt, SDL3 y libc++ van **estáticos** (ADR-0012; MSYS2 necesita `mingw-w64-clang-x86_64-qt6-static` y `mingw-w64-clang-x86_64-libwebp`). Corre sin `PATH` especial. `-DXFUSION_STATIC=OFF` da la variante con DLL; `cmake --install build --prefix <carpeta>` las reúne.
+- Al cambiar de variante hay que reconfigurar desde cero (`rm -rf build/CMakeCache.txt build/CMakeFiles`); **no borrar `build\` entero**: contiene saves, BIOS y config (copiarlos antes).
+- Si al enlazar aparecen símbolos sin definir de una biblioteca (freetype, harfbuzz...), falta su dependencia estática: añadirla a `XFUSION_STATIC_LIBS` en `CMakeLists.txt`.
 - Desde PowerShell: `$env:MSYSTEM='CLANG64'; $env:CHERE_INVOKING='1'; & C:\msys64\usr\bin\bash.exe -lc '<comando>'`.
-- Para ejecutar `build\xfusion.exe` desde PowerShell, anteponer `C:\msys64\clang64\bin` al `PATH`.
 - El core se compila con UCRT64 (GCC); el frontend con CLANG64. Funciona porque la ABI de libretro es C.
 - Si el enlazado falla con `Permission denied`, hay un `xfusion.exe` en ejecución: cerrarlo por su PID y reintentar.
-- Datos de usuario: `%APPDATA%\Xfusion\Xfusion\` (o `XFUSION_DATA_DIR`): `cores\`, `system\`, `saves\<sistema>\`.
+- Datos de usuario junto al ejecutable (nada en `%APPDATA%`; `XFUSION_DATA_DIR` lo sustituye): `cores\`, `system\`, `config\`, `saves\<sistema>\`. En desarrollo el exe está en `build\`, así que borrar `build\` borra saves y BIOS.
 
 ## Trampas conocidas (verificadas)
 
 - **El estado estático de PicoDrive persiste entre juegos.** `padTHLatency` y `padTLLatency` (`pico/memory.c`) no se reinician al cargar un juego mientras el contador de ciclos sí; A y B (línea TL, bit 4) se leen invertidos hasta que el juego nuevo haya corrido tanto como el anterior. `LibretroCore::loadGame` recarga el core completo a partir del segundo juego (`reloadPerGame` del perfil, 7 ms). Causa y evidencia en el ADR-0004. Para comprobarlo antes de tocarlo: cargar un juego, jugar unos segundos, abrir Castlevania - Bloodlines y leer el byte `0x9061` de la RAM en reposo: debe ser `00`, no `50`. Cada core nuevo puede tener su propio estado estático.
-- **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. Su perfil fuerza `picodrive_input1/2 = "6 button pad"`.
+- **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. El host fija `picodrive_input1/2` según `InputConfig::padType()` (6 por defecto; 3 si el usuario lo elige) vía `CoreProfile::padTypeKeys`; el cambio en caliente funciona porque `LibretroCore` responde `GET_VARIABLE_UPDATE`. Para probarlo sin juegos con copyright: una ROM sintética de 68000 que lee el puerto 1 con la secuencia TH de 6 botones (1,0,1,0 y lectura con TH bajo, nibble bajo 0 = 6 botones) y pinta el fondo verde/rojo; el pad de PicoDrive reinicia su fase tras ~26 líneas sin escrituras, así que hay que esperar entre lecturas.
 - **Mapeo PadButton → libretro (PicoDrive):** A→Y, B→B, C→A, X→L, Y→X, Z→R, Mode→Select. Teclas: flechas, `Z/X/C` = A/B/C, `A/S/D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode.
 - **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.
 - **Zip:** PicoDrive lee zips por sí mismo (`need_fullpath=true`). Xfusion solo inspecciona el zip para detectar el sistema por la extensión de la primera entrada reconocida.
 - **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).
 - **Sega CD:** el core elige el BIOS por la región del disco y lo busca en `system\` como `bios_CD_E.bin`, `bios_CD_U.bin` o `bios_CD_J.bin` (lista en `CoreProfile::segaCdBiosFiles`). Los BIOS con copyright viven en `Sega CD BIOS/`, ignorada por git, y se copian a mano al directorio de datos. Con `Copy-Item` hay que usar `-LiteralPath`: los nombres llevan `[b]`, que PowerShell toma como comodín. Una región PAL corre a 50 fotogramas por segundo; no es un fallo.
 - **Temporización (ADR-0005):** el hilo de emulación marca el ritmo con la cola de audio de SDL3 (objetivo de 1,5 fotogramas de audio) y cae al reloj del sistema si el core no produce audio o no hay dispositivo. El dispositivo de audio arranca pausado hasta que la cola se llena. La entrada también se lee en ese hilo.
+- **Entrada (ADR-0010):** los bindings son por grupo de plataforma (`InputGroup` en `SystemInfo`: Genesis/Sega CD/32X y SG-1000/Master System/Game Gear), 4 ranuras por acción, guardados en `<datos>\config\input.json`. Un sistema nuevo solo declara su grupo. `InputManager` lee teclado (`GetAsyncKeyState`) y mandos SDL3 en el hilo de emulación y no entrega nada si la ventana principal no está activa. **`slots` es una macro de Qt**: no usar ese nombre para miembros o métodos.
+- **Pruebas de entrada:** `QT_QPA_PLATFORM=offscreen ctest --test-dir build` (18 casos, joysticks virtuales de SDL). El test desactiva los controladores físicos con hints de SDL; sin eso un mando real (p. ej. el 8BitDo como `XInput Controller #1`) altera los recuentos.
 
 ## Cómo probar
 
@@ -59,8 +65,9 @@ ninja -C build
 - Criterio mínimo por ROM: vídeo no uniforme y audio no silencioso tras la intro.
 - Una ROM sintética de Genesis (código 68000 que pinta un color y escribe un byte en SRAM) sirve como prueba reproducible sin material con copyright.
 - Ante un error de entrada, comparar el estado visible del juego con y sin recarga del core antes de culpar al teclado: el problema anterior estaba en el core, no en la lectura del teclado.
-- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
+- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. El exe es de subsistema GUI (sin ventana de consola): `--stats` imprime en la terminal desde la que se lanza (`AttachConsole` en `main.cpp`) o en el archivo si se redirige stderr (`Start-Process -RedirectStandardError`). `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
 - Los procesos de prueba se cierran con `Stop-Process -Id <PID>` literal o `$p.Kill()`; no con el nombre.
+- Para automatizar la interfaz en Windows: lanzar con `XFUSION_DATA_DIR` apuntando a una carpeta temporal (con una copia de `cores\picodrive_libretro.dll`) y `C:\msys64\clang64\bin` en `PATH` (sin él aparece "SDL3.dll was not found"). Esc en el diálogo de ajustes lo cierra si no hay una captura activa; el primer clic en una ventana recién abierta puede solo activarla. **Hacer todo el flujo (abrir, clics, capturas) en una sola llamada y comprobar con `GetWindowRect` que el diálogo existe antes de clicar**: entre llamadas VS Code recupera el foco y los clics y teclas acaban en el editor.
 
 ## Antes de dar una tarea por terminada
 
