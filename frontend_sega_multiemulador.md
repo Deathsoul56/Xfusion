@@ -247,8 +247,21 @@ avanzadas si el ciclo de vida del core todavía es inestable.
 
 **Salida:** abrir, jugar y cerrar repetidamente juegos de prueba de Genesis y
 Master System sin bloquear la aplicación, filtrar recursos ni perder el control
-de la ventana. *(Genesis verificado con una ROM de prueba; falta Master System
-y repetir abrir/cerrar en una misma sesión.)*
+de la ventana.
+
+**Fase 1 completada (2026-11-19).** Verificado en la aplicación real:
+
+- Cuatro sistemas en una misma sesión (Master System, Game Gear, 32X, Genesis) y
+  un disco de Sega CD, con cambio de tamaño de imagen, título y carpeta de saves
+  correctos en cada apertura.
+- 16 reaperturas seguidas alternando dos juegos: la aplicación siguió
+  respondiendo y cerró con código 0. Los handles se estabilizaron (864 a 873
+  tras la primera tanda de aperturas) y la memoria privada pasó de 60,3 a
+  63,7 MB (unos 0,3 MB por reapertura). Con 16 ciclos no se distingue una fuga
+  lenta de una caché; una prueba más larga la descartaría.
+- Pausa, reinicio, cierre y reapertura sin bloqueos, y SRAM guardada al cerrar.
+- Límites: un solo equipo y Windows; las pruebas de entrada y de estrés se
+  describen en las secciones 10.2 y 10.3 y en los ADR-0004 y ADR-0005.
 
 ### Fase 2 — Controles y presentación
 
