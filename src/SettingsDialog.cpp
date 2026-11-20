@@ -1,5 +1,7 @@
 #include "SettingsDialog.h"
 
+#include <QDateTime>
+#include <cstdio>
 #include <QDialogButtonBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
@@ -7,49 +9,78 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QScreen>
+#include <QScrollArea>
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
 #include "ControllersPage.h"
+#include "DisplayPage.h"
+#include "EmulationPage.h"
+#include "FilesPage.h"
+#include "GeneralPage.h"
+#include "ShortcutsPage.h"
+#include "SoundPage.h"
 
-SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, InputGroup initialGroup, QWidget* parent)
+namespace {
+
+// Pages that can be taller than a small window get a scroll bar instead of squeezing their controls.
+QWidget* scrolled(QWidget* page, QWidget* parent)
+{
+    auto* area = new QScrollArea(parent);
+    area->setWidget(page);
+    area->setWidgetResizable(true);
+    area->setFrameShape(QFrame::NoFrame);
+    return area;
+}
+
+}
+
+SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, const AppSettings& settings, InputGroup initialGroup,
+                               Page initialPage, QWidget* parent)
     : QDialog(parent)
+    , m_settings(settings)
+    , m_pages(new QListWidget(this))
+    , m_stack(new QStackedWidget(this))
+    , m_general(new GeneralPage(settings, this))
+    , m_display(new DisplayPage(settings, this))
+    , m_sound(new SoundPage(settings, this))
+    , m_emulation(new EmulationPage(settings, this))
     , m_controllers(new ControllersPage(input, config, initialGroup, this))
+    , m_shortcuts(new ShortcutsPage(input, settings, this))
+    , m_files(new FilesPage(settings, this))
 {
     setWindowTitle("Settings");
     const QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
-    resize(980, qMin(860, screen.height() - 80));
+    resize(1000, qMin(860, screen.height() - 80));
 
-    auto* pages = new QListWidget(this);
-    pages->setFixedWidth(190);
-    pages->setIconSize({24, 24});
-    QFont font = pages->font();
+    m_pages->setFixedWidth(190);
+    QFont font = m_pages->font();
     font.setPointSize(font.pointSize() + 1);
-    pages->setFont(font);
-    pages->addItem("Controllers");
-    pages->setCurrentRow(0);
+    m_pages->setFont(font);
+    // Same order as the stack below and as the Page enum.
+    m_pages->addItems({"General", "Display", "Sound", "Emulation", "Controllers", "Shortcuts", "Files"});
 
-    auto* stack = new QStackedWidget(this);
-    stack->addWidget(m_controllers);
-    connect(pages, &QListWidget::currentRowChanged, stack, &QStackedWidget::setCurrentIndex);
+    m_stack->addWidget(scrolled(m_general, this));
+    m_stack->addWidget(scrolled(m_display, this));
+    m_stack->addWidget(scrolled(m_sound, this));
+    m_stack->addWidget(scrolled(m_emulation, this));
+    m_stack->addWidget(m_controllers);
+    m_stack->addWidget(m_shortcuts);
+    m_stack->addWidget(scrolled(m_files, this));
+    connect(m_pages, &QListWidget::currentRowChanged, m_stack, &QStackedWidget::setCurrentIndex);
+    m_pages->setCurrentRow(initialPage);
 
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::RestoreDefaults
                                              | QDialogButtonBox::Help,
                                          this);
     connect(buttons, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
-    connect(buttons->button(QDialogButtonBox::RestoreDefaults), &QPushButton::clicked, m_controllers, &ControllersPage::restoreDefaults);
-    connect(buttons->button(QDialogButtonBox::Help), &QPushButton::clicked, this, [this] {
-        QMessageBox::information(this, "Controllers",
-                                 "Pick the platform group, click a binding cell and press a key or a controller input.\n\n"
-                                 "Genesis, Sega CD and 32X share one set of bindings; Master System, Game Gear and SG-1000 share another.\n"
-                                 "A button or key can only be used once per group: binding it again moves it.\n"
-                                 "Right-click a cell to clear it. Auto-Assign fills the controller column from a connected gamepad.");
-    });
+    connect(buttons->button(QDialogButtonBox::RestoreDefaults), &QPushButton::clicked, this, &SettingsDialog::restoreCurrentPageDefaults);
+    connect(buttons->button(QDialogButtonBox::Help), &QPushButton::clicked, this, &SettingsDialog::showCurrentPageHelp);
 
     auto* body = new QHBoxLayout;
-    body->addWidget(pages);
-    body->addWidget(stack, 1);
+    body->addWidget(m_pages);
+    body->addWidget(m_stack, 1);
 
     auto* layout = new QVBoxLayout(this);
     layout->addLayout(body, 1);
@@ -59,4 +90,50 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, I
 InputConfig SettingsDialog::inputConfig() const
 {
     return m_controllers->config();
+}
+
+AppSettings SettingsDialog::appSettings() const
+{
+    AppSettings settings = m_settings;
+    m_general->applyTo(settings);
+    m_display->applyTo(settings);
+    m_sound->applyTo(settings);
+    m_emulation->applyTo(settings);
+    m_shortcuts->applyTo(settings);
+    m_files->applyTo(settings);
+    return settings;
+}
+
+void SettingsDialog::restoreCurrentPageDefaults()
+{
+    switch (static_cast<Page>(m_stack->currentIndex())) {
+    case General: m_general->restoreDefaults(); break;
+    case Display: m_display->restoreDefaults(); break;
+    case Sound: m_sound->restoreDefaults(); break;
+    case Emulation: m_emulation->restoreDefaults(); break;
+    case Controllers: m_controllers->restoreDefaults(); break;
+    case Shortcuts: m_shortcuts->restoreDefaults(); break;
+    case Files: m_files->restoreDefaults(); break;
+    }
+}
+
+void SettingsDialog::showCurrentPageHelp()
+{
+    static const char* const texts[] = {
+        "Window behaviour, the theme, the on-screen overlays and how often the battery RAM is written. Hover a setting for details.",
+        "Scaling, aspect ratio, filters and on-screen messages. These settings apply to every system.",
+        "Volume, output device and buffer. Volume and mute apply to every system.",
+        "Speed control and rewind. Sound Synchronization waits on the audio; Timer and None do not need sound.",
+        "Pick the platform group and the controller set, click a binding cell and press a key or a controller input.\n\n"
+        "Genesis, Sega CD and 32X share one set of bindings; Master System, Game Gear and SG-1000 share another.\n"
+        "A key can only drive one action of the group, for either controller; a gamepad button only one action of the same controller. "
+        "Binding it again moves it. Right-click a cell to clear it. Turbo rows auto-fire the button they name.\n"
+        "Each controller reads one gamepad: Automatic gives them the connected gamepads in the order they were plugged in, or pick one by name.\n"
+        "With one controller the second port is empty for the game.",
+        "Click a binding cell and press a key (with its modifiers) or a gamepad input. Esc clears the cell. A binding used by "
+        "more than one shortcut is highlighted but still works. Reset to Default writes the defaults into one binding column.",
+        "Where saves, states, screenshots and BIOS files are kept. Changes apply the next time a game opens.",
+    };
+    const int index = m_stack->currentIndex();
+    QMessageBox::information(this, m_pages->item(index)->text(), texts[index]);
 }

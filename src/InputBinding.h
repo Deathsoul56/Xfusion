@@ -18,8 +18,13 @@ struct InputBinding {
     int code = 0;
     // Key: Windows virtual key, or 0 when unknown. JoyHat: direction bit. JoyAxis: +1 or -1.
     int value = 0;
+    // Key only: Qt::KeyboardModifier bits (Shift, Ctrl, Alt, Meta). Pad bindings leave it 0 and ignore modifiers;
+    // shortcuts match them exactly.
+    int modifiers = 0;
 
-    static InputBinding key(int qtKey, int windowsVirtualKey);
+    static constexpr int kModifierMask = 0x02000000 | 0x04000000 | 0x08000000 | 0x10000000;
+
+    static InputBinding key(int qtKey, int windowsVirtualKey, int modifiers = 0);
     static InputBinding joyButton(int button);
     static InputBinding joyHat(int hat, int direction);
     static InputBinding joyAxis(int axis, int sign);

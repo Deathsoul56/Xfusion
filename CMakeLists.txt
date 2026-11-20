@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Xfusion VERSION 0.1.0 LANGUAGES CXX)
+project(Xfusion VERSION 0.1.0 LANGUAGES C CXX)
 if(WIN32)
     enable_language(RC) # the exe icon
 endif()
@@ -50,8 +50,25 @@ add_library(xfusion_input STATIC
     src/InputConfig.h
     src/InputManager.cpp
     src/InputManager.h
+    src/AppSettings.cpp
+    src/AppSettings.h
+    src/Shortcuts.cpp
+    src/Shortcuts.h
+    src/RewindBuffer.cpp
+    src/RewindBuffer.h
+    src/VideoFilters.cpp
+    src/VideoFilters.h
+    third_party/xbrz/xbrz.cpp
+    third_party/hqx/hq2x.cpp
+    third_party/snes_ntsc/snes_ntsc.c
+    src/GameSaves.cpp
+    src/GameSaves.h
+    src/StateFile.cpp
+    src/StateFile.h
+    src/DisplayLayout.cpp
+    src/DisplayLayout.h
 )
-target_include_directories(xfusion_input PUBLIC src)
+target_include_directories(xfusion_input PUBLIC src third_party)
 target_link_libraries(xfusion_input PUBLIC Qt6::Gui ${XFUSION_SDL3} ${XFUSION_STATIC_LIBS})
 
 add_executable(xfusion
@@ -73,6 +90,26 @@ add_executable(xfusion
     src/ControllersPage.h
     src/SettingsDialog.cpp
     src/SettingsDialog.h
+    src/DisplayPage.cpp
+    src/DisplayPage.h
+    src/SoundPage.cpp
+    src/SoundPage.h
+    src/GeneralPage.cpp
+    src/GeneralPage.h
+    src/EmulationPage.cpp
+    src/EmulationPage.h
+    src/FilesPage.cpp
+    src/FilesPage.h
+    src/ShortcutsPage.cpp
+    src/ShortcutsPage.h
+    src/StatePreviewDialog.cpp
+    src/StatePreviewDialog.h
+    src/OsdOverlay.cpp
+    src/OsdOverlay.h
+    src/BindingIcons.cpp
+    src/BindingIcons.h
+    src/Theme.cpp
+    src/Theme.h
     src/CoreProfile.cpp
     src/CoreProfile.h
     src/EmuThread.cpp
@@ -119,14 +156,22 @@ endif()
 
 enable_testing()
 add_executable(input_tests tests/InputTests.cpp)
-target_link_libraries(input_tests PRIVATE xfusion_input Qt6::Test)
+add_executable(settings_tests tests/SettingsTests.cpp)
+add_executable(save_tests tests/SaveTests.cpp)
+foreach(testTarget input_tests settings_tests save_tests)
+    target_link_libraries(${testTarget} PRIVATE xfusion_input Qt6::Test)
+    add_test(NAME ${testTarget} COMMAND ${testTarget})
+    set_tests_properties(${testTarget} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
+endforeach()
 if(XFUSION_STATIC)
     target_link_options(xfusion PRIVATE -static $<$<CONFIG:Release>:-s>)
     target_link_options(input_tests PRIVATE -static)
+    target_link_options(settings_tests PRIVATE -static)
+    target_link_options(save_tests PRIVATE -static)
     # Static Qt links its plugins into the exe; take only the ones used instead of every default one
     # (image formats, TLS, ... would pull in more libraries).
     qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin)
     qt_import_plugins(input_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(settings_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(save_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
 endif()
-add_test(NAME input_tests COMMAND input_tests)
-set_tests_properties(input_tests PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")

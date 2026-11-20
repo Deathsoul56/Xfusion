@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QByteArray>
 #include <QImage>
 #include <QLibrary>
 #include <QString>
@@ -42,14 +43,28 @@ public:
     void setDirectories(const QString& systemDir, const QString& saveDir);
     void setVideoCallback(VideoCallback cb) { m_video = std::move(cb); }
     void setAudioCallback(AudioCallback cb) { m_audio = std::move(cb); }
-    void setButton(PadButton button, bool pressed);
+    static constexpr int kPlayers = 2;
+    void setButton(int player, PadButton button, bool pressed);
     // Selects the pad the core emulates. Call from the emulation thread (or with it stopped): the core
     // reads the new value at the start of its next frame.
-    void setPadType(PadType type);
+    void setPads(PadType type, bool secondPadConnected);
+    // While set, frames the core produces are not delivered (frame skipping). The core is told it may skip
+    // rendering too.
+    void setSkipVideo(bool skip) { m_skipVideo.store(skip, std::memory_order_relaxed); }
     const CoreProfile& profile() const { return m_profile; }
 
-    bool readSaveRam(const QString& path);
-    bool writeSaveRam(const QString& path);
+    // Battery RAM, as the core exposes it: empty while the core has none (PicoDrive reports it only once it is
+    // not all zero). Call from the emulation thread, or with it stopped.
+    QByteArray saveRam() const;
+    // Copies `data` into the battery RAM. `warning` is set when the file is longer than the core's RAM (nothing is
+    // lost then only if the caller refuses to overwrite it); a shorter file is accepted.
+    bool setSaveRam(const QByteArray& data, QString* warning);
+
+    // Save states. The state is whatever the core serializes; it is only meaningful for the same core build and
+    // game. Call from the emulation thread, or with it stopped.
+    bool supportsStates() const;
+    bool serialize(QByteArray* state, QString* error);
+    bool unserialize(const QByteArray& state, QString* error);
 
 private:
     static LibretroCore* s_instance;
@@ -77,7 +92,8 @@ private:
     QByteArray m_systemDir;
     QByteArray m_saveDir;
     QByteArray m_gamePath;
-    std::array<std::atomic<bool>, 16> m_buttons{};
+    std::array<std::array<std::atomic<bool>, 16>, kPlayers> m_buttons{};
+    std::atomic<bool> m_skipVideo{false};
     VideoCallback m_video;
     AudioCallback m_audio;
 
@@ -98,4 +114,8 @@ private:
     void (*m_reset)() = nullptr;
     void* (*m_getMemoryData)(unsigned) = nullptr;
     size_t (*m_getMemorySize)(unsigned) = nullptr;
+    // Optional in practice: a core without them simply has no save states.
+    size_t (*m_serializeSize)() = nullptr;
+    bool (*m_serialize)(void*, size_t) = nullptr;
+    bool (*m_unserialize)(const void*, size_t) = nullptr;
 };

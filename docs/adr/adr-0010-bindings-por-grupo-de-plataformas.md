@@ -36,7 +36,7 @@ Hasta la Fase 1 las teclas estaban fijas en `MainWindow` y solo existía el pad 
 
 - Positivas: mismo flujo que `snes9xrd` con la jerarquía de plataformas pedida; añadir un sistema solo requiere asignarle un grupo; la lógica de bindings se prueba sin hardware.
 - Negativas: los bindings de mando son índices crudos, así que dos mandos con distinta numeración comparten los mismos valores; por ahora un solo jugador (sin "Controller Ports"); el teclado solo tiene lectura física en Windows.
-- Pendientes: dos jugadores, atajos de teclado del frontend, prueba de desconexión de mandos, revisar si 32X y Sega CD necesitan ajustes propios, y confirmar el origen y la licencia de las dos imágenes de mando (ver `THIRD_PARTY_NOTICES.md` pendiente).
+- Pendientes: ~~dos jugadores, atajos de teclado del frontend, prueba de desconexión de mandos~~ (resueltos en ADR-0014, ADR-0015 y la Fase 2), revisar si 32X y Sega CD necesitan ajustes propios, y confirmar el origen y la licencia de las dos imágenes de mando (ver `THIRD_PARTY_NOTICES.md` pendiente).
 
 ## Implementation notes
 

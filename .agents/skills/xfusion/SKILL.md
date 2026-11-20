@@ -1,0 +1,86 @@
+---
+name: xfusion
+description: Convenciones, arquitectura y trampas conocidas del frontend multiemulador SEGA Xfusion (C++20, Qt 6, SDL3, libretro, PicoDrive). Usar al modificar el código de src/, el CMake, el host libretro, las rutas de saves o al probar ROMs. Use when working on libretro host, saves, cores, input, audio/video or ROM compatibility in this repository.
+---
+
+# Xfusion
+
+Frontend de escritorio (Windows primero) que aloja cores libretro para SG-1000, Master System, Game Gear, Genesis, Sega CD y 32X. Alcance: hasta la cuarta generación. El plan completo está en `frontend_sega_multiemulador.md`; no duplicar su contenido aquí.
+
+## Reglas del proyecto
+
+- **Saves por sistema:** siempre `saves/<sistema>/<juego>.srm` y `states/<sistema>/<juego>.slotN.state`. La carpeta la decide el sistema del juego, nunca el core (`AppPaths::savesDir/statesDir(System)`). El nombre del archivo lo decide `GameSaves` (huella del juego + índice `saves.json`, ADR-0016): no construir rutas de saves ni de estados a mano y llamar a `claim()` antes de la primera escritura.
+- **Una sola tabla de sistemas:** `src/SystemInfo.*` define carpeta y extensiones. Cualquier sistema o extensión nueva se añade ahí y en ningún otro lugar.
+- **No copiar código de `snes9xrd`** (licencia Snes9x, incompatible con GPL-3). Sus mejoras se portan adaptándolas: entender qué hace el commit y escribir la versión propia. Antes de tomar algo, `scripts/porting-log.ps1 -Blame <archivo>` y anotarlo en `docs/porting-ledger.md` (ADR-0009). `blame` no prueba autoría si el archivo entró en un commit masivo.
+- **Nunca versionar** ROMs, BIOS, firmware, `build/` ni `external/`. `Roms/` y las extensiones de ROM están en `.gitignore`. No añadir juegos con copyright como fixtures.
+- **Cores = bibliotecas externas** cargadas en tiempo de ejecución, descritas por un perfil de core (ADR-0007). No enlazar un core en el ejecutable ni versionar su binario. Los paquetes de publicación pueden incluir PicoDrive sin modificar, con su `COPYING` y avisos, y no pueden venderse ni usarse comercialmente (ADR-0006).
+- Escrituras de saves con `QSaveFile` (atómicas). Un fallo de escritura debe notificarse, no ocultarse. Un `.srm` que no se pudo leer o no coincide con el core **no se sobrescribe** en esa sesión (`m_saveRamLocked`).
+- **Commits solo cuando el propietario lo pida explícitamente.** No hacer `git commit` (ni `push`) por iniciativa propia, ni al terminar una tarea o una fase. Se deja el trabajo sin commitear y se avisa de qué cambió. Regla fijada por el propietario el 2026-11-19.
+- **Datos de usuario junto al `.exe`**, nunca en `%APPDATA%` (ADR-0011).
+
+## Estilo de código
+
+- C++20, 4 espacios, llave de función en línea nueva, miembros con prefijo `m_`, clases en PascalCase, métodos en camelCase.
+- Errores del host libretro: `bool` + `QString* error` con mensaje accionable (no excepciones).
+- Comentar solo lo que no es obvio (por ejemplo, la razón de una limitación del core).
+- Mantener cada archivo con una responsabilidad: host libretro (`LibretroCore`), perfil de core (`CoreProfile`), audio (`AudioOutput`), video (`VideoWidget`), rutas (`AppPaths`), sistemas (`SystemInfo`), ventana (`MainWindow`).
+- Lo específico de un core (nombre de biblioteca, opciones `picodrive_*`, mapeo de botones, recarga por juego) vive solo en `CoreProfile`. La ventana habla en `PadButton`, nunca en ids de libretro.
+- No dejar código de diagnóstico temporal (variables de entorno, logs ad hoc) en `src/`. La medición permanente es `xfusion.exe --stats`.
+- **Hilos:** el core solo lo toca el hilo de emulación (`EmuThread`). Cargar, descargar, recargar el core y leer o escribir SRAM se hacen con el hilo detenido (`m_emu.reset()`); `reset` pasa por `EmuThread::withCore`. El video entra por `VideoWidget::submitFrame` y la entrada por botones atómicos; nada de la interfaz se llama desde el hilo de emulación.
+
+## Compilar y ejecutar (Windows, MSYS2)
+
+```text
+scripts\setup-picodrive.ps1                                # clona, fija (26ecb2b), compila e instala el core
+# desde un shell CLANG64:
+cmake -G Ninja -B build -S . -DCMAKE_BUILD_TYPE=Release
+ninja -C build
+```
+
+- Por defecto el exe es único: Qt, SDL3 y libc++ van **estáticos** (ADR-0012; MSYS2 necesita `mingw-w64-clang-x86_64-qt6-static` y `mingw-w64-clang-x86_64-libwebp`). Corre sin `PATH` especial. `-DXFUSION_STATIC=OFF` da la variante con DLL; `cmake --install build --prefix <carpeta>` las reúne.
+- Al cambiar de variante hay que reconfigurar desde cero (`rm -rf build/CMakeCache.txt build/CMakeFiles`); **no borrar `build\` entero**: contiene saves, BIOS y config (copiarlos antes).
+- Si al enlazar aparecen símbolos sin definir de una biblioteca (freetype, harfbuzz...), falta su dependencia estática: añadirla a `XFUSION_STATIC_LIBS` en `CMakeLists.txt`.
+- Desde PowerShell: `$env:MSYSTEM='CLANG64'; $env:CHERE_INVOKING='1'; & C:\msys64\usr\bin\bash.exe -lc '<comando>'`.
+- El core se compila con UCRT64 (GCC); el frontend con CLANG64. Funciona porque la ABI de libretro es C.
+- Si el enlazado falla con `Permission denied`, hay un `xfusion.exe` en ejecución: cerrarlo por su PID y reintentar.
+- Datos de usuario junto al ejecutable (nada en `%APPDATA%`; `XFUSION_DATA_DIR` lo sustituye): `cores\`, `system\`, `config\` (`input.json`, `settings.json`), `saves\<sistema>\`, `states\<sistema>\`. En desarrollo el exe está en `build\`, así que borrar `build\` borra saves y BIOS.
+
+## Trampas conocidas (verificadas)
+
+- **El estado estático de PicoDrive persiste entre juegos.** `padTHLatency` y `padTLLatency` (`pico/memory.c`) no se reinician al cargar un juego mientras el contador de ciclos sí; A y B (línea TL, bit 4) se leen invertidos hasta que el juego nuevo haya corrido tanto como el anterior. `LibretroCore::loadGame` recarga el core completo a partir del segundo juego (`reloadPerGame` del perfil, 7 ms). Causa y evidencia en el ADR-0004. Para comprobarlo antes de tocarlo: cargar un juego, jugar unos segundos, abrir Castlevania - Bloodlines y leer el byte `0x9061` de la RAM en reposo: debe ser `00`, no `50`. Cada core nuevo puede tener su propio estado estático.
+- **Mando de 6 botones:** PicoDrive usa por defecto 3 botones y ignora X/Y/Z. El host fija `picodrive_input1/2` según `InputConfig::padType()` (6 por defecto; 3 si el usuario lo elige) vía `CoreProfile::padTypeKeys`; el cambio en caliente funciona porque `LibretroCore` responde `GET_VARIABLE_UPDATE`. Para probarlo sin juegos con copyright: una ROM sintética de 68000 que lee el puerto 1 con la secuencia TH de 6 botones (1,0,1,0 y lectura con TH bajo, nibble bajo 0 = 6 botones) y pinta el fondo verde/rojo; el pad de PicoDrive reinicia su fase tras ~26 líneas sin escrituras, así que hay que esperar entre lecturas.
+- **Mapeo PadButton → libretro (PicoDrive):** A→Y, B→B, C→A, X→L, Y→X, Z→R, Mode→Select. Teclas: flechas, `Z/X/C` = A/B/C, `A/S/D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode.
+- **SRAM:** PicoDrive devuelve tamaño 0 mientras la SRAM está a cero, así que no se crean `.srm` vacíos. Al cargar (frame 0) devuelve el tamaño real.
+- **Zip:** PicoDrive lee zips por sí mismo (`need_fullpath=true`). Xfusion solo inspecciona el zip para detectar el sistema por la extensión de la primera entrada reconocida.
+- **Formatos no soportados:** `.sf7` (SF-7000) y `.mv` (MyVision) están fuera de la tabla. `.bin` se asume Genesis (no es fiable; mejor leer la cabecera `SEGA` en 0x100).
+- **Sega CD:** el core elige el BIOS por la región del disco y lo busca en `system\` como `bios_CD_E.bin`, `bios_CD_U.bin` o `bios_CD_J.bin` (lista en `CoreProfile::segaCdBiosFiles`). Los BIOS con copyright viven en `Sega CD BIOS/`, ignorada por git, y se copian a mano al directorio de datos. Con `Copy-Item` hay que usar `-LiteralPath`: los nombres llevan `[b]`, que PowerShell toma como comodín. Una región PAL corre a 50 fotogramas por segundo; no es un fallo.
+- **Temporización (ADR-0005):** el hilo de emulación marca el ritmo con la cola de audio de SDL3 (objetivo de 1,5 fotogramas de audio) y cae al reloj del sistema si el core no produce audio o no hay dispositivo. El dispositivo de audio arranca pausado hasta que la cola se llena. La entrada también se lee en ese hilo.
+- **Entrada (ADR-0010, ADR-0014):** los bindings son por grupo de plataforma (`InputGroup` en `SystemInfo`: Genesis/Sega CD/32X y SG-1000/Master System/Game Gear) **y por jugador** (2), 4 ranuras por acción, guardados en `<datos>\config\input.json` (versión 2; la 1 se lee como jugador 1). Un sistema nuevo solo declara su grupo. Una tecla solo mueve una acción del grupo entre los dos jugadores; un botón de mando solo una del mismo jugador. Cada jugador lee un mando (`InputConfig::device`, vacío = automático por orden de conexión). `InputManager::poll` devuelve el estado de los dos jugadores; lee teclado (`GetAsyncKeyState`) y mandos SDL3 en el hilo de emulación y no entrega nada si la ventana principal no está activa. **`slots` es una macro de Qt**: no usar ese nombre para miembros o métodos.
+- **Pruebas:** `QT_QPA_PLATFORM=offscreen ctest --test-dir build` (`input_tests`: bindings, jugadores y joysticks virtuales de SDL, incluida la desconexión; `settings_tests`: `AppSettings`, atajos y `displayRect`; `save_tests`: `GameSaves` y `StateFile`). Los ejecutables son estáticos y no imprimen en la terminal de la herramienta: para ver los casos, `Start-Process build\<test>.exe -ArgumentList "-o","<archivo>,txt" -Wait` y leer el archivo. El test de entrada desactiva los controladores físicos con hints de SDL; sin eso un mando real (p. ej. el 8BitDo como `XInput Controller #1`) altera los recuentos.
+- **Atajos (ADR-0018, sustituye al 0015):** `Shortcuts.*` es la tabla de acciones del frontend (`ShortcutAction`, `ShortcutMap` con cuatro enlaces por acción, teclas con modificadores exactos y mandos). `MainWindow::eventFilter` los despacha (no hay `QAction::setShortcut`); un temporizador de 8 ms atiende los mandos; las acciones de mantener (avance rápido, rewind) terminan al soltar la tecla. Los duplicados se resaltan, no se rechazan. Una acción nueva = una fila en `allShortcuts()` + un `case` en `MainWindow::trigger`. Defaults como `snes9xrd`; las teclas `=`, `-` y `\` cambian con la distribución del teclado (en el teclado español de las pruebas hay que reasignarlas).
+- **Gemelo de snes9xrd (ADR-0018):** antes de añadir una función de ajustes, atajos, estados o velocidad, mirar si `snes9xrd` la tiene y adaptarla (sin copiar código: ADR-0009, `docs/porting-ledger.md`). Ventana de ajustes con General, Display, Sound, Emulation, Controllers, Shortcuts y Files. `AppSettings` es la única fuente de ajustes (JSON versión 2; la 1 se lee). Los datos de PicoDrive no se tocan desde la GUI sin `EmuThread::withCore`.
+- **Filtros de software (ADR-0019):** `allVideoFilters()` es la lista (22, como `snes9xrd`); xBRZ, snes_ntsc y hqx son de terceros en `third_party/` con su licencia (no tocar sus cabeceras; ver `THIRD_PARTY_NOTICES.md`); el resto está escrito en `VideoFilters.cpp`. **No copiar** de `snes9xrd` los filtros con licencia Snes9x (2xsai, epx, blit, sharpbilinear_flexible). Un filtro nuevo = una entrada en la lista, un `case` y una prueba de tamaño.
+- **Velocidad y rewind:** `EmuThread` lleva el ritmo (`SpeedConfig`: Sound Sync, Timer, Timer con salto, Sin límite), el avance rápido (salta fotogramas y cambia la frecuencia del audio), el frame advance y el rewind (`RewindBuffer`, diferencias XOR con códigos de ceros). El salto de fotogramas es `LibretroCore::setSkipVideo` + `GET_AUDIO_VIDEO_ENABLE`.
+- **Estados (ADR-0017, ADR-0018):** `LibretroCore::serialize/unserialize` y `StateFile` (formato 2 con miniatura; cabecera con core, versión, huella del juego y SHA-1). Slot 0–999, `.undo`, `.oops` y `.resume` por juego. Todo con el core va por `EmuThread::withCore`. `supportsStates()` se consulta antes de arrancar el hilo, no desde la GUI.
+- **SRAM:** PicoDrive informa tamaño 0 mientras la SRAM es todo ceros (un juego que la borra parece "sin SRAM"); `flushSaveRam` lo trata como "borrada" si ya hubo SRAM. Se guarda cada 10 s y al cerrar.
+- **Ajustes globales (ADR-0013, ADR-0018):** aspecto, filtro, escalado, volumen, velocidad, rewind, ubicaciones y atajos están en `AppSettings` (`config\settings.json`), no en el perfil del core. La geometría de la imagen es `displayRect` (función pura con `DisplayOptions`). No llamar `show` a un método de un `QWidget`: oculta `QWidget::show`. **`slots` es una macro de Qt**: tampoco como nombre de variable.
+- **Probar la interfaz sin perder el foco:** la ventana del diálogo de ajustes tarda hasta unos segundos en abrirse (los clics y teclas se encolan); esperar antes de capturar. Comprobar `GetForegroundWindow` antes de enviar teclas y reintentar `Focus`; con el foco perdido, el juego se pausa (por diseño).
+
+## Cómo probar
+
+- Probar siempre con la ventana real: el plugin Qt `offscreen` no cierra con `CloseMainWindow`.
+- Para decidir si una ROM "arranca", ejecutar **al menos 700 fotogramas**: muchos juegos (Streets of Rage 3, FIFA 95, EA/Acclaim) muestran negro unos 7 s. Con 240 fotogramas hay falsos "en blanco".
+- Criterio mínimo por ROM: vídeo no uniforme y audio no silencioso tras la intro.
+- `scripts\make-test-rom.ps1` genera una ROM propia de Genesis (68000 ensamblado a mano) sin material con copyright: la flecha del jugador 1 pinta rojo, la del jugador 2 verde, y B del jugador 1 alterna azul, que vive en RAM de trabajo y en SRAM (sirve para probar guardado, estados y los dos puertos mirando el color del centro de la ventana). La SRAM sin escribir de PicoDrive empieza en cero: el primer arranque es negro.
+- Para automatizar la ventana (`SetForegroundWindow` a secas falla si otra aplicación tiene el foco): `AttachThreadInput` + un toque de Alt + `SetForegroundWindow` y comprobar `GetForegroundWindow` antes de enviar teclas; el color se lee con `Graphics.CopyFromScreen` en el centro del área cliente; las capturas de pantalla se pueden mirar con la herramienta de lectura de imágenes.
+- Ante un error de entrada, comparar el estado visible del juego con y sin recarga del core antes de culpar al teclado: el problema anterior estaba en el core, no en la lectura del teclado.
+- Rendimiento y audio: `xfusion.exe --stats <juego>` imprime cada segundo los fotogramas emulados, los vacíos de audio y la cola de audio. El exe es de subsistema GUI (sin ventana de consola): `--stats` imprime en la terminal desde la que se lanza (`AttachConsole` en `main.cpp`) o en el archivo si se redirige stderr (`Start-Process -RedirectStandardError`). `scripts\stress-ui.ps1 -Rom <juego>` arrastra la ventana y abre menús durante un rato y resume los resultados. Referencia: 60 fotogramas por segundo y cero vacíos de audio tras el arranque.
+- Los procesos de prueba se cierran con `Stop-Process -Id <PID>` literal o `$p.Kill()`; no con el nombre.
+- Para automatizar la interfaz en Windows: lanzar con `XFUSION_DATA_DIR` apuntando a una carpeta temporal (con una copia de `cores\picodrive_libretro.dll`) y `C:\msys64\clang64\bin` en `PATH` (sin él aparece "SDL3.dll was not found"). Esc en el diálogo de ajustes lo cierra si no hay una captura activa; el primer clic en una ventana recién abierta puede solo activarla. **Hacer todo el flujo (abrir, clics, capturas) en una sola llamada y comprobar con `GetWindowRect` que el diálogo existe antes de clicar**: entre llamadas VS Code recupera el foco y los clics y teclas acaban en el editor.
+
+## Antes de dar una tarea por terminada
+
+1. Compila sin avisos nuevos (`ninja -C build`).
+2. Se probó en la aplicación real, no solo en un arnés, si cambia entrada, audio, video o saves.
+3. Si se tocó una ruta o el formato de saves, verificar que dos juegos con igual nombre en distintos sistemas no se sobrescriben.
+4. Actualizar `frontend_sega_multiemulador.md` si cambia una limitación o una decisión.

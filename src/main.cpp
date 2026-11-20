@@ -1,4 +1,5 @@
 #include <QApplication>
+#include <QIcon>
 #include <QCommandLineParser>
 #include <QFileInfo>
 #include <QMessageBox>
@@ -31,6 +32,8 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Xfusion");
     QApplication::setApplicationName("Xfusion");
+    // Without this the taskbar button and the title bars fall back to a generic icon.
+    QApplication::setWindowIcon(QIcon(":/app/icon.png"));
 
     QCommandLineParser parser;
     parser.addHelpOption();

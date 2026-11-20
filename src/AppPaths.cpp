@@ -22,13 +22,45 @@ QString dataRoot()
     return ensured(QCoreApplication::applicationDirPath());
 }
 
-QString savesDir(System system)
+namespace {
+
+AppSettings g_files; // only the folder choices are read
+
+QString resolve(const FolderSetting& folder, const QString& subfolder, System system, const QString& romDir)
 {
-    return ensured(dataRoot() + "/saves/" + systemDef(system).folder);
+    if (folder.location == FileLocation::RomFolder && !romDir.isEmpty())
+        return romDir;
+    if (folder.location == FileLocation::Custom && !folder.custom.isEmpty())
+        return folder.custom + "/" + systemDef(system).folder;
+    return dataRoot() + "/" + subfolder + "/" + systemDef(system).folder;
+}
+
+}
+
+void setFiles(const AppSettings& settings)
+{
+    g_files = settings;
+}
+
+QString savesDir(System system, const QString& romDir)
+{
+    return ensured(resolve(g_files.sramFolder, "saves", system, romDir));
+}
+
+QString statesDir(System system, const QString& romDir)
+{
+    return resolve(g_files.stateFolder, "states", system, romDir);
+}
+
+QString screenshotsDir(System system, const QString& romDir)
+{
+    return resolve(g_files.screenshotFolder, "screenshots", system, romDir);
 }
 
 QString systemDir()
 {
+    if (g_files.biosFolder.location == FileLocation::Custom && !g_files.biosFolder.custom.isEmpty())
+        return ensured(g_files.biosFolder.custom);
     return ensured(dataRoot() + "/system");
 }
 
@@ -45,6 +77,11 @@ QString configDir()
 QString inputConfigPath()
 {
     return configDir() + "/input.json";
+}
+
+QString settingsPath()
+{
+    return configDir() + "/settings.json";
 }
 
 QString defaultCorePath()

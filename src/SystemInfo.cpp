@@ -77,7 +77,13 @@ const std::vector<InputGroupDef>& allInputGroups()
           {PadButton::Y, "Y", true},
           {PadButton::Z, "Z", true},
           {PadButton::Start, "Start"},
-          {PadButton::Mode, "Mode", true}},
+          {PadButton::Mode, "Mode", true},
+          {PadButton::TurboA, "Turbo A"},
+          {PadButton::TurboB, "Turbo B"},
+          {PadButton::TurboC, "Turbo C"},
+          {PadButton::TurboX, "Turbo X", true},
+          {PadButton::TurboY, "Turbo Y", true},
+          {PadButton::TurboZ, "Turbo Z", true}},
          true},
         // PicoDrive maps the two pad buttons of these systems onto B and C.
         {InputGroup::MasterSystem,
@@ -88,7 +94,9 @@ const std::vector<InputGroupDef>& allInputGroups()
           {PadButton::Right, "Right"},
           {PadButton::B, "Button 1"},
           {PadButton::C, "Button 2"},
-          {PadButton::Start, "Start / Pause"}}},
+          {PadButton::Start, "Start / Pause"},
+          {PadButton::TurboB, "Turbo Button 1"},
+          {PadButton::TurboC, "Turbo Button 2"}}},
     };
     return groups;
 }

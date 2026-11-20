@@ -5,11 +5,21 @@
 #include <algorithm>
 #include <cstring>
 
+#include "OsdOverlay.h"
+#include "VideoFilters.h"
+
 VideoWidget::VideoWidget(QWidget* parent)
     : QWidget(parent)
+    , m_osd(new OsdOverlay(this))
 {
     setAttribute(Qt::WA_OpaquePaintEvent);
     setMinimumSize(320, 240);
+    m_osd->setGeometry(rect());
+}
+
+void VideoWidget::resizeEvent(QResizeEvent*)
+{
+    m_osd->setGeometry(rect());
 }
 
 void VideoWidget::submitFrame(const QImage& frame, double aspectRatio)
@@ -40,6 +50,7 @@ void VideoWidget::takeReadyFrame()
         m_aspectRatio = m_readyAspect;
         m_updateQueued = false;
     }
+    m_shown = applyVideoFilter(m_front, m_filter);
     update();
 }
 
@@ -50,6 +61,23 @@ void VideoWidget::clear()
         m_ready = QImage();
     }
     m_front = QImage();
+    m_shown = QImage();
+    update();
+}
+
+void VideoWidget::refilter()
+{
+    m_shown = applyVideoFilter(m_front, m_filter);
+}
+
+void VideoWidget::setDisplay(const DisplayOptions& options, bool smooth, VideoFilter filter)
+{
+    m_options = options;
+    m_smooth = smooth;
+    const bool filterChanged = filter != m_filter;
+    m_filter = filter;
+    if (filterChanged)
+        refilter();
     update();
 }
 
@@ -57,15 +85,10 @@ void VideoWidget::paintEvent(QPaintEvent*)
 {
     QPainter painter(this);
     painter.fillRect(rect(), Qt::black);
-    if (m_front.isNull())
+    if (m_shown.isNull())
         return;
 
-    int w = width();
-    int h = int(w / m_aspectRatio);
-    if (h > height()) {
-        h = height();
-        w = int(h * m_aspectRatio);
-    }
-    const QRect target((width() - w) / 2, (height() - h) / 2, w, h);
-    painter.drawImage(target, m_front);
+    // Sharp bilinear is only sharp if the final scaling is smooth.
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, m_smooth || m_filter == VideoFilter::SharpBilinear4x);
+    painter.drawImage(displayRect(size(), m_front.size(), m_aspectRatio, m_options), m_shown);
 }
