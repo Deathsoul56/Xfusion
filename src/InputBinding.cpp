@@ -2,9 +2,9 @@
 
 #include <QKeySequence>
 
-InputBinding InputBinding::key(int qtKey, int windowsVirtualKey)
+InputBinding InputBinding::key(int qtKey, int windowsVirtualKey, int modifiers)
 {
-    return {Type::Key, qtKey, windowsVirtualKey};
+    return {Type::Key, qtKey, windowsVirtualKey, modifiers & kModifierMask};
 }
 
 InputBinding InputBinding::joyButton(int button)
@@ -26,7 +26,9 @@ bool InputBinding::sameSource(const InputBinding& other) const
 {
     if (type != other.type || isNone())
         return false;
-    if (type == Type::Key || type == Type::JoyButton)
+    if (type == Type::Key)
+        return code == other.code && modifiers == other.modifiers;
+    if (type == Type::JoyButton)
         return code == other.code;
     return code == other.code && value == other.value;
 }
@@ -35,7 +37,7 @@ QString InputBinding::displayName() const
 {
     switch (type) {
     case Type::Key:
-        return QKeySequence(code).toString(QKeySequence::NativeText);
+        return QKeySequence(code | modifiers).toString(QKeySequence::NativeText);
     case Type::JoyButton:
         return QString("Button %1").arg(code);
     case Type::JoyHat: {
@@ -53,7 +55,10 @@ QString InputBinding::displayName() const
 QJsonObject InputBinding::toJson() const
 {
     static const char* const names[] = {"none", "key", "button", "hat", "axis"};
-    return {{"type", names[static_cast<int>(type)]}, {"code", code}, {"value", value}};
+    QJsonObject object{{"type", names[static_cast<int>(type)]}, {"code", code}, {"value", value}};
+    if (modifiers)
+        object.insert("mods", modifiers);
+    return object;
 }
 
 InputBinding InputBinding::fromJson(const QJsonObject& object)
@@ -72,5 +77,7 @@ InputBinding InputBinding::fromJson(const QJsonObject& object)
         return {};
     binding.code = object.value("code").toInt();
     binding.value = object.value("value").toInt();
+    if (binding.type == Type::Key)
+        binding.modifiers = object.value("mods").toInt() & kModifierMask;
     return binding;
 }

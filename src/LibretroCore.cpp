@@ -29,7 +29,7 @@ LibretroCore::LibretroCore(const CoreProfile& profile)
     , m_options(profile.options)
 {
     s_instance = this;
-    setPadType(PadType::SixButton);
+    setPads(PadType::SixButton, true);
     m_optionsChanged = false;
 }
 
@@ -80,6 +80,9 @@ bool LibretroCore::load(const QString& corePath, QString* error)
         m_lib.unload();
         return false;
     }
+    m_serializeSize = reinterpret_cast<decltype(m_serializeSize)>(m_lib.resolve("retro_serialize_size"));
+    m_serialize = reinterpret_cast<decltype(m_serialize)>(m_lib.resolve("retro_serialize"));
+    m_unserialize = reinterpret_cast<decltype(m_unserialize)>(m_lib.resolve("retro_unserialize"));
 
     if (m_apiVersion() != RETRO_API_VERSION) {
         *error = QString("Unsupported libretro API version %1").arg(m_apiVersion());
@@ -127,8 +130,9 @@ bool LibretroCore::loadGame(const QString& gamePath, QString* error)
         return false;
     }
     m_hasGame = true;
-    for (auto& button : m_buttons)
-        button = false;
+    for (auto& pad : m_buttons)
+        for (auto& button : pad)
+            button = false;
     updateAvInfo();
     return true;
 }
@@ -163,19 +167,21 @@ void LibretroCore::reset()
         m_reset();
 }
 
-void LibretroCore::setButton(PadButton button, bool pressed)
+void LibretroCore::setButton(int player, PadButton button, bool pressed)
 {
     const unsigned retroId = m_profile.retroId(button);
-    if (retroId < m_buttons.size())
-        m_buttons[retroId].store(pressed, std::memory_order_relaxed);
+    if (player >= 0 && player < kPlayers && retroId < m_buttons[0].size())
+        m_buttons[static_cast<std::size_t>(player)][retroId].store(pressed, std::memory_order_relaxed);
 }
 
-void LibretroCore::setPadType(PadType type)
+void LibretroCore::setPads(PadType type, bool secondPadConnected)
 {
-    for (const std::string& key : m_profile.padTypeKeys) {
-        std::string& value = m_options[key];
-        if (value != m_profile.padTypeValue(type)) {
-            value = m_profile.padTypeValue(type);
+    for (std::size_t port = 0; port < m_profile.padTypeKeys.size(); ++port) {
+        const bool empty = port > 0 && !secondPadConnected && !m_profile.noPadValue.empty();
+        const std::string& wanted = empty ? m_profile.noPadValue : m_profile.padTypeValue(type);
+        std::string& value = m_options[m_profile.padTypeKeys[port]];
+        if (value != wanted) {
+            value = wanted;
             m_optionsChanged = true;
         }
     }
@@ -192,33 +198,65 @@ void LibretroCore::updateAvInfo()
         : double(av.geometry.base_width) / std::max(1u, av.geometry.base_height);
 }
 
-bool LibretroCore::readSaveRam(const QString& path)
+QByteArray LibretroCore::saveRam() const
 {
-    void* data = m_getMemoryData(RETRO_MEMORY_SAVE_RAM);
-    const size_t size = m_getMemorySize(RETRO_MEMORY_SAVE_RAM);
-    if (!data || size == 0)
-        return false;
-
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly))
-        return false;
-    const QByteArray bytes = file.read(static_cast<qint64>(size));
-    std::memcpy(data, bytes.constData(), bytes.size());
-    return true;
-}
-
-bool LibretroCore::writeSaveRam(const QString& path)
-{
+    if (!m_hasGame)
+        return {};
     const void* data = m_getMemoryData(RETRO_MEMORY_SAVE_RAM);
     const size_t size = m_getMemorySize(RETRO_MEMORY_SAVE_RAM);
     if (!data || size == 0)
-        return true;
+        return {};
+    return QByteArray(static_cast<const char*>(data), static_cast<qsizetype>(size));
+}
 
-    QSaveFile file(path);
-    if (!file.open(QIODevice::WriteOnly))
+bool LibretroCore::setSaveRam(const QByteArray& bytes, QString* warning)
+{
+    void* data = m_getMemoryData(RETRO_MEMORY_SAVE_RAM);
+    const size_t size = m_getMemorySize(RETRO_MEMORY_SAVE_RAM);
+    if (!m_hasGame || !data || size == 0) {
+        *warning = "The core has no battery RAM for this game";
         return false;
-    file.write(static_cast<const char*>(data), static_cast<qint64>(size));
-    return file.commit();
+    }
+    // A longer file would be cut, so it is refused. A shorter one (other emulators store only the part a game
+    // uses) is loaded at the start and the rest stays as the core cleared it.
+    if (static_cast<size_t>(bytes.size()) > size)
+        *warning = QString("The save file holds %1 bytes but the core expects %2").arg(bytes.size()).arg(size);
+    std::memcpy(data, bytes.constData(), std::min(size, static_cast<size_t>(bytes.size())));
+    return true;
+}
+
+bool LibretroCore::supportsStates() const
+{
+    return m_hasGame && m_serializeSize && m_serialize && m_unserialize && m_serializeSize() > 0;
+}
+
+bool LibretroCore::serialize(QByteArray* state, QString* error)
+{
+    if (!supportsStates()) {
+        *error = "This core does not support save states";
+        return false;
+    }
+    const size_t size = m_serializeSize();
+    QByteArray buffer(static_cast<qsizetype>(size), ' ');
+    if (!m_serialize(buffer.data(), size)) {
+        *error = "The core could not save its state";
+        return false;
+    }
+    *state = std::move(buffer);
+    return true;
+}
+
+bool LibretroCore::unserialize(const QByteArray& state, QString* error)
+{
+    if (!supportsStates()) {
+        *error = "This core does not support save states";
+        return false;
+    }
+    if (!m_unserialize(state.constData(), static_cast<size_t>(state.size()))) {
+        *error = "The core rejected the state";
+        return false;
+    }
+    return true;
 }
 
 bool LibretroCore::environmentCb(unsigned cmd, void* data)
@@ -259,6 +297,10 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
         *static_cast<bool*>(data) = m_optionsChanged;
         m_optionsChanged = false;
         return true;
+    case RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE:
+        // Bit 0: render video, bit 1: produce audio.
+        *static_cast<int*>(data) = m_skipVideo.load(std::memory_order_relaxed) ? 2 : 3;
+        return true;
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE:
         static_cast<retro_log_callback*>(data)->log = logCb;
         return true;
@@ -278,7 +320,7 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
 
 void LibretroCore::videoCb(const void* data, unsigned width, unsigned height, size_t pitch)
 {
-    if (!s_instance || !data || !s_instance->m_video)
+    if (!s_instance || !data || !s_instance->m_video || s_instance->m_skipVideo.load(std::memory_order_relaxed))
         return;
     const QImage::Format format = s_instance->m_format == RETRO_PIXEL_FORMAT_RGB565
         ? QImage::Format_RGB16
@@ -306,7 +348,7 @@ void LibretroCore::inputPollCb()
 
 int16_t LibretroCore::inputStateCb(unsigned port, unsigned device, unsigned, unsigned id)
 {
-    if (!s_instance || port != 0 || device != RETRO_DEVICE_JOYPAD || id >= s_instance->m_buttons.size())
+    if (!s_instance || port >= unsigned(kPlayers) || device != RETRO_DEVICE_JOYPAD || id >= s_instance->m_buttons[0].size())
         return 0;
-    return s_instance->m_buttons[id].load(std::memory_order_relaxed) ? 1 : 0;
+    return s_instance->m_buttons[port][id].load(std::memory_order_relaxed) ? 1 : 0;
 }

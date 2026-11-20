@@ -1,0 +1,18 @@
+# Avisos de terceros
+
+Esta lista cubre el código de terceros que vive dentro del repositorio. Qt, SDL3 y PicoDrive se enlazan o se
+cargan en tiempo de ejecución y tienen su propio apartado pendiente (ver `frontend_sega_multiemulador.md`,
+sección 10.3). Esto es una nota técnica, no asesoría legal.
+
+## Filtros gráficos (`third_party/`)
+
+| Componente | Carpeta | Licencia | Origen |
+|---|---|---|---|
+| xBRZ (2xBRZ a 6xBRZ) | `third_party/xbrz/` | GPL-3.0 (`LICENSE.txt`), © Zenju | Copia del árbol `filter/` de `snes9xrd`, que a su vez la toma del proyecto xBRZ. Solo se cambió `xbrz.h`: se quitó `#include "port.h"` y se definió `alwaysinline`. Xfusion es GPL-3.0-or-later; el binario que contiene xBRZ queda bajo GPL-3.0. |
+| snes_ntsc 0.2.2 (filtros NTSC) | `third_party/snes_ntsc/` | LGPL-2.1 (`LICENSE.txt`), © Shay Green (Blargg) | Copia del árbol `filter/` de `snes9xrd`. Solo se cambió `snes_ntsc_config.h`: entrada y salida RGB565. |
+| hqx (HQ2x, HQ3x, HQ4x) | `third_party/hqx/` | ISC, según la cabecera del archivo (© Clément Bosch, de FFmpeg; diseño original de Maxim Stepin) | Copia de `filter/hq2x.cpp` de `snes9xrd`, que ya trae una adaptación a RGB565 hecha para Snes9x. Cambios aquí: sin `port.h`, tabla YUV con el orden de canales de Qt y un `hq2x.h` propio. **Pendiente de verificar:** quién escribió esa adaptación a RGB565; la cabecera declara ISC, pero la procedencia de ese cambio no está comprobada. |
+
+Los filtros Simple 2x/3x/4x, Scanlines, Sharp Bilinear 4x, EPX, Super Eagle, 2xSaI y Super 2xSaI están
+escritos para Xfusion (`src/VideoFilters.cpp`) a partir de las ideas publicadas de cada algoritmo, sin código de
+Snes9x (cuya licencia no es compatible con GPL-3). 2xSaI sigue las reglas de decisión conocidas; Super Eagle y Super
+2xSaI son variantes propias, no copias bit a bit de los originales.

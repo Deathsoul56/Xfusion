@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0010; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0019; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).
@@ -99,10 +99,10 @@ Reglas:
 - Aplica a SRAM y a estados (`states/` puede seguir la misma estructura por
   sistema). Los nombres de carpeta son fijos y no dependen del idioma de la UI.
 - Cada archivo se nombra a partir del juego; si dos juegos del mismo sistema
-  comparten nombre, se desambigua (por ejemplo, con un sufijo de hash de la ROM)
-  en lugar de sobrescribir.
+  comparten nombre, se desambigua con un sufijo de la huella del juego en lugar
+  de sobrescribir (implementado, ADR-0016).
 - El frontend crea las carpetas bajo demanda y nunca escribe saves fuera de la
-  carpeta de su sistema.
+  carpeta de su sistema. Los estados siguen la misma jerarquía en `states/`.
 - La raíz `saves/` se ubica en el directorio de datos del usuario y es
   configurable.
 - Si se cambia el core de un juego, la save existente en la carpeta del sistema
@@ -269,31 +269,107 @@ de la ventana.
   (grupos de plataformas, ADR-0010).
 - [x] Añadir asignación y guardado de bindings, con prevención de conflictos
   (`config\input.json`, panel Settings > Controllers, Auto-Assign).
-- [ ] Segundo jugador y atajos de teclado del frontend.
-- [ ] Implementar pantalla completa, relación de aspecto, escalado y volumen.
-- [ ] Probar cambios de foco, desconexión de mandos y cambio entre ventanas.
-- [ ] Establecer qué opciones de video/audio son globales y cuáles dependen del
-  core.
+- [x] Segundo jugador (bindings y mando por jugador, ADR-0014) y atajos de
+  teclado del frontend configurables (ADR-0015).
+- [x] Implementar pantalla completa (`F11`), relación de aspecto, escalado y
+  volumen (`Settings > Display` y `Sound`, `config\settings.json`).
+- [x] Probar cambios de foco y desconexión de mandos (pruebas `ctest`: entrada
+  bloqueada sin foco; mando desenchufado con un botón apretado y reconectado).
+  El cambio entre ventanas se comprobó a mano con el diálogo de ajustes.
+- [x] Establecer qué opciones de video/audio son globales y cuáles dependen del
+  core (ADR-0013: hoy todas son globales; las del core irán con su perfil).
 
 **Salida:** configurar y usar teclado y mando durante sesiones normales, con
 ajustes conservados después de reiniciar la aplicación.
 
+**Fase 2 completada (2026-11-19).** Verificado en la aplicación real con una ROM
+propia (`scripts\make-test-rom.ps1`) y teclas sintéticas: el jugador 1 (flechas)
+y el jugador 2 (`I`) se leen por separado en el core; pausa (`P`), pantalla
+completa (`F11`, con el menú oculto), volumen (`F2`/`F3`) y silencio (`F4`)
+funcionan y se guardan en `config\settings.json`; las páginas Controllers
+(jugador 2) y Hotkeys del diálogo se revisaron a ojo. Límites: solo se probó con
+el teclado y con joysticks virtuales de SDL (`ctest`); la asignación de dos mandos
+físicos distintos no se ha probado con hardware.
+
+**Ampliación a la par de `snes9xrd` (2026-11-20, ADR-0018).** El propietario pidió
+que Xfusion y `snes9xrd` sean gemelos:
+
+- [x] Ventana de ajustes con las mismas páginas (General, Display, Sound,
+  Emulation, Controllers, Shortcuts, Files) y menús File, Emulation, View,
+  Options, Help.
+- [x] Shortcuts con cuatro enlaces por acción (teclas con modificadores y mandos),
+  mantener y pulsar, duplicados resaltados, Reset y Clear por fila, Reset to
+  Default por columna y Clear All.
+- [x] Controllers: Controller Ports, Set, Edit, Auto-Assign por columna, "raw SDL",
+  iconos, filas Turbo y Swap Controllers 1 and 2.
+- [x] Presentación: mantener proporción, escalado entero, Stretch, bilineal,
+  proporción (core, 4:3, píxeles cuadrados), 22 filtros de software como
+  `snes9xrd` (Scanlines, Simple, Super Eagle, 2xSaI, Super 2xSaI, EPX, HQx, xBRZ,
+  SharpBilinear4x y cuatro NTSC; ADR-0019, `THIRD_PARTY_NOTICES.md`),
+  mensajes apilados con superposiciones, siete temas.
+- [x] Sonido: volumen normal y de avance rápido, dispositivo, frecuencia, búfer y
+  silenciar durante avance rápido o avance de fotogramas.
+- [x] Velocidad: avance rápido (10×), Speed Up/Down, frame skip, Frame Advance y
+  métodos de sincronización.
+- [x] Pausa al perder el foco, al minimizar y mientras hay diálogos de archivo.
+- [ ] Pendiente: Achievements (posterior), renderizado por GPU y shaders, ajustes
+  por sistema, y probar con dos mandos físicos.
+
 ### Fase 3 — Persistencia y estados
 
-- [ ] Implementar la jerarquía `saves/<sistema>/` (sección 3.1), con creación
-  de carpetas bajo demanda y prevención de colisiones de nombres.
-- [ ] Guardar SRAM automáticamente al terminar o descargar el juego y cargarla
-  al iniciar, respetando las capacidades del core.
-- [ ] Implementar estados y slots si el core ofrece serialización válida.
-- [ ] Añadir confirmación o deshacer para evitar reemplazar accidentalmente un
-  estado por una carga incorrecta.
-- [ ] Mostrar errores de lectura/escritura y no presentar una operación fallida
+- [x] Implementar la jerarquía `saves/<sistema>/` (sección 3.1), con creación
+  de carpetas bajo demanda y prevención de colisiones de nombres (`GameSaves`,
+  ADR-0016).
+- [x] Guardar SRAM automáticamente al terminar o descargar el juego y cargarla
+  al iniciar, respetando las capacidades del core (también cada 10 s si cambió).
+- [x] Implementar estados y slots si el core ofrece serialización válida (10
+  slots por juego, `states\<sistema>\`, ADR-0017).
+- [x] Añadir confirmación o deshacer para evitar reemplazar accidentalmente un
+  estado por una carga incorrecta (deshacer carga, aviso si cambia la versión del
+  core, copia `.bak` del estado anterior).
+- [x] Mostrar errores de lectura/escritura y no presentar una operación fallida
   como exitosa.
 
 **Salida:** partidas persistentes organizadas por sistema, verificando que dos
 juegos con el mismo nombre en sistemas distintos no se sobrescriben; estados
 probados en los cores compatibles;
 documentar sus límites de compatibilidad y las funciones no soportadas.
+
+**Fase 3 completada (2026-11-19).** Verificado en la aplicación real con la ROM
+propia (que guarda un interruptor en SRAM y en RAM de trabajo) y con un juego
+real de Game Gear:
+
+- SRAM: no existe el `.srm` justo tras cambiar el estado y aparece a los 12 s con
+  el juego en marcha; tras matar el proceso sin cerrarlo, la reapertura conserva
+  el cambio. Un cambio que vuelve la SRAM a ceros (PicoDrive entonces informa
+  tamaño 0) también se guarda.
+- Colisiones: otro juego con el mismo nombre de archivo y contenido distinto
+  empezó limpio y guardó en `test-rom (5644e5db).srm` sin tocar `test-rom.srm`;
+  el mismo nombre en Genesis y en Game Gear usó `saves\Genesis\` y
+  `saves\Game Gear\` (y lo mismo en `states\`).
+- Estados: guardar, cargar, deshacer la carga, cambiar de slot, un slot vacío
+  no cambia nada, y un estado guardado se restaura en otra sesión. Un estado
+  marcado con otra versión del core pide confirmación antes de cargar.
+- Límites: solo PicoDrive 2.04 (`26ecb2b`) y un equipo; los estados de 32X y Sega
+  CD no se han probado; el aviso por archivo dañado y el bloqueo ante un `.srm`
+  ilegible solo se cubren con pruebas unitarias y por lectura de código.
+
+**Ampliación a la par de `snes9xrd` (2026-11-20, ADR-0018).**
+
+- [x] Slot actual 0–999 y ranuras rápidas 0–9, deshacer en archivo, `.oops` y
+  `.resume`, vista previa con miniaturas.
+- [x] Rewind (10 MB y 5 fotogramas por defecto, mantener `Y`).
+- [x] Capturas de pantalla (F12) y Save S-RAM Data.
+- [x] Intervalo de la SRAM configurable (30 s) y ubicaciones de saves, estados,
+  capturas y BIOS en Settings > Files.
+- Verificado en la aplicación real con la ROM propia: guardar, cargar y deshacer
+  estado con `Ctrl+S`, `Ctrl+L` y `Ctrl+U`, captura con `F12`, rewind con `Y`,
+  avance rápido (600 fotogramas por segundo con `Tab`), pausa (`P`) y pausa al
+  perder el foco (0 fotogramas), un solo mando (el segundo jugador deja de
+  responder), turbo (alterna a unos 15 Hz), cambio de mandos (`Ctrl+6`) y las
+  siete páginas del diálogo. Fuera de la comprobación manual: el avance de
+  fotograma (`Frame Advance`) acumula fotogramas pero el primero tras una pausa
+  no refleja todavía la entrada en la imagen de la ROM de prueba.
 
 ### Fase 4 — Biblioteca y metadatos
 
@@ -420,35 +496,80 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   teclado y marca el ritmo con la cola de audio. `xfusion.exe --stats` imprime
   cada segundo los fotogramas emulados y el estado del audio;
   `scripts\stress-ui.ps1` arrastra la ventana y abre menús para medirlo.
-- Menús: abrir/cerrar juego, pausa, reinicio y pantalla completa (`F11`).
+- Menús (a la par de `snes9xrd`, ADR-0018): File (Open File, Recent Files, Save/Load
+  Game Position con bancos de diez ranuras y Oops File, Save/Load with Preview,
+  Save Other, ROM Information, Reset Game, Close Game, Exit), Emulation (Pause,
+  Pause When Inactive, Frame Advance, Reset, Hard Reset), View (Set Size 1x–10x,
+  Fullscreen), Options (General, Display, Sound, Emulation, Controllers, Shortcuts,
+  Files) y Help. Los menús muestran el primer enlace de cada atajo. Los atajos
+  (Settings > Shortcuts, `config\settings.json`) son los de `snes9xrd`: `Ctrl+O`
+  abrir, `P` pausa, `Ctrl+R` reinicio, `F11` pantalla completa (`Esc` la deja y es
+  fijo), `F12` captura, `Ctrl+S` / `Ctrl+L` / `Ctrl+U` guardar, cargar y deshacer
+  estado, `Ctrl+=` / `Ctrl+-` slot actual, `Shift+F1`…`F10` y `F1`…`F10` guardar y
+  cargar las ranuras 0–9, `Tab` avance rápido (mantener), `` ` `` avance rápido
+  (alternar), `Y` rewind (mantener), `=` / `-` velocidad, `Ctrl+6` cambiar mandos
+  1 y 2, `Ctrl+RePág` / `Ctrl+AvPág` volumen. Los avisos salen apilados sobre la
+  imagen, porque la barra de estado se oculta en pantalla completa.
+- Ajustes globales (ADR-0013, `config\settings.json`): en `Settings > Display`,
+  relación de aspecto (núcleo, 4:3 o estirar), filtro suave y escalado entero;
+  en `Sound`, volumen y silencio. Se aplican al pulsar OK.
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
 - Datos junto al ejecutable (`<carpeta del .exe>\`; configurable con `XFUSION_DATA_DIR`):
-  `cores\`, `system\` (BIOS), `config\` y `saves\<sistema>\` según la sección 3.1.
+  `cores\`, `system\` (BIOS), `config\`, `saves\<sistema>\` y
+  `states\<sistema>\` según la sección 3.1.
   No se escribe nada en `%APPDATA%`. En desarrollo el ejecutable está en `build\`,
   así que borrar `build\` también borra saves y BIOS: para conservarlos entre
   compilaciones limpias, apuntar `XFUSION_DATA_DIR` a otra carpeta.
-  `cores\`, `system\` (BIOS) y `saves\<sistema>\` según la sección 3.1.
-- SRAM: se carga al abrir y se guarda al cerrar el juego en
-  `saves\<sistema>\<juego>.srm`. PicoDrive no reporta SRAM mientras esté a cero,
-  así que no se crean archivos vacíos.
+- SRAM (`src\GameSaves.*`, ADR-0016): se carga al abrir, se guarda cada 10 s si
+  cambió (el hilo de emulación la entrega con el juego en marcha) y al cerrar,
+  en `saves\<sistema>\<juego>.srm`. PicoDrive no reporta SRAM mientras esté a
+  cero, así que no se crean archivos vacíos. El nombre `<juego>` pertenece al
+  contenido que escribió primero (índice `saves\<sistema>\saves.json`); otro
+  juego con el mismo nombre recibe `<juego> (<huella>)`. Si el `.srm` no se
+  puede leer o su tamaño no coincide con el del core, el juego arranca sin él y
+  **no se sobrescribe** durante esa sesión. Un fallo de escritura se avisa (al
+  cerrar siempre; jugando, la primera vez, y se reintenta).
+- Estados (`src\StateFile.*`, ADR-0017, ADR-0018): slot actual 0–999
+  (`<juego>.NNN.state`, ranuras rápidas 0–9), deshacer en archivo
+  (`.undo.state`), `.oops.state` automático, `.resume.state` al cerrar el juego
+  (opcional), miniaturas y vista previa. Archivos comprimidos con core, versión,
+  juego y suma de verificación. Cargar un estado de otro juego o de otro core se
+  rechaza; si solo cambió la versión del core se pregunta antes; si el core
+  rechaza el estado, se vuelve a donde estaba. Guardar sobre una ranura llena
+  deja el anterior como `.bak`.
+- Rewind, velocidad y capturas (ADR-0018): rewind con historia de diferencias
+  (10 MB y una instantánea cada 5 fotogramas por defecto), avance rápido de 10×,
+  Speed Up/Down, frame skip, Frame Advance, y F12 guarda un PNG del fotograma en
+  `screenshots\<sistema>\`.
+- Mensajes apilados y superposiciones (frame rate, iconos de pausa y avance,
+  hora, botones pulsados), siete temas y las ubicaciones de saves, estados,
+  capturas y BIOS configurables (Settings > Files).
 
-- Controles configurables (ADR-0010): `Settings > Controllers...` (`Ctrl+,`).
+- Controles configurables (ADR-0010, ADR-0014, ADR-0018): `Options > Controllers...`, página Controllers.
   Dos grupos de plataforma con bindings propios: Genesis / Sega CD / 32X y
-  SG-1000 / Master System / Game Gear. Cuatro ranuras por acción, teclado y
-  mandos SDL3, Auto-Assign y conflictos resueltos moviendo la fuente. Se guarda
-  en `config\input.json`. El grupo Genesis permite elegir mando de 3 o 6
-  botones (por defecto 6); el cambio se aplica en caliente y en 3 botones se
+  SG-1000 / Master System / Game Gear. **Dos jugadores**: cada grupo tiene los
+  bindings del jugador 1 y del jugador 2 (combo `Player`), cuatro ranuras por
+  acción, teclado y mandos SDL3, Auto-Assign (usa el mando del jugador elegido)
+  y conflictos resueltos moviendo la fuente: una tecla solo mueve una acción
+  del grupo, de cualquiera de los dos jugadores; un botón de mando solo una del
+  mismo jugador. Cada jugador lee un mando: en `Automatic` se reparten por
+  orden de conexión los mandos que nadie eligió por nombre, y el combo
+  `Gamepad` permite fijar uno por nombre. Se guarda en `config\input.json`
+  (versión 2; la 1 se lee como jugador 1). El grupo Genesis permite elegir mando de 3 o 6
+  botones (por defecto 6, vale para los dos jugadores); el cambio se aplica en caliente y en 3 botones se
   ocultan X, Y, Z y Mode. El diagrama usa una imagen por mando y se ilumina el
   botón que se aprieta en ese momento (teclado o mando, según los bindings en
   edición), como en `snes9xrd`; la de Master System incluye una etiqueta
-  "PAUSE (console)" porque esa tecla está en la consola. Pruebas: `ctest` (21 casos con joysticks
-  virtuales); el cambio 3/6 se comprobó con una ROM sintética que detecta el
-  mando.
+  "PAUSE (console)" porque esa tecla está en la consola. Pruebas: `ctest` (tres
+  ejecutables, 67 casos; `input_tests` usa joysticks virtuales); el cambio 3/6 y
+  los dos jugadores se comprobaron con una ROM sintética que lee los dos puertos
+  (`scripts\make-test-rom.ps1`).
 
-Teclado por defecto (Genesis): flechas, `Z`/`X`/`C` = A/B/C, `A`/`S`/`D` =
-X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
-`X` = Button 2.
+Teclado por defecto (Genesis), jugador 1: flechas, `Z`/`X`/`C` = A/B/C,
+`A`/`S`/`D` = X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Jugador 2: `I`/`J`/`K`/`L`
+= cruz, `7`/`8`/`9` = A/B/C, `4`/`5`/`6` = X/Y/Z, `0` = Start, `3` = Mode. Master
+System: `Z` = Button 1, `X` = Button 2 (jugador 1) y `7`/`8` (jugador 2).
 
 ### 10.3 Limitaciones conocidas
 
@@ -457,15 +578,27 @@ X/Y/Z, `Enter` = Start, `Retroceso` = Mode. Master System: `Z` = Button 1,
   un proyecto gratuito se puede incluir en los paquetes (ADR-0006). Xfusion usa
   GPL-3.0-or-later (`LICENSE`). Pendiente: `THIRD_PARTY_NOTICES.md`.
   Esto es una nota técnica, no asesoría legal.
-- Solo un jugador; sin atajos configurables ni estados. Los bindings de mando
-  son índices crudos de SDL y valen para cualquier mando conectado. Probado con
-  teclado y con un 8BitDo (XInput). SG-1000 comparte los bindings de Master
-  System (supuesto).
+- Los bindings de mando son índices crudos de SDL y valen para el mando que
+  lee ese jugador. Probado con teclado, con un 8BitDo (XInput) y con joysticks
+  virtuales para dos jugadores; no se ha probado con dos mandos físicos. SG-1000
+  comparte los bindings de Master System (supuesto). Los atajos aceptan teclas con
+  modificadores y entradas de mando, pero no combinaciones de mando ni de varias
+  teclas sin modificador. `=`, `-` y `\` dependen de la distribución del teclado:
+  en teclado español hay que reasignarlos. Un mando solo cuenta en los atajos si
+  está en primer plano o si se activó "Allow gamepad input while window is not
+  focused".
 - **Imágenes de los mandos** (`src\resources\controllers\`, tres): aportadas por el
   propietario; falta confirmar su origen y licencia antes de publicar. Si no
   se pueden redistribuir bajo GPL-3.0, hay que reemplazarlas por dibujos propios.
-- No hay detección de colisión de nombres dentro de un mismo sistema, ni
-  escritura periódica de SRAM (solo al cerrar; un cierre brusco la pierde).
+- Saves y estados: la identidad de un juego es una huella (tamaño más el
+  principio y el final del archivo; un `.cue` incluye los archivos que cita). Un
+  juego modificado en su sitio (un parche) cuenta como otro juego y empieza
+  con su propio save. Un cierre brusco pierde como mucho los últimos 10 s de
+  SRAM. Los archivos que escribe el propio core en la carpeta de saves (la copia
+  interna de Sega CD) no pasan por este índice. Un estado depende del core y su
+  versión; no hay rewind ni estados automáticos. Con el juego en pausa, cargar un
+  estado ejecuta un fotograma para redibujar. La raíz `saves\` aún no se puede
+  mover por separado de `XFUSION_DATA_DIR`.
 - Sin biblioteca, opciones del core ni gestión de versiones de cores. Para Sega
   CD el BIOS se copia a mano (ver abajo); no hay validación del archivo.
 - Probado con una ROM sintética de Genesis y con la colección local (634 ROMs,

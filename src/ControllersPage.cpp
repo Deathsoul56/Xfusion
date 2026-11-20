@@ -1,5 +1,6 @@
 #include "ControllersPage.h"
 
+#include <QAbstractItemView>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -7,10 +8,13 @@
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
+#include <QToolButton>
+#include <QSignalBlocker>
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <algorithm>
 
+#include "BindingIcons.h"
 #include "ControllerDiagram.h"
 
 namespace {
@@ -18,6 +22,7 @@ namespace {
 constexpr int kCaptureTimeoutMs = 8000;
 constexpr int kCapturePollMs = 16;
 constexpr int kLivePollMs = 30;
+constexpr int kDeviceRefreshTicks = 33; // about once a second at kLivePollMs
 constexpr int kFirstBindingColumn = 1;
 constexpr int kClearColumn = kFirstBindingColumn + InputConfig::kSlots;
 
@@ -28,6 +33,12 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     , m_input(input)
     , m_config(config)
     , m_platform(new QComboBox(this))
+    , m_ports(new QComboBox(this))
+    , m_player(new QComboBox(this))
+    , m_autoAssignButton(new QToolButton(this))
+    , m_autoAssignMenu(new QMenu(this))
+    , m_raw(new QLabel(this))
+    , m_device(new QComboBox(this))
     , m_padRow(new QWidget(this))
     , m_padType(new QComboBox(this))
     , m_status(new QLabel(this))
@@ -39,21 +50,65 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
         if (group.id == initialGroup)
             m_platform->setCurrentIndex(m_platform->count() - 1);
     }
+    m_ports->addItem("One Controller", static_cast<int>(InputConfig::PortMode::OneController));
+    m_ports->addItem("Two Controllers", static_cast<int>(InputConfig::PortMode::TwoControllers));
+    m_ports->setToolTip("With one controller the second port is empty for the game.");
+    for (int player = 0; player < InputConfig::kPlayers; ++player)
+        m_player->addItem(QString("SEGA Controller %1").arg(player + 1), player);
+    m_device->setToolTip("The gamepad this player uses. Automatic gives each player the next connected gamepad that nobody "
+                         "picked by name. The keyboard is shared.");
 
-    auto* autoAssignButton = new QPushButton("Auto-Assign", this);
-    autoAssignButton->setToolTip("Fill the controller column from the standard layout of the connected gamepad");
+    // The Edit and Auto-Assign menus work on the controller shown in the Set box.
+    auto* editButton = new QToolButton(this);
+    editButton->setText("Edit");
+    editButton->setPopupMode(QToolButton::InstantPopup);
+    editButton->setToolTip("Clear groups of bindings");
+    auto* editMenu = new QMenu(editButton);
+    editMenu->addAction("Clear Current Controller", this, [this] {
+        endCapture();
+        m_config.clearPlayer(currentGroup(), currentPlayer());
+        rebuildTable();
+        showStatus("Cleared this controller");
+    });
+    editMenu->addAction("Clear All Controllers", this, [this] {
+        endCapture();
+        for (int player = 0; player < InputConfig::kPlayers; ++player)
+            m_config.clearPlayer(currentGroup(), player);
+        rebuildTable();
+        showStatus("Cleared all controllers");
+    });
+    editButton->setMenu(editMenu);
+    m_autoAssignButton->setText("Auto-Assign");
+    m_autoAssignButton->setPopupMode(QToolButton::InstantPopup);
+    m_autoAssignButton->setToolTip("Fill one binding column from the keyboard defaults or from a connected gamepad");
+    m_autoAssignButton->setMenu(m_autoAssignMenu);
+    m_raw->setStyleSheet("color: gray; font-size: 9pt;");
+
+    // The platform group is the parent: ports, sets and bindings below all belong to it.
+    auto* platformRow = new QHBoxLayout;
+    platformRow->addWidget(new QLabel("Platform:", this));
+    platformRow->addWidget(m_platform, 1);
+
+    auto* portsRow = new QHBoxLayout;
+    portsRow->addWidget(new QLabel("Controller Ports:", this));
+    portsRow->addWidget(m_ports, 1);
 
     auto* top = new QHBoxLayout;
-    top->addWidget(new QLabel("Platform:", this));
-    top->addWidget(m_platform, 1);
-    top->addWidget(autoAssignButton);
+    top->addWidget(new QLabel("Set:", this));
+    top->addWidget(m_player, 1);
+    top->addWidget(editButton);
+    top->addWidget(m_autoAssignButton);
+
+    auto* deviceRow = new QHBoxLayout;
+    deviceRow->addWidget(new QLabel("Gamepad:", this));
+    deviceRow->addWidget(m_device, 1);
 
     m_padType->addItem("6 button pad", static_cast<int>(PadType::SixButton));
     m_padType->addItem("3 button pad", static_cast<int>(PadType::ThreeButton));
-    m_padType->setToolTip("The pad the game sees. Some games misbehave with the 6 button pad; X, Y, Z and Mode only exist on it.");
+    m_padType->setToolTip("The pad the game sees, for both players. Some games misbehave with the 6 button pad; X, Y, Z and Mode only exist on it.");
     auto* padLayout = new QHBoxLayout(m_padRow);
     padLayout->setContentsMargins(0, 0, 0, 0);
-    padLayout->addWidget(new QLabel("Controller:", m_padRow));
+    padLayout->addWidget(new QLabel("Pad type:", m_padRow));
     padLayout->addWidget(m_padType, 1);
 
     m_status->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
@@ -78,10 +133,14 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     m_table->setColumnWidth(kClearColumn, 70);
 
     auto* layout = new QVBoxLayout(this);
+    layout->addLayout(platformRow);
+    layout->addLayout(portsRow);
     layout->addLayout(top);
+    layout->addLayout(deviceRow);
     layout->addWidget(m_padRow);
     layout->addWidget(m_status);
     layout->addWidget(m_diagram, 3);
+    layout->addWidget(m_raw);
     layout->addWidget(m_table, 4);
 
     m_pollTimer.setInterval(kCapturePollMs);
@@ -98,7 +157,20 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
         rebuildTable();
         showStatus({});
     });
-    connect(autoAssignButton, &QPushButton::clicked, this, &ControllersPage::autoAssign);
+    connect(m_player, &QComboBox::currentIndexChanged, this, [this] {
+        endCapture();
+        refreshDevices(true);
+        rebuildTable();
+        showStatus({});
+    });
+    connect(m_device, &QComboBox::activated, this, [this] {
+        m_config.setDevice(currentPlayer(), m_device->currentData().toString());
+        showStatus({});
+    });
+    connect(m_ports, &QComboBox::activated, this, [this] {
+        m_config.setPortMode(static_cast<InputConfig::PortMode>(m_ports->currentData().toInt()));
+        showStatus({});
+    });
     connect(m_padType, &QComboBox::currentIndexChanged, this, [this] {
         endCapture();
         m_config.setPadType(static_cast<PadType>(m_padType->currentData().toInt()));
@@ -130,12 +202,42 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     connect(&m_liveTimer, &QTimer::timeout, this, &ControllersPage::updateLiveButtons);
     m_liveTimer.start();
 
+    m_ports->setCurrentIndex(m_ports->findData(static_cast<int>(m_config.portMode())));
+    refreshDevices(true);
+    rebuildAutoAssignMenu();
     rebuildTable();
 }
 
 InputGroup ControllersPage::currentGroup() const
 {
     return static_cast<InputGroup>(m_platform->currentData().toInt());
+}
+
+int ControllersPage::currentPlayer() const
+{
+    return m_player->currentData().toInt();
+}
+
+// Lists the connected gamepads. One that was picked but is unplugged stays in the list so the choice is not
+// lost silently.
+void ControllersPage::refreshDevices(bool force)
+{
+    const QStringList names = m_input.controllerNames();
+    if (!force && (names == m_knownDevices || m_device->view()->isVisible()))
+        return;
+    m_knownDevices = names;
+    rebuildAutoAssignMenu();
+
+    const QString chosen = m_config.device(currentPlayer());
+    const QSignalBlocker blocker(m_device);
+    m_device->clear();
+    m_device->addItem("Automatic", QString());
+    for (const QString& name : names)
+        if (m_device->findData(name) < 0)
+            m_device->addItem(name, name);
+    if (!chosen.isEmpty() && m_device->findData(chosen) < 0)
+        m_device->addItem(QString("%1 (not connected)").arg(chosen), chosen);
+    m_device->setCurrentIndex(qMax(0, m_device->findData(chosen)));
 }
 
 void ControllersPage::syncPadTypeCombo()
@@ -189,8 +291,9 @@ void ControllersPage::refreshCell(int row, int slot)
     QTableWidgetItem* item = m_table->item(row, kFirstBindingColumn + slot);
     if (!item)
         return;
-    const InputBinding& binding = m_config.bindings(currentGroup(), m_rowButtons[static_cast<std::size_t>(row)])[slot];
+    const InputBinding& binding = m_config.bindings(currentGroup(), currentPlayer(), m_rowButtons[static_cast<std::size_t>(row)])[slot];
     item->setText(binding.displayName());
+    item->setIcon(bindingIcon(binding, palette().color(QPalette::Text)));
     item->setForeground(binding.isNone() ? palette().color(QPalette::Disabled, QPalette::Text) : palette().color(QPalette::Text));
 }
 
@@ -208,8 +311,14 @@ void ControllersPage::updateLiveButtons()
     if (m_capture)
         pressed[static_cast<std::size_t>(m_capture->button)] = true;
     else if (isActiveWindow())
-        pressed = m_input.pressedWith(currentGroup(), m_config);
+        pressed = m_input.pressedWith(currentGroup(), currentPlayer(), m_config);
     m_diagram->setPressed(pressed);
+    m_raw->setText(m_capture ? m_raw->text() : (m_input.debugRawState().isEmpty() ? QString() : "raw SDL: " + m_input.debugRawState()));
+
+    if (++m_liveTicks >= kDeviceRefreshTicks) {
+        m_liveTicks = 0;
+        refreshDevices(false);
+    }
 }
 
 void ControllersPage::showStatus(const QString& text)
@@ -247,14 +356,18 @@ void ControllersPage::finishCapture(const InputBinding& binding)
     if (!m_capture)
         return;
     const Capture capture = *m_capture;
-    const auto displaced = m_config.assign(currentGroup(), capture.button, capture.slot, binding);
+    const auto displaced = m_config.assign(currentGroup(), currentPlayer(), capture.button, capture.slot, binding);
     endCapture();
 
     QString message = QString("Bound %1").arg(binding.displayName());
     if (displaced) {
-        for (const InputAction& action : inputGroupDef(currentGroup()).actions)
-            if (action.button == *displaced)
-                message += QString(" (moved from %1)").arg(action.label);
+        for (const InputAction& action : inputGroupDef(currentGroup()).actions) {
+            if (action.button != displaced->button)
+                continue;
+            message += displaced->player == currentPlayer()
+                ? QString(" (moved from %1)").arg(action.label)
+                : QString(" (moved from player %1 %2)").arg(displaced->player + 1).arg(action.label);
+        }
     }
     showStatus(message);
 }
@@ -287,11 +400,30 @@ void ControllersPage::pollController()
         finishCapture(*binding);
 }
 
-void ControllersPage::autoAssign()
+// One submenu per binding column; each offers the default keyboard and every connected gamepad.
+void ControllersPage::rebuildAutoAssignMenu()
+{
+    m_autoAssignMenu->clear();
+    for (int slot = 0; slot < InputConfig::kSlots; ++slot) {
+        QMenu* submenu = m_autoAssignMenu->addMenu(QString("Binding Set #%1").arg(slot + 1));
+        submenu->addAction("Default Keyboard", this, [this, slot] { autoAssign(slot, QString()); });
+        for (const QString& name : m_knownDevices) {
+            if (!name.isEmpty())
+                submenu->addAction(name, this, [this, slot, name] { autoAssign(slot, name); });
+        }
+    }
+}
+
+void ControllersPage::autoAssign(int slot, const QString& deviceName)
 {
     endCapture();
     QString message;
-    m_input.autoAssign(currentGroup(), m_config, &message);
+    if (deviceName.isEmpty()) {
+        m_config.applyDefaultKeyboard(currentGroup(), currentPlayer(), slot);
+        message = QString("Assigned the default keyboard to binding #%1").arg(slot + 1);
+    } else {
+        m_input.autoAssign(currentGroup(), currentPlayer(), slot, deviceName, m_config, &message);
+    }
     for (int row = 0; row < m_table->rowCount(); ++row)
         refreshRow(row);
     showStatus(message);
@@ -300,7 +432,7 @@ void ControllersPage::autoAssign()
 void ControllersPage::clearRow(int row)
 {
     endCapture();
-    m_config.clearAction(currentGroup(), m_rowButtons[static_cast<std::size_t>(row)]);
+    m_config.clearAction(currentGroup(), currentPlayer(), m_rowButtons[static_cast<std::size_t>(row)]);
     refreshRow(row);
     showStatus({});
 }
@@ -308,7 +440,7 @@ void ControllersPage::clearRow(int row)
 void ControllersPage::clearCell(int row, int slot)
 {
     endCapture();
-    m_config.clearSlot(currentGroup(), m_rowButtons[static_cast<std::size_t>(row)], slot);
+    m_config.clearSlot(currentGroup(), currentPlayer(), m_rowButtons[static_cast<std::size_t>(row)], slot);
     refreshCell(row, slot);
     showStatus({});
 }
@@ -316,7 +448,7 @@ void ControllersPage::clearCell(int row, int slot)
 void ControllersPage::restoreDefaults()
 {
     endCapture();
-    m_config.resetGroup(currentGroup());
+    m_config.resetPlayer(currentGroup(), currentPlayer());
     rebuildTable();
-    showStatus("Defaults restored");
+    showStatus(QString("Player %1 defaults restored").arg(currentPlayer() + 1));
 }

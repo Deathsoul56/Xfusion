@@ -20,6 +20,8 @@ struct CoreProfile {
     // Options that select the Genesis-family pad and the value each PadType takes. Empty when the core has none.
     std::vector<std::string> padTypeKeys;
     std::string padTypeValues[2];
+    // The value that leaves a port empty (used for the second port when only one controller is plugged in).
+    std::string noPadValue;
     const std::string& padTypeValue(PadType type) const { return padTypeValues[static_cast<std::size_t>(type)]; }
     // Some cores keep state across games and need a fresh load for each one.
     bool reloadPerGame = false;

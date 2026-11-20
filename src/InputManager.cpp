@@ -141,8 +141,10 @@ void InputManager::refreshDevices()
             current.push_back(*known);
             continue;
         }
-        if (SDL_Joystick* handle = SDL_OpenJoystick(ids[i]))
-            current.push_back({ids[i], handle});
+        if (SDL_Joystick* handle = SDL_OpenJoystick(ids[i])) {
+            const char* name = SDL_GetJoystickName(handle);
+            current.push_back({ids[i], handle, name ? QString::fromUtf8(name) : QString("Controller")});
+        }
     }
     for (const Device& device : m_devices) {
         const bool kept = std::any_of(current.begin(), current.end(), [&](const Device& d) { return d.id == device.id; });
@@ -153,44 +155,74 @@ void InputManager::refreshDevices()
     SDL_free(ids);
 }
 
-bool InputManager::isPressed(const InputBinding& binding) const
+// Keys are read from the keyboard, which every player shares; the other inputs belong to the controller the
+// player was given, or to nothing when there is none.
+bool InputManager::isPressed(const InputBinding& binding, const Device* device, bool keys, bool pads) const
 {
-    switch (binding.type) {
-    case InputBinding::Type::Key:
+    if (binding.type == InputBinding::Type::Key) {
+        if (!keys)
+            return false;
 #ifdef Q_OS_WIN
         if (binding.value != 0)
             return (GetAsyncKeyState(binding.value) & 0x8000) != 0;
 #endif
         return m_keysDown.count(binding.code) != 0;
+    }
+    if (!device || !pads)
+        return false;
+    switch (binding.type) {
     case InputBinding::Type::JoyButton:
-        for (const Device& device : m_devices)
-            if (SDL_GetJoystickButton(device.handle, binding.code))
-                return true;
-        return false;
+        return SDL_GetJoystickButton(device->handle, binding.code);
     case InputBinding::Type::JoyHat:
-        for (const Device& device : m_devices)
-            if (SDL_GetJoystickHat(device.handle, binding.code) & binding.value)
-                return true;
-        return false;
-    case InputBinding::Type::JoyAxis:
-        for (const Device& device : m_devices) {
-            const int value = SDL_GetJoystickAxis(device.handle, binding.code);
-            if (binding.value < 0 ? value < -kAxisThreshold : value > kAxisThreshold)
-                return true;
-        }
-        return false;
+        return (SDL_GetJoystickHat(device->handle, binding.code) & binding.value) != 0;
+    case InputBinding::Type::JoyAxis: {
+        const int value = SDL_GetJoystickAxis(device->handle, binding.code);
+        return binding.value < 0 ? value < -kAxisThreshold : value > kAxisThreshold;
+    }
+    case InputBinding::Type::Key:
     case InputBinding::Type::None:
         break;
     }
     return false;
 }
 
-InputManager::PadState InputManager::buttonsFor(InputGroup group, const InputConfig& config) const
+InputManager::Assigned InputManager::assignDevices(const InputConfig& config) const
+{
+    Assigned assigned{};
+    std::vector<bool> taken(m_devices.size(), false);
+    // Players that named a controller get the first free one with that name, so two identical pads are told
+    // apart by the order they were plugged in.
+    for (int player = 0; player < InputConfig::kPlayers; ++player) {
+        if (config.device(player).isEmpty())
+            continue;
+        for (std::size_t i = 0; i < m_devices.size(); ++i) {
+            if (!taken[i] && m_devices[i].name == config.device(player)) {
+                taken[i] = true;
+                assigned[static_cast<std::size_t>(player)] = &m_devices[i];
+                break;
+            }
+        }
+    }
+    for (int player = 0; player < InputConfig::kPlayers; ++player) {
+        if (!config.device(player).isEmpty())
+            continue;
+        for (std::size_t i = 0; i < m_devices.size(); ++i) {
+            if (!taken[i]) {
+                taken[i] = true;
+                assigned[static_cast<std::size_t>(player)] = &m_devices[i];
+                break;
+            }
+        }
+    }
+    return assigned;
+}
+
+InputManager::PadState InputManager::buttonsFor(InputGroup group, int player, const InputConfig& config, const Device* device, bool keys, bool pads) const
 {
     PadState state{};
     for (const InputAction& action : inputGroupDef(group).actions) {
-        for (const InputBinding& binding : config.bindings(group, action.button)) {
-            if (isPressed(binding)) {
+        for (const InputBinding& binding : config.bindings(group, player, action.button)) {
+            if (isPressed(binding, device, keys, pads)) {
                 state[static_cast<std::size_t>(action.button)] = true;
                 break;
             }
@@ -199,20 +231,72 @@ InputManager::PadState InputManager::buttonsFor(InputGroup group, const InputCon
     return state;
 }
 
-InputManager::PadState InputManager::poll(InputGroup group, bool windowActive)
+InputManager::PadStates InputManager::poll(InputGroup group, bool windowActive, bool gamepadsInBackground)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     refreshDevices();
-    if (!windowActive)
-        return {};
-    return buttonsFor(group, m_config);
+    PadStates states{};
+    const bool pads = windowActive || gamepadsInBackground;
+    if (!pads)
+        return states;
+    const Assigned devices = assignDevices(m_config);
+    for (int player = 0; player < InputConfig::kPlayers; ++player)
+        states[static_cast<std::size_t>(player)] = buttonsFor(group, player, m_config, devices[static_cast<std::size_t>(player)], windowActive, true);
+    if (m_swapped)
+        std::swap(states[0], states[1]);
+    return states;
 }
 
-InputManager::PadState InputManager::pressedWith(InputGroup group, const InputConfig& config)
+void InputManager::setSwapped(bool swapped)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_swapped = swapped;
+}
+
+bool InputManager::swapped() const
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_swapped;
+}
+
+bool InputManager::joystickDown(const InputBinding& binding)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     refreshDevices();
-    return buttonsFor(group, config);
+    for (const Device& device : m_devices)
+        if (isPressed(binding, &device, false, true))
+            return true;
+    return false;
+}
+
+QString InputManager::debugRawState()
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    refreshDevices();
+    QStringList parts;
+    for (const Device& device : m_devices) {
+        QStringList buttons;
+        for (int i = 0, n = SDL_GetNumJoystickButtons(device.handle); i < n; ++i)
+            if (SDL_GetJoystickButton(device.handle, i))
+                buttons << QString::number(i);
+        QString text = QString("dev%1:").arg(device.id);
+        if (!buttons.isEmpty())
+            text += QString(" btn[%1]").arg(buttons.join(","));
+        for (int i = 0, n = SDL_GetNumJoystickHats(device.handle); i < n; ++i) {
+            const Uint8 hat = SDL_GetJoystickHat(device.handle, i);
+            const char* name = hat == SDL_HAT_UP ? "UP" : hat == SDL_HAT_DOWN ? "DOWN" : hat == SDL_HAT_LEFT ? "LEFT" : hat == SDL_HAT_RIGHT ? "RIGHT" : "?";
+            text += QString(" hat[%1=%2]").arg(i).arg(name);
+        }
+        parts << text;
+    }
+    return parts.join("  |  ");
+}
+
+InputManager::PadState InputManager::pressedWith(InputGroup group, int player, const InputConfig& config)
+{
+    std::lock_guard<std::mutex> lock(m_mutex);
+    refreshDevices();
+    return buttonsFor(group, player, config, assignDevices(config)[static_cast<std::size_t>(player)], true, true);
 }
 
 QStringList InputManager::controllerNames()
@@ -221,10 +305,8 @@ QStringList InputManager::controllerNames()
     m_refreshDue = true;
     refreshDevices();
     QStringList names;
-    for (const Device& device : m_devices) {
-        const char* name = SDL_GetJoystickName(device.handle);
-        names << (name ? QString::fromUtf8(name) : QString("Controller"));
-    }
+    for (const Device& device : m_devices)
+        names << device.name;
     return names;
 }
 
@@ -275,48 +357,59 @@ std::optional<InputBinding> InputManager::captureJoystick()
     return std::nullopt;
 }
 
-int InputManager::autoAssign(InputGroup group, InputConfig& config, QString* message)
+int InputManager::autoAssign(InputGroup group, int player, int slot, const QString& deviceName, InputConfig& config, QString* message)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
     m_refreshDue = true;
     refreshDevices();
 
-    for (const Device& device : m_devices) {
-        const SDL_JoystickID id = device.id;
-        if (!SDL_IsGamepad(id))
-            continue;
-        SDL_Gamepad* gamepad = SDL_OpenGamepad(id);
-        if (!gamepad)
-            continue;
-
-        int count = 0;
-        SDL_GamepadBinding** bindings = SDL_GetGamepadBindings(gamepad, &count);
-        int assigned = 0;
-        for (const GamepadDefault& entry : gamepadDefaults(group)) {
-            if (const auto binding = bindingForGamepadButton(bindings, count, entry.gamepadButton)) {
-                config.assign(group, entry.button, kControllerSlot, *binding);
-                ++assigned;
+    const Device* device = nullptr;
+    if (deviceName.isEmpty()) {
+        device = assignDevices(config)[static_cast<std::size_t>(player)];
+    } else {
+        for (const Device& candidate : m_devices) {
+            if (candidate.name == deviceName) {
+                device = &candidate;
+                break;
             }
         }
-        const auto leftX = axisForGamepadAxis(bindings, count, SDL_GAMEPAD_AXIS_LEFTX);
-        const auto leftY = axisForGamepadAxis(bindings, count, SDL_GAMEPAD_AXIS_LEFTY);
-        if (leftX) {
-            config.assign(group, PadButton::Left, kStickSlot, InputBinding::joyAxis(*leftX, -1));
-            config.assign(group, PadButton::Right, kStickSlot, InputBinding::joyAxis(*leftX, 1));
-        }
-        if (leftY) {
-            config.assign(group, PadButton::Up, kStickSlot, InputBinding::joyAxis(*leftY, -1));
-            config.assign(group, PadButton::Down, kStickSlot, InputBinding::joyAxis(*leftY, 1));
-        }
-        const char* name = SDL_GetGamepadName(gamepad);
+    }
+    if (!device) {
         if (message)
-            *message = QString("Assigned %1 controls from %2").arg(assigned).arg(name ? name : "the gamepad");
-        SDL_free(bindings);
-        SDL_CloseGamepad(gamepad);
-        return assigned;
+            *message = deviceName.isEmpty() ? QString("No controller found for player %1").arg(player + 1) : QString("%1 is not connected").arg(deviceName);
+        return 0;
+    }
+    SDL_Gamepad* gamepad = SDL_IsGamepad(device->id) ? SDL_OpenGamepad(device->id) : nullptr;
+    if (!gamepad) {
+        if (message)
+            *message = "The controller has no standard gamepad layout; bind it by hand";
+        return 0;
     }
 
+    const int stickSlot = (slot + 2) % InputConfig::kSlots;
+    int count = 0;
+    SDL_GamepadBinding** bindings = SDL_GetGamepadBindings(gamepad, &count);
+    int assigned = 0;
+    for (const GamepadDefault& entry : gamepadDefaults(group)) {
+        if (const auto binding = bindingForGamepadButton(bindings, count, entry.gamepadButton)) {
+            config.assign(group, player, entry.button, slot, *binding);
+            ++assigned;
+        }
+    }
+    const auto leftX = axisForGamepadAxis(bindings, count, SDL_GAMEPAD_AXIS_LEFTX);
+    const auto leftY = axisForGamepadAxis(bindings, count, SDL_GAMEPAD_AXIS_LEFTY);
+    if (leftX) {
+        config.assign(group, player, PadButton::Left, stickSlot, InputBinding::joyAxis(*leftX, -1));
+        config.assign(group, player, PadButton::Right, stickSlot, InputBinding::joyAxis(*leftX, 1));
+    }
+    if (leftY) {
+        config.assign(group, player, PadButton::Up, stickSlot, InputBinding::joyAxis(*leftY, -1));
+        config.assign(group, player, PadButton::Down, stickSlot, InputBinding::joyAxis(*leftY, 1));
+    }
+    const char* name = SDL_GetGamepadName(gamepad);
     if (message)
-        *message = m_devices.empty() ? "No controller found" : "The connected controller has no standard gamepad layout; bind it by hand";
-    return 0;
+        *message = QString("Assigned %1 controls from %2").arg(assigned).arg(name ? name : "the gamepad");
+    SDL_free(bindings);
+    SDL_CloseGamepad(gamepad);
+    return assigned;
 }
