@@ -15,21 +15,29 @@
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QSaveFile>
+#include <QStackedWidget>
 #include <QStatusBar>
 
 #include <algorithm>
 #include <cstdio>
 
 #include "AppPaths.h"
+#include "Bios.h"
+#include "DiscInfo.h"
+#include "GameHeader.h"
 #include "OsdOverlay.h"
 #include "SettingsDialog.h"
 #include "StatePreviewDialog.h"
 #include "StateFile.h"
 #include "SystemInfo.h"
+#include "Icons.h"
+#include "LibraryPage.h"
 #include "Theme.h"
 
 namespace {
@@ -49,9 +57,21 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     : QMainWindow(parent)
     , m_core(core)
     , m_video(new VideoWidget(this))
+    , m_library(new LibraryPage(this))
+    , m_central(new QStackedWidget(this))
 {
     setWindowTitle("Xfusion");
-    setCentralWidget(m_video);
+    // The library is what is shown while no game is open; the picture takes over when one starts.
+    m_central->addWidget(m_library);
+    m_central->addWidget(m_video);
+    setCentralWidget(m_central);
+    connect(m_library, &LibraryPage::gameActivated, this, [this](const QString& path) { openGame(path); });
+    connect(m_library, &LibraryPage::message, this, [this](const QString& text) { statusBar()->showMessage(text, 6000); });
+    connect(m_library, &LibraryPage::folderChosen, this, [this](const QString& folder) {
+        if (!m_settings.libraryFolders.contains(folder))
+            m_settings.libraryFolders << folder;
+        commitSettings("Library folder added");
+    });
     setFocusPolicy(Qt::StrongFocus);
     resize(960, 720);
 
@@ -91,6 +111,9 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     m_overlayTimer.setInterval(kOverlayPollMs);
     connect(&m_overlayTimer, &QTimer::timeout, this, &MainWindow::updateOverlays);
     m_overlayTimer.start();
+    m_playTimer.setInterval(60000);
+    connect(&m_playTimer, &QTimer::timeout, this, &MainWindow::commitPlayTime);
+    m_playTimer.start();
     m_joystickTimer.setInterval(kJoystickPollMs);
     connect(&m_joystickTimer, &QTimer::timeout, this, &MainWindow::pollShortcutJoysticks);
     m_joystickTimer.start();
@@ -131,7 +154,7 @@ void MainWindow::createFileMenu()
         m_actionTexts[id] = text;
         return action;
     };
-    add(ShortcutAction::OpenRom, "&Open File...", [this] { promptOpenGame(); });
+    setThemedActionIcon(add(ShortcutAction::OpenRom, "&Open File...", [this] { promptOpenGame(); }), "open");
     m_recentMenu = menu->addMenu("Recent Files");
     connect(m_recentMenu, &QMenu::aboutToShow, this, &MainWindow::populateRecentMenu);
     menu->addSeparator();
@@ -153,8 +176,10 @@ void MainWindow::createFileMenu()
     menu->addSeparator();
 
     QAction* reset = add(ShortcutAction::Reset, "&Reset Game", [this] { resetGame(false); });
+    setThemedActionIcon(reset, "refresh");
     m_closeAction = menu->addAction("&Close Game", this, [this] { closeGame(); });
-    add(ShortcutAction::Quit, "E&xit", [this] { close(); });
+    setThemedActionIcon(m_closeAction, "exit");
+    setThemedActionIcon(add(ShortcutAction::Quit, "E&xit", [this] { close(); }), "exit");
 
     m_gameActions = {screenshot, sram, m_romInfoAction, reset, m_closeAction};
     m_stateActions.push_back(savePreview);
@@ -206,6 +231,7 @@ void MainWindow::createEmulationMenu()
 {
     QMenu* menu = menuBar()->addMenu("&Emulation");
     m_pauseAction = menu->addAction("&Pause", this, [this] { setManualPause(!m_manualPause); });
+    setThemedActionIcon(m_pauseAction, "pause");
     m_actions[ShortcutAction::PauseContinue] = m_pauseAction;
     m_actionTexts[ShortcutAction::PauseContinue] = "&Pause";
     m_pauseUnfocusedAction = menu->addAction("Pause &When Inactive");
@@ -219,7 +245,9 @@ void MainWindow::createEmulationMenu()
     m_actionTexts[ShortcutAction::FrameAdvance] = "&Frame Advance";
     menu->addSeparator();
     QAction* reset = menu->addAction("Rese&t", this, [this] { resetGame(false); });
+    setThemedActionIcon(reset, "refresh");
     QAction* hardReset = menu->addAction("&Hard Reset", this, [this] { resetGame(true); });
+    setThemedActionIcon(hardReset, "reset");
     m_actions[ShortcutAction::PowerCycle] = hardReset;
     m_actionTexts[ShortcutAction::PowerCycle] = "&Hard Reset";
     m_gameActions.push_back(m_pauseAction);
@@ -236,6 +264,7 @@ void MainWindow::createViewMenu()
         size->addAction(multiple == 10 ? QString("1&0x") : QString("&%1x").arg(multiple), this, [this, multiple] { resizeToMultiple(multiple); });
     menu->addSeparator();
     QAction* fullscreen = menu->addAction("&Fullscreen", this, [this] { toggleFullscreen(); });
+    setThemedActionIcon(fullscreen, "fullscreen");
     m_actions[ShortcutAction::ToggleFullscreen] = fullscreen;
     m_actionTexts[ShortcutAction::ToggleFullscreen] = "&Fullscreen";
 }
@@ -244,8 +273,9 @@ void MainWindow::createOptionsMenu()
 {
     QMenu* menu = menuBar()->addMenu("&Options");
     const char* const labels[] = {"&General...", "&Display...", "&Sound...", "&Emulation...", "&Controllers...", "Shortcu&ts...", "&Files..."};
+    const char* const icons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders"};
     for (int page = 0; page < 7; ++page)
-        menu->addAction(labels[page], this, [this, page] { openSettings(page); });
+        setThemedActionIcon(menu->addAction(labels[page], this, [this, page] { openSettings(page); }), icons[page]);
 }
 
 void MainWindow::refreshMenuHints()
@@ -294,6 +324,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         return false;
     auto* keyEvent = static_cast<QKeyEvent*>(event);
     if (keyEvent->key() == Qt::Key_unknown)
+        return false;
+    // Typing in the library search is typing, not shortcuts.
+    if (qobject_cast<QLineEdit*>(QApplication::focusWidget()))
         return false;
     const bool down = isDown(keyEvent);
 
@@ -468,9 +501,17 @@ void MainWindow::openGame(const QString& path)
 {
     const std::optional<System> system = systemForFile(path);
     if (!system) {
-        QMessageBox::warning(this, "Xfusion", QString("Unrecognized game format: %1").arg(path));
+        QString why = QString("Unrecognized game format: %1").arg(QDir::toNativeSeparators(path));
+        if (QFileInfo(path).suffix().compare("cue", Qt::CaseInsensitive) == 0) {
+            const DiscInfo disc = readDisc(path);
+            if (!disc.problems.isEmpty())
+                why += "\n\n" + disc.problems.join("\n");
+        }
+        QMessageBox::warning(this, "Xfusion", why);
         return;
     }
+    if (*system == System::SegaCD && !prepareDisc(path))
+        return;
 
     closeGame();
     m_lastDir = QFileInfo(path).absolutePath();
@@ -517,6 +558,7 @@ void MainWindow::openGame(const QString& path)
     if (m_settings.sramInterval > 0)
         m_saveTimer.start(m_settings.sramInterval * 1000);
 
+    m_central->setCurrentWidget(m_video);
     addRecent(path);
     setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(path).completeBaseName()));
     statusBar()->showMessage(QString("%1 | %2 | saves: %3").arg(m_core.name(), systemDef(*system).folder, saveDir));
@@ -530,6 +572,60 @@ void MainWindow::openGame(const QString& path)
         toggleFullscreen();
     if (m_settings.saveStateOnClose && m_statesSupported && QFile::exists(m_saves->resumeStatePath()))
         loadStateFromFile(m_saves->resumeStatePath());
+}
+
+// Looks at a Sega CD disc before the core is asked to load it, so that what is wrong is said in plain words: tracks
+// missing from the cue sheet, or no BIOS for the region of the disc.
+bool MainWindow::prepareDisc(const QString& path)
+{
+    const DiscInfo disc = readDisc(path);
+    if (!disc.problems.isEmpty())
+        QMessageBox::warning(this, "Xfusion", "Some files of this disc are missing, so it may lack its music:\n\n" + disc.problems.join("\n"));
+
+    const unsigned regions = disc.header.regions;
+    if (regions == 0)
+        return true; // a .chd, or a header that does not say: the core decides
+    const auto offered = [&](const BiosStatus& status) {
+        return ((regions & GameHeader::Japan) && status.japan) || ((regions & GameHeader::Americas) && status.usa) || ((regions & GameHeader::Europe) && status.europe);
+    };
+    BiosStatus status = checkBios(AppPaths::systemDir());
+    if (offered(status))
+        return true;
+
+    QStringList names;
+    if (regions & GameHeader::Japan)
+        names << biosFileName(BiosRegion::Japan);
+    if (regions & GameHeader::Americas)
+        names << biosFileName(BiosRegion::USA);
+    if (regions & GameHeader::Europe)
+        names << biosFileName(BiosRegion::Europe);
+    if (names.isEmpty())
+        return true; // an Asia-only disc: no BIOS of its own to ask for
+    QMessageBox box(QMessageBox::Warning, "Xfusion",
+                    QString("This disc is for %1 and needs the Sega CD BIOS for that region: %2.\n\nThey go in %3.\n\n"
+                            "If you have BIOS dumps (with any file name), Xfusion can find them and copy them there.")
+                        .arg(disc.header.regionText(), names.join(" or "), QDir::toNativeSeparators(AppPaths::systemDir())),
+                    QMessageBox::NoButton, this);
+    QPushButton* find = box.addButton("Find BIOS Files...", QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Cancel);
+    box.exec();
+    if (box.clickedButton() != find)
+        return false;
+    const QString folder = QFileDialog::getExistingDirectory(this, "Folder with the BIOS dumps", m_lastDir);
+    if (folder.isEmpty())
+        return false;
+    QString error;
+    const QStringList installed = installBios(folder, AppPaths::systemDir(), &error);
+    if (!error.isEmpty())
+        QMessageBox::warning(this, "Xfusion", error);
+    status = checkBios(AppPaths::systemDir());
+    if (!installed.isEmpty())
+        showMessage("BIOS installed: " + installed.join(", "));
+    if (!offered(status)) {
+        QMessageBox::warning(this, "Xfusion", "No BIOS for this disc was found in that folder.");
+        return false;
+    }
+    return true;
 }
 
 bool MainWindow::closeGame()
@@ -547,6 +643,8 @@ bool MainWindow::closeGame()
         }
     }
 
+    trackPlayTime(false);
+    commitPlayTime();
     m_saveTimer.stop();
     m_emu.reset();
     flushSaveRam(true);
@@ -559,6 +657,7 @@ bool MainWindow::closeGame()
     m_manualPause = false;
     m_video->clear();
     m_video->osd()->setIndicators(false, false, false);
+    m_central->setCurrentWidget(m_library);
     setWindowTitle("Xfusion");
     statusBar()->showMessage("Game closed");
     updateActions();
@@ -589,8 +688,22 @@ void MainWindow::showRomInfo()
     if (!m_saves || !m_gameSystem)
         return;
     const QFileInfo info(m_gamePath);
+    GameHeader header;
+    QString extra;
+    if (*m_gameSystem == System::SegaCD) {
+        const DiscInfo disc = readDisc(m_gamePath);
+        header = disc.header;
+        extra = QString("Disc: %1, %2 data / %3 audio tracks\n").arg(disc.format).arg(disc.dataTracks).arg(disc.audioTracks);
+        if (!disc.problems.isEmpty())
+            extra += "Problems: " + disc.problems.join("; ") + "\n";
+    } else {
+        header = readCartridgeHeader(m_gamePath);
+    }
+    if (header.valid) {
+        extra += QString("Name in game: %1\nProduct: %2\nRegion: %3\n").arg(header.title(), header.product, header.regionText().isEmpty() ? QString("not stated") : header.regionText());
+    }
     QMessageBox::information(this, "ROM Information",
-                             QString("Title: %1\nFile: %2\nSize: %3 bytes\nSystem: %4\nCore: %5\nGame id: %6\nSaves: %7\nStates: %8")
+                             extra + QString("Title: %1\nFile: %2\nSize: %3 bytes\nSystem: %4\nCore: %5\nGame id: %6\nSaves: %7\nStates: %8")
                                  .arg(info.completeBaseName(), QDir::toNativeSeparators(m_gamePath))
                                  .arg(info.size())
                                  .arg(systemDef(*m_gameSystem).folder, m_core.name(), m_saves->gameId(),
@@ -978,6 +1091,7 @@ void MainWindow::applySettings()
     static int appliedTheme = -1;
     if (appliedTheme != m_settings.theme) {
         Theme::apply(m_settings.theme);
+        refreshThemedIcons(this);
         appliedTheme = m_settings.theme;
     }
     AppPaths::setFiles(m_settings);
@@ -999,6 +1113,7 @@ void MainWindow::applySettings()
     osd.showPressed = m_settings.showPressedKeys;
     m_video->osd()->setOptions(osd);
 
+    m_library->setFolders(m_settings.libraryFolders);
     rebuildJoystickShortcuts();
     refreshMenuHints();
     m_pauseUnfocusedAction->setChecked(m_settings.pauseWhenUnfocused);
@@ -1086,6 +1201,25 @@ void MainWindow::updateAudioMode()
     m_muteStepping = m_settings.muteDuringFrameAdvance;
 }
 
+void MainWindow::trackPlayTime(bool running)
+{
+    if (running == m_playRunning)
+        return;
+    if (running)
+        m_playClock.start();
+    else
+        m_playPendingMs += m_playClock.elapsed();
+    m_playRunning = running;
+}
+
+void MainWindow::commitPlayTime()
+{
+    qint64 duration = m_playPendingMs + (m_playRunning ? m_playClock.restart() : 0);
+    m_playPendingMs = 0;
+    if (duration > 0 && m_saves && !m_saves->gameId().isEmpty())
+        m_library->recordSession(m_saves->gameId(), duration);
+}
+
 void MainWindow::setManualPause(bool paused)
 {
     m_manualPause = paused;
@@ -1097,6 +1231,7 @@ void MainWindow::updatePause()
     const bool paused = m_manualPause || m_focusPause || m_minimizedPause || m_dialogPause > 0;
     if (m_emu)
         m_emu->setPaused(paused);
+    trackPlayTime(m_emu && !paused);
     m_actionTexts[ShortcutAction::PauseContinue] = m_manualPause ? "&Pause \u2713" : "&Pause";
     refreshMenuHints();
     updateOverlays();

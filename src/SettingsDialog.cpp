@@ -18,6 +18,7 @@
 #include "EmulationPage.h"
 #include "FilesPage.h"
 #include "GeneralPage.h"
+#include "Icons.h"
 #include "ShortcutsPage.h"
 #include "SoundPage.h"
 
@@ -58,7 +59,11 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, c
     font.setPointSize(font.pointSize() + 1);
     m_pages->setFont(font);
     // Same order as the stack below and as the Page enum.
-    m_pages->addItems({"General", "Display", "Sound", "Emulation", "Controllers", "Shortcuts", "Files"});
+    m_pages->setObjectName("panelList");
+    const char* const pageNames[] = {"General", "Display", "Sound", "Emulation", "Controllers", "Shortcuts", "Files"};
+    const char* const pageIcons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders"};
+    for (int page = 0; page < 7; ++page)
+        m_pages->addItem(new QListWidgetItem(themedIcon(pageIcons[page]), pageNames[page]));
 
     m_stack->addWidget(scrolled(m_general, this));
     m_stack->addWidget(scrolled(m_display, this));

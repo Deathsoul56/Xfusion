@@ -1,5 +1,6 @@
 #pragma once
 
+#include <QElapsedTimer>
 #include <QHash>
 #include <QMainWindow>
 #include <QTimer>
@@ -20,8 +21,10 @@
 
 class QAction;
 class QActionGroup;
+class LibraryPage;
 class QLabel;
 class QMenu;
+class QStackedWidget;
 
 class MainWindow : public QMainWindow {
     Q_OBJECT
@@ -57,6 +60,7 @@ private:
     // Games
     void promptOpenGame();
     bool closeGame();
+    bool prepareDisc(const QString& path);
     void resetGame(bool powerCycle);
     void showRomInfo();
     void takeScreenshot();
@@ -92,6 +96,10 @@ private:
     SpeedConfig speedConfig() const;
     void updateSpeed();
     void updatePause();
+    // The library counts the time a game runs, not the time it is paused. Sessions are added when the game closes
+    // and every minute, so a crash loses at most a minute.
+    void trackPlayTime(bool running);
+    void commitPlayTime();
     void setManualPause(bool paused);
     void updateAudioMode();
     void toggleFullscreen();
@@ -107,6 +115,8 @@ private:
 
     LibretroCore& m_core;
     VideoWidget* m_video;
+    LibraryPage* m_library;
+    QStackedWidget* m_central;
     // m_emu is declared after m_audio so the thread stops before the audio device it uses is destroyed.
     std::unique_ptr<AudioOutput> m_audio;
     std::unique_ptr<EmuThread> m_emu;
@@ -129,6 +139,11 @@ private:
     bool m_statesSupported = false;
     int m_currentSlot = 0;
     qint64 m_lastStateActivityMs = 0;
+
+    QTimer m_playTimer;
+    QElapsedTimer m_playClock;
+    qint64 m_playPendingMs = 0;
+    bool m_playRunning = false;
 
     // Pausing: any reason keeps the game paused
     bool m_manualPause = false;

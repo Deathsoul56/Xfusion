@@ -23,6 +23,8 @@ QString coresDir();
 QString configDir();
 QString inputConfigPath();
 QString settingsPath();
+// Play time, last played and the scan cache of the library.
+QString libraryPath();
 QString defaultCorePath();
 
 }

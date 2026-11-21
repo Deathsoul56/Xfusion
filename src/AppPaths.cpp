@@ -84,6 +84,11 @@ QString settingsPath()
     return configDir() + "/settings.json";
 }
 
+QString libraryPath()
+{
+    return configDir() + "/library.json";
+}
+
 QString defaultCorePath()
 {
     return coresDir() + "/" + defaultCoreProfile().libraryFileName();

@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0019; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0022; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).
@@ -306,7 +306,9 @@ que Xfusion y `snes9xrd` sean gemelos:
   proporción (core, 4:3, píxeles cuadrados), 22 filtros de software como
   `snes9xrd` (Scanlines, Simple, Super Eagle, 2xSaI, Super 2xSaI, EPX, HQx, xBRZ,
   SharpBilinear4x y cuatro NTSC; ADR-0019, `THIRD_PARTY_NOTICES.md`),
-  mensajes apilados con superposiciones, siete temas.
+  mensajes apilados con superposiciones, 22 temas, iconos Material en menús,
+  Settings y tablas de controles (ADR-0020), pantalla Library (Fase 4). Pendiente
+  de fases siguientes: menús Cheat y Netplay.
 - [x] Sonido: volumen normal y de avance rápido, dispositivo, frecuencia, búfer y
   silenciar durante avance rápido o avance de fotogramas.
 - [x] Velocidad: avance rápido (10×), Speed Up/Down, frame skip, Frame Advance y
@@ -371,13 +373,22 @@ real de Game Gear:
   fotograma (`Frame Advance`) acumula fotogramas pero el primero tras una pausa
   no refleja todavía la entrada en la imagen de la ROM de prueba.
 
-### Fase 4 — Biblioteca y metadatos
+### Fase 4 - Biblioteca y metadatos
 
-- [ ] Escanear rutas configuradas sin bloquear la interfaz.
+- [x] Escanear rutas configuradas sin bloquear la interfaz.
 - [ ] Identificar sistema y core sugerido, permitiendo corregir la selección.
-- [ ] Añadir búsqueda, filtros, orden, último acceso y tiempo de juego.
-- [ ] Guardar los datos de biblioteca sin modificar ni mover ROMs del usuario.
-- [ ] Tratar archivos repetidos, rutas inválidas y juegos retirados del escaneo.
+  *(Parcial: el sistema se identifica por la extensión o por el contenido del
+  zip y se muestra en la lista; el core es uno solo (ADR-0007), así que la
+  corrección manual de sistema/core llega con la Fase 5.)*
+- [x] Añadir búsqueda, filtros, orden, último acceso y tiempo de juego.
+- [x] Guardar los datos de biblioteca sin modificar ni mover ROMs del usuario.
+- [x] Tratar archivos repetidos, rutas inválidas y juegos retirados del escaneo.
+
+**Fase 4 completada salvo la corrección manual de sistema/core (2026-11-20).**
+Verificado en la aplicación real con las 660 ROMs locales: la primera
+exploración tarda unos segundos en segundo plano (la ventana responde) y las
+siguientes salen de la caché; abrir un juego desde la lista, cerrarlo y ver su
+tiempo y su última vez; búsqueda; filtro por sistema. ADR-0021.
 
 **Salida:** una biblioteca recuperable tras reiniciar, con escaneo repetible y
 sin duplicados innecesarios.
@@ -388,9 +399,12 @@ sin duplicados innecesarios.
   manifiesto, búsqueda manual de actualizaciones, verificación y reversión.
 - [ ] Incorporar SG-1000 y Game Gear con casos de prueba propios.
 - [ ] Añadir Sega CD, incluyendo configuración de BIOS y juegos multidisco.
-  *(Parcial: un disco `.iso` con pistas `.mp3` funciona con el BIOS copiado a
-  mano. Pendiente: instalar y validar BIOS desde Xfusion, juegos multidisco y
-  discos `.cue`/`.chd`.)*
+  *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
+  audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
+  reconoce por su contenido y se instala desde una carpeta con "Find BIOS
+  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Pendiente:
+  juegos multidisco, validar la jugabilidad de cada disco local (Final Fight CD
+  se queda en negro tras la pantalla de licencia) y la región de los `.chd`.)*
 - [ ] Añadir 32X mediante PicoDrive u otro core seleccionado.
 - [ ] Implementar selección manual de core y reglas de compatibilidad por juego.
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando

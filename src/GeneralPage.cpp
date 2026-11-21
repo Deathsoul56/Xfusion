@@ -1,5 +1,7 @@
 #include "GeneralPage.h"
 
+#include "FormAlign.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
@@ -57,6 +59,7 @@ GeneralPage::GeneralPage(const AppSettings& settings, QWidget* parent)
     layout->addWidget(overlays);
     layout->addWidget(sram);
     layout->addStretch(1);
+    alignFormLabels(this);
 
     setValues(settings);
 }

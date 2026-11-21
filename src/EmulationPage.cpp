@@ -1,5 +1,7 @@
 #include "EmulationPage.h"
 
+#include "FormAlign.h"
+
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
@@ -63,6 +65,7 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
     layout->addWidget(speed);
     layout->addWidget(rewind);
     layout->addStretch(1);
+    alignFormLabels(this);
 
     setValues(settings);
 }

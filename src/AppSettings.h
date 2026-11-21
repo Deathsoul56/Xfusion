@@ -2,6 +2,7 @@
 
 #include <QJsonObject>
 #include <QString>
+#include <QStringList>
 
 #include "Shortcuts.h"
 
@@ -56,7 +57,7 @@ struct FolderSetting {
 // because the frontend, not the core, draws, plays and times them; options that belong to one core live with its
 // profile (ADR-0007).
 struct AppSettings {
-    static constexpr int kFileVersion = 2;
+    static constexpr int kFileVersion = 3;
     static constexpr int kMaxVolume = 100;
 
     // General
@@ -108,6 +109,7 @@ struct AppSettings {
     FolderSetting stateFolder;
     FolderSetting screenshotFolder;
     FolderSetting biosFolder;
+    QStringList libraryFolders; // searched for games, with their subfolders (the Library page)
 
     ShortcutMap shortcuts = ShortcutMap::defaults();
 
@@ -116,7 +118,7 @@ struct AppSettings {
 
     QJsonObject toJson() const;
     // Missing or invalid values keep their defaults; the volume is clamped. Files of version 1 keep their video
-    // and volume settings.
+    // and volume settings; those of version 2 have their theme index translated to the current list.
     static AppSettings fromJson(const QJsonObject& object, QString* error = nullptr);
     // A missing file is not an error: the defaults are returned.
     static AppSettings load(const QString& path, QString* error = nullptr);

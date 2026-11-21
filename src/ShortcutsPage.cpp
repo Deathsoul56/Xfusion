@@ -85,6 +85,7 @@ ShortcutsPage::ShortcutsPage(InputManager& input, const AppSettings& settings, Q
         for (int slot = 0; slot < kSlots; ++slot)
             m_table->setItem(row, slot, new QTableWidgetItem);
         auto* reset = new QPushButton("\u21BA", m_table);
+        reset->setObjectName("resetBindingButton");
         reset->setToolTip("Reset this shortcut to its default binding");
         connect(reset, &QPushButton::clicked, this, [this, row] {
             endCapture();
@@ -93,6 +94,7 @@ ShortcutsPage::ShortcutsPage(InputManager& input, const AppSettings& settings, Q
         });
         m_table->setCellWidget(row, kResetColumn, reset);
         auto* clear = new QPushButton("\u2212", m_table);
+        clear->setObjectName("clearBindingButton");
         clear->setToolTip("Clear all the bindings of this shortcut");
         connect(clear, &QPushButton::clicked, this, [this, row] {
             endCapture();

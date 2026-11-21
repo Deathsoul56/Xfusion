@@ -106,6 +106,26 @@ private slots:
         QVERIFY(!error.isEmpty());
     }
 
+    void libraryFoldersRoundTripWithoutEmptyOrRepeatedEntries()
+    {
+        AppSettings s;
+        s.libraryFolders = {"C:/roms", "D:/more roms"};
+        QCOMPARE(AppSettings::fromJson(s.toJson()).libraryFolders, s.libraryFolders);
+        QJsonObject json = s.toJson();
+        QJsonObject files = json["files"].toObject();
+        files["library_folders"] = QJsonArray{"C:/roms", "", "C:/roms", 5, "E:/x"};
+        json["files"] = files;
+        QCOMPARE(AppSettings::fromJson(json).libraryFolders, QStringList({"C:/roms", "E:/x"}));
+    }
+
+    void aVersionTwoFileKeepsItsThemeByName()
+    {
+        // 7 was "AMOLED (Black/Purple)" and 2 "Dark (Gray)" before the list became the one of snes9xrd.
+        QCOMPARE(AppSettings::fromJson({{"version", 2}, {"general", QJsonObject{{"theme", 7}}}}).theme, 18);
+        QCOMPARE(AppSettings::fromJson({{"version", 2}, {"general", QJsonObject{{"theme", 2}}}}).theme, 8);
+        QCOMPARE(AppSettings::fromJson({{"version", 3}, {"general", QJsonObject{{"theme", 7}}}}).theme, 7);
+    }
+
     void aVersionOneFileKeepsItsVideoAndSoundSettings()
     {
         const QJsonObject v1{{"version", 1}, {"aspect", "stretch"}, {"smooth", true}, {"integer_scale", true}, {"volume", 22}, {"muted", true}};
