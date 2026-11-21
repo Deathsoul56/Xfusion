@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0022; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0023; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).
@@ -397,7 +397,8 @@ sin duplicados innecesarios.
 
 - [ ] Implementar la gestión de cores (sección 3.2): instalación por versión,
   manifiesto, búsqueda manual de actualizaciones, verificación y reversión.
-- [ ] Incorporar SG-1000 y Game Gear con casos de prueba propios.
+- [x] Incorporar SG-1000 y Game Gear con casos de prueba propios.
+  *(ADR-0023: pruebas automáticas del reconocimiento (cabecera `TMR SEGA`, región, extensión engañosa, `.sg`/`.sc` sin cabecera) y la colección local: 52 de Game Gear y 62 de SG-1000 se identifican bien, estos últimos dentro de `Roms\MasterSystem`; 13 zips de SF-7000, MyVision y similares se ignoran por estar fuera de alcance.)*
 - [ ] Añadir Sega CD, incluyendo configuración de BIOS y juegos multidisco.
   *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
   audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
@@ -405,8 +406,10 @@ sin duplicados innecesarios.
   Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Pendiente:
   juegos multidisco, validar la jugabilidad de cada disco local (Final Fight CD
   se queda en negro tras la pantalla de licencia) y la región de los `.chd`.)*
-- [ ] Añadir 32X mediante PicoDrive u otro core seleccionado.
+- [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
+  *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [ ] Implementar selección manual de core y reglas de compatibilidad por juego.
+  *(Parcial, ADR-0023: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System) y se recuerda por huella; el core es uno solo, así que no hay nada que elegir aún.)*
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
 
@@ -613,8 +616,9 @@ System: `Z` = Button 1, `X` = Button 2 (jugador 1) y `7`/`8` (jugador 2).
   versión; no hay rewind ni estados automáticos. Con el juego en pausa, cargar un
   estado ejecuta un fotograma para redibujar. La raíz `saves\` aún no se puede
   mover por separado de `XFUSION_DATA_DIR`.
-- Sin biblioteca, opciones del core ni gestión de versiones de cores. Para Sega
-  CD el BIOS se copia a mano (ver abajo); no hay validación del archivo.
+- Sin opciones del core ni gestión de versiones de cores. Hay biblioteca
+  (ADR-0021). Para Sega CD, ver `docs/sega-cd.md`: el BIOS se reconoce por su
+  contenido y se instala desde una carpeta (ADR-0022).
 - Probado con una ROM sintética de Genesis y con la colección local (634 ROMs,
   también en `.zip`; la detección de sistema lee el contenido del zip): 611
   arrancan con video y audio (SG-1000 62, Master System 327, Game Gear 50,
@@ -629,7 +633,8 @@ System: `Z` = Button 1, `X` = Button 2 (jugador 1) y `7`/`8` (jugador 2).
 - **BIOS de Sega CD:** PicoDrive busca en `system\` un archivo por región del
   disco, elegida por el propio disco: `bios_CD_E.bin` (Europa), `bios_CD_U.bin`
   (EE. UU.) o `bios_CD_J.bin` (Japón); también acepta otros nombres como
-  `eu_mcd2_9306`. Por ahora se copian a mano a `system\` junto al ejecutable.
+  `eu_mcd2_9306`. Xfusion los reconoce por contenido y los instala con
+  "Find BIOS Files..." (Options > Files); ver `docs/sega-cd.md`.
   La carpeta `Sega CD BIOS/` del repositorio está ignorada por git. Si falta,
   Xfusion muestra la carpeta y los nombres esperados.
 - Al cargar un segundo juego, PicoDrive conservaba contadores de latencia del
@@ -640,7 +645,8 @@ System: `Z` = Button 1, `X` = Button 2 (jugador 1) y `7`/`8` (jugador 2).
 - Windows: el teclado se consulta por polling en cada fotograma
   (`GetAsyncKeyState`) desde el hilo de emulación, y el core recibe un mando de
   6 botones.
-- `.bin` se asume Genesis.
+- Un `.bin` es Genesis salvo que su primer sector sea de un disco de Sega CD
+  (ADR-0022).
 - Los diagnósticos de rendimiento se obtienen con `xfusion.exe --stats` y
   `scripts\stress-ui.ps1`.
 - Las mediciones de rendimiento se hicieron en un solo equipo, con un solo juego

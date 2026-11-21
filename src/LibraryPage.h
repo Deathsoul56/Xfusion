@@ -4,6 +4,7 @@
 #include <QSortFilterProxyModel>
 #include <QWidget>
 #include <atomic>
+#include <optional>
 #include <vector>
 
 #include "Library.h"
@@ -13,6 +14,7 @@ class QLabel;
 class QLineEdit;
 class QStackedWidget;
 class QTableView;
+class QShowEvent;
 class QThread;
 
 // One row per game; the statistics are looked up by game id so that they follow a game around.
@@ -60,11 +62,17 @@ public:
     explicit LibraryPage(QWidget* parent = nullptr);
     ~LibraryPage() override;
 
+    // The system the user chose for a game, if any: it wins over what the files say.
+    std::optional<System> systemChoice(const QString& gameId) const;
     // Scans again when the list changed (or `force`).
     void setFolders(const QStringList& folders, bool force = false);
     // Adds the time of a play session to the game and saves it, whether or not the game is in the library.
     void recordSession(const QString& gameId, qint64 durationMs);
     int gameCount() const { return m_model->rowCount(); }
+    // Scans the folders again (F5).
+    void refresh() { setFolders(m_folders, true); }
+    // Gives the keyboard to the list, so that typing searches it.
+    void focusList();
 
 signals:
     void gameActivated(const QString& path);
@@ -81,6 +89,9 @@ private:
     void showContextMenu(const QPoint& position);
     void chooseFolder();
     void saveData();
+    void applyChoices(std::vector<LibraryEntry>& entries) const;
+    void chooseSystem(const QString& gameId, std::optional<System> system);
+    void showEvent(QShowEvent* event) override;
 
     LibraryModel* m_model;
     LibraryProxy* m_proxy;
@@ -92,6 +103,7 @@ private:
     QTableView* m_table;
 
     LibraryData m_data;
+    std::vector<LibraryEntry> m_lastEntries; // as the scan found them, before the user's system choices
     QStringList m_folders;
     QString m_loadError; // reported with the first scan, when something can listen
     QThread* m_thread = nullptr;

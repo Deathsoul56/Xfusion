@@ -263,6 +263,9 @@ void MainWindow::createViewMenu()
     for (int multiple = 1; multiple <= 10; ++multiple)
         size->addAction(multiple == 10 ? QString("1&0x") : QString("&%1x").arg(multiple), this, [this, multiple] { resizeToMultiple(multiple); });
     menu->addSeparator();
+    QAction* refresh = menu->addAction("&Refresh Library\tF5", this, [this] { m_library->refresh(); });
+    refresh->setToolTip("Scan the library folders again (F5 while the library is shown)");
+    menu->addSeparator();
     QAction* fullscreen = menu->addAction("&Fullscreen", this, [this] { toggleFullscreen(); });
     setThemedActionIcon(fullscreen, "fullscreen");
     m_actions[ShortcutAction::ToggleFullscreen] = fullscreen;
@@ -328,6 +331,19 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
     // Typing in the library search is typing, not shortcuts.
     if (qobject_cast<QLineEdit*>(QApplication::focusWidget()))
         return false;
+    // While the library is what is shown, plain keys belong to it: letters search the list (P and Y are shortcuts
+    // of the game, and would never reach it), and F5 scans the folders again instead of loading a state.
+    if (m_central->currentWidget() == m_library) {
+        const bool chorded = keyEvent->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::MetaModifier);
+        const bool functionKey = keyEvent->key() >= Qt::Key_F1 && keyEvent->key() <= Qt::Key_F35;
+        if (keyEvent->key() == Qt::Key_F5 && !chorded && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+            if (isDown(keyEvent) && !keyEvent->isAutoRepeat())
+                m_library->refresh();
+            return true;
+        }
+        if (!chorded && !functionKey)
+            return false;
+    }
     const bool down = isDown(keyEvent);
 
     // Keys that are not Windows-polled (other platforms) still reach the pad through here.
@@ -499,7 +515,9 @@ void MainWindow::promptOpenGame()
 
 void MainWindow::openGame(const QString& path)
 {
-    const std::optional<System> system = systemForFile(path);
+    std::optional<System> system = systemForFile(path);
+    if (const auto chosen = m_library->systemChoice(GameSaves::fingerprint(path)))
+        system = chosen; // the user said what it is
     if (!system) {
         QString why = QString("Unrecognized game format: %1").arg(QDir::toNativeSeparators(path));
         if (QFileInfo(path).suffix().compare("cue", Qt::CaseInsensitive) == 0) {
@@ -658,6 +676,7 @@ bool MainWindow::closeGame()
     m_video->clear();
     m_video->osd()->setIndicators(false, false, false);
     m_central->setCurrentWidget(m_library);
+    m_library->focusList();
     setWindowTitle("Xfusion");
     statusBar()->showMessage("Game closed");
     updateActions();

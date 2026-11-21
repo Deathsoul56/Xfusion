@@ -1,6 +1,7 @@
 #include "SystemInfo.h"
 
 #include "DiscInfo.h"
+#include "GameHeader.h"
 #include "ZipRead.h"
 
 #include <QFile>
@@ -14,6 +15,19 @@ std::optional<System> systemForExtension(const QString& ext)
         if (def.extensions.contains(ext))
             return def.id;
     return std::nullopt;
+}
+
+// The extension is only a first guess for a cartridge: a .bin or .md may be a 32X game, and a file called .sms may be
+// a Game Gear one. The header, when there is one, has the last word.
+System refineByHeader(System guessed, const GameHeader& header)
+{
+    if (!header.valid)
+        return guessed;
+    if (guessed == System::Genesis && header.systemType.startsWith("SEGA 32X"))
+        return System::Sega32X;
+    if (guessed == System::MasterSystem || guessed == System::GameGear)
+        return header.systemType == "Game Gear" ? System::GameGear : System::MasterSystem;
+    return guessed;
 }
 
 QStringList zipEntryNames(const QString& path)
@@ -112,14 +126,20 @@ std::optional<System> systemForFile(const QString& path)
     if (ext == "cue" || ext == "iso" || ext == "chd" || ext == "bin") {
         if (readDisc(path).isSegaCd)
             return System::SegaCD;
-        return ext == "bin" ? std::optional<System>(System::Genesis) : std::nullopt;
+        if (ext != "bin")
+            return std::nullopt;
+        return refineByHeader(System::Genesis, readCartridgeHeader(path));
     }
-    if (ext != "zip")
-        return systemForExtension(ext);
+    if (ext != "zip") {
+        const auto system = systemForExtension(ext);
+        return system ? std::optional<System>(refineByHeader(*system, readCartridgeHeader(path))) : std::nullopt;
+    }
 
-    for (const QString& name : zipEntryNames(path))
-        if (const auto system = systemForExtension(QFileInfo(name).suffix().toLower()))
-            return system;
+    for (const ZipEntry& entry : zipEntries(path)) {
+        const QString entryExt = QFileInfo(entry.name).suffix().toLower();
+        if (const auto system = systemForExtension(entryExt))
+            return refineByHeader(*system, parseCartridgeHeader(zipReadHead(path, entry, 0x8000), entryExt));
+    }
     return std::nullopt;
 }
 

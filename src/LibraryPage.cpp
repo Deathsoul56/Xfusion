@@ -1,9 +1,11 @@
 #include "LibraryPage.h"
 
 #include <QColor>
+#include <QActionGroup>
 #include <QComboBox>
 #include <QDateTime>
 #include <QDesktopServices>
+#include <QElapsedTimer>
 #include <QDir>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -14,6 +16,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
+#include <QShowEvent>
 #include <QStackedWidget>
 #include <QTableView>
 #include <QThread>
@@ -71,6 +74,34 @@ protected:
         fitLastColumn();
     }
 
+    // Typing selects the game whose name starts with what was typed (the letters of the last second), whichever
+    // column was clicked last. The same letter again moves on to the next game that starts with it.
+    void keyboardSearch(const QString& typed) override
+    {
+        if (typed.isEmpty() || !model() || model()->rowCount() == 0)
+            return;
+        if (!m_typedClock.isValid() || m_typedClock.elapsed() > 1000)
+            m_typed.clear();
+        m_typedClock.restart();
+        m_typed += typed;
+
+        const bool sameLetter = m_typed.size() > 1 && m_typed.count(m_typed.at(0)) == m_typed.size();
+        const QString needle = sameLetter ? QString(m_typed.at(0)) : m_typed;
+        const int rows = model()->rowCount();
+        const int current = currentIndex().isValid() ? currentIndex().row() : -1;
+        // A longer word may stay on the game it already found; a repeated letter moves on.
+        const int first = current < 0 ? 0 : (sameLetter ? current + 1 : current);
+        for (int step = 0; step < rows; ++step) {
+            const int row = (first + step) % rows;
+            const QModelIndex name = model()->index(row, LibraryModel::Name);
+            if (model()->data(name).toString().startsWith(needle, Qt::CaseInsensitive)) {
+                setCurrentIndex(name);
+                scrollTo(name);
+                return;
+            }
+        }
+    }
+
     void keyPressEvent(QKeyEvent* event) override
     {
         if ((event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter) && activate && currentIndex().isValid()) {
@@ -79,6 +110,10 @@ protected:
         }
         QTableView::keyPressEvent(event);
     }
+
+private:
+    QString m_typed;
+    QElapsedTimer m_typedClock;
 };
 
 }
@@ -122,7 +157,7 @@ QVariant LibraryModel::data(const QModelIndex& index, int role) const
         return {};
     switch (index.column()) {
     case Name: return entry->name;
-    case SystemColumn: return systemDef(entry->system).folder;
+    case SystemColumn: return entry->systemSet ? systemDef(entry->system).folder + " (set)" : systemDef(entry->system).folder;
     case RegionColumn: return entry->region;
     case Size: return sizeText(entry->size);
     case TimePlayed: return playtimeText(stats.playtimeMs);
@@ -253,9 +288,9 @@ LibraryPage::LibraryPage(QWidget* parent)
     columns->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     columns->setSectionResizeMode(QHeaderView::Interactive);
     columns->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_table->setColumnWidth(LibraryModel::Name, 250);
+    m_table->setColumnWidth(LibraryModel::Name, 240);
     m_table->setColumnWidth(LibraryModel::SystemColumn, 110);
-    m_table->setColumnWidth(LibraryModel::RegionColumn, 90);
+    m_table->setColumnWidth(LibraryModel::RegionColumn, 115);
     m_table->setColumnWidth(LibraryModel::Size, 80);
     m_table->setColumnWidth(LibraryModel::TimePlayed, 100);
     m_table->setColumnWidth(LibraryModel::LastPlayed, 140);
@@ -344,7 +379,10 @@ void LibraryPage::scanFinished(const LibraryScan& scan, int generation)
         return;
     m_scanning = false;
     m_data.files = scan.files;
-    m_model->setEntries(scan.entries, m_data.stats);
+    m_lastEntries = scan.entries;
+    std::vector<LibraryEntry> entries = scan.entries;
+    applyChoices(entries);
+    m_model->setEntries(std::move(entries), m_data.stats);
     saveData();
     showEmpty(scan.entries.empty());
     if (!scan.missingFolders.isEmpty())
@@ -360,6 +398,35 @@ void LibraryPage::recordSession(const QString& gameId, qint64 durationMs)
     saveData();
 }
 
+std::optional<System> LibraryPage::systemChoice(const QString& gameId) const
+{
+    const auto it = m_data.systemChoices.constFind(gameId);
+    return it == m_data.systemChoices.constEnd() ? std::nullopt : std::optional<System>(static_cast<System>(it.value()));
+}
+
+void LibraryPage::chooseSystem(const QString& gameId, std::optional<System> system)
+{
+    if (system)
+        m_data.systemChoices[gameId] = static_cast<int>(*system);
+    else
+        m_data.systemChoices.remove(gameId);
+    saveData();
+    // The list is rebuilt from the last scan, with the choice applied.
+    std::vector<LibraryEntry> entries = m_lastEntries;
+    applyChoices(entries);
+    m_model->setEntries(std::move(entries), m_data.stats);
+}
+
+void LibraryPage::applyChoices(std::vector<LibraryEntry>& entries) const
+{
+    for (LibraryEntry& entry : entries) {
+        const auto choice = systemChoice(entry.id);
+        entry.systemSet = choice.has_value();
+        if (choice)
+            entry.system = *choice;
+    }
+}
+
 void LibraryPage::saveData()
 {
     QString error;
@@ -367,9 +434,23 @@ void LibraryPage::saveData()
         emit message(error);
 }
 
+void LibraryPage::focusList()
+{
+    if (!m_search->hasFocus() && m_stack->currentWidget() == m_table)
+        m_table->setFocus();
+}
+
+void LibraryPage::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    focusList();
+}
+
 void LibraryPage::showEmpty(bool empty)
 {
     m_stack->setCurrentIndex(empty ? 0 : 1);
+    if (!empty)
+        focusList();
     m_title->setText(empty ? "Welcome to Xfusion" : "Library");
     m_search->setEnabled(!empty);
     m_system->setEnabled(!empty);
@@ -399,8 +480,27 @@ void LibraryPage::showContextMenu(const QPoint& position)
     if (!index.isValid())
         return;
     const QString path = m_proxy->data(m_proxy->index(index.row(), 0), LibraryModel::PathRole).toString();
+    const QModelIndex source = m_proxy->mapToSource(m_proxy->index(index.row(), 0));
+    const LibraryEntry* entry = m_model->entryAt(source.row());
     QMenu menu(this);
     menu.addAction("Play", this, [this, index] { activate(index); });
+    if (entry) {
+        QMenu* systems = menu.addMenu("System");
+        systems->setToolTip("For a game the detection got wrong. The saves of the game go in the folder of the system chosen.");
+        const QString id = entry->id;
+        auto* group = new QActionGroup(systems);
+        QAction* automatic = systems->addAction("Detect automatically", this, [this, id] { chooseSystem(id, std::nullopt); });
+        automatic->setCheckable(true);
+        automatic->setChecked(!entry->systemSet);
+        group->addAction(automatic);
+        systems->addSeparator();
+        for (const SystemDef& def : allSystems()) {
+            QAction* action = systems->addAction(def.folder, this, [this, id, system = def.id] { chooseSystem(id, system); });
+            action->setCheckable(true);
+            action->setChecked(entry->systemSet && entry->system == def.id);
+            group->addAction(action);
+        }
+    }
     menu.addAction("Show in Folder", this, [path] { QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath())); });
     menu.exec(m_table->viewport()->mapToGlobal(position));
 }
