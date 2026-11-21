@@ -29,6 +29,7 @@
 
 #include "AppPaths.h"
 #include "Bios.h"
+#include "CoreRules.h"
 #include "DiscInfo.h"
 #include "GameHeader.h"
 #include "OsdOverlay.h"
@@ -532,6 +533,8 @@ void MainWindow::openGame(const QString& path)
         return;
 
     closeGame();
+    if (!selectCore(*system, path))
+        return;
     m_lastDir = QFileInfo(path).absolutePath();
     m_romDir = m_lastDir;
 
@@ -543,7 +546,8 @@ void MainWindow::openGame(const QString& path)
 
     QString error;
     const InputConfig config = m_input.config();
-    m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers);
+    m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers,
+                   systemDef(*system).inputGroup == InputGroup::Genesis);
     if (!m_core.loadGame(path, &error)) {
         if (*system == System::SegaCD) {
             error += QString("\n\nSega CD games need the BIOS for the disc's region in:\n%1\nExpected file names: %2")
@@ -579,13 +583,16 @@ void MainWindow::openGame(const QString& path)
     m_central->setCurrentWidget(m_video);
     addRecent(path);
     setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(path).completeBaseName()));
-    statusBar()->showMessage(QString("%1 | %2 | saves: %3").arg(m_core.name(), systemDef(*system).folder, saveDir));
+    statusBar()->showMessage(QString("%1 | %2 | saves: %3%4")
+                                 .arg(m_core.name(), systemDef(*system).folder, saveDir, m_coreNote.isEmpty() ? QString() : " | " + m_coreNote));
     updateActions();
     updatePause();
     setFocus();
 
     if (m_settings.showRomInfo)
         showMessage(QString("%1 | %2 | %3").arg(QFileInfo(path).completeBaseName(), systemDef(*system).folder, m_core.name()));
+    if (!m_coreNote.isEmpty())
+        showMessage(QString("Using %1: %2").arg(m_core.name(), m_coreNote));
     if (m_settings.fullscreenOnOpen && !isFullScreen())
         toggleFullscreen();
     if (m_settings.saveStateOnClose && m_statesSupported && QFile::exists(m_saves->resumeStatePath()))
@@ -643,6 +650,32 @@ bool MainWindow::prepareDisc(const QString& path)
         QMessageBox::warning(this, "Xfusion", "No BIOS for this disc was found in that folder.");
         return false;
     }
+    return true;
+}
+
+// Chooses the core for the game (CoreRules) and loads it when it is not the one already loaded.
+bool MainWindow::selectCore(System system, const QString& path)
+{
+    m_coreNote.clear();
+    if (m_coreForced)
+        return true;
+    DiscInfo disc;
+    if (system == System::SegaCD)
+        disc = readDisc(path);
+    const CoreDecision decision = chooseCore(system, system == System::SegaCD ? &disc : nullptr, m_settings.coreChoices,
+                                             [](const QString& id) { return AppPaths::coreInstalled(id); });
+    if (decision.id.isEmpty()) {
+        QMessageBox::critical(this, "Xfusion",
+                              QString("No installed core can play %1 games. Cores go in %2.")
+                                  .arg(systemDef(system).folder, QDir::toNativeSeparators(AppPaths::coresDir())));
+        return false;
+    }
+    QString error;
+    if (!m_core.useCore(coreProfileById(decision.id), AppPaths::corePath(decision.id), &error)) {
+        QMessageBox::critical(this, "Xfusion", error);
+        return false;
+    }
+    m_coreNote = decision.note;
     return true;
 }
 
@@ -774,7 +807,7 @@ void MainWindow::loadSaveRam()
     QString warning;
     const bool loaded = m_core.setSaveRam(saved, &warning);
     if (loaded && warning.isEmpty()) {
-        const qsizetype expected = m_core.saveRam().size();
+        const qsizetype expected = m_core.profile().saveRamSizeVaries ? saved.size() : m_core.saveRam().size();
         if (expected > saved.size()) {
             // A save from another emulator that stores less. Keep the original next to it, once, before the first
             // write grows the file to the size this core uses.
@@ -808,7 +841,7 @@ void MainWindow::flushSaveRam(bool closing)
     // PicoDrive reports no battery RAM while it is all zero, so a game that clears its own save looks like "none".
     // Once a save has existed, an empty report means it was cleared.
     if (current.isEmpty() && !m_lastSaveRam.isEmpty())
-        current = QByteArray(m_lastSaveRam.size(), 0);
+        current = QByteArray(m_lastSaveRam.size(), m_core.profile().saveRamSizeVaries ? char(0xFF) : char(0)); // Genesis Plus GX clears to 0xFF
     if (current.isEmpty() || current == m_lastSaveRam)
         return;
 
@@ -1090,9 +1123,9 @@ void MainWindow::openSettings(int page)
         const InputConfig config = dialog.inputConfig();
         m_input.setConfig(config);
         if (m_emu)
-            m_emu->withCore([this, &config] { m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers); });
+            m_emu->withCore([this, &config] { m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers, m_inputGroup == InputGroup::Genesis); });
         else
-            m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers);
+            m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers, m_inputGroup == InputGroup::Genesis);
         m_settings = dialog.appSettings();
         applySettings();
 

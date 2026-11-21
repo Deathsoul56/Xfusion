@@ -33,6 +33,8 @@ public:
     ~MainWindow() override;
 
     void openGame(const QString& path);
+    // With --core one core plays everything and the rules are not used.
+    void setCoreForced(bool forced) { m_coreForced = forced; }
     void enableStats();
 
 protected:
@@ -61,6 +63,7 @@ private:
     void promptOpenGame();
     bool closeGame();
     bool prepareDisc(const QString& path);
+    bool selectCore(System system, const QString& path);
     void resetGame(bool powerCycle);
     void showRomInfo();
     void takeScreenshot();
@@ -116,6 +119,8 @@ private:
     LibretroCore& m_core;
     VideoWidget* m_video;
     LibraryPage* m_library;
+    bool m_coreForced = false;
+    QString m_coreNote; // why the core is not the first choice for the game that is open, if it is not
     QStackedWidget* m_central;
     // m_emu is declared after m_audio so the thread stops before the audio device it uses is destroyed.
     std::unique_ptr<AudioOutput> m_audio;

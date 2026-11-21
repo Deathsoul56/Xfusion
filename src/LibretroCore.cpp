@@ -1,11 +1,14 @@
 #include "LibretroCore.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QSaveFile>
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+
+#include "ZipRead.h"
 
 LibretroCore* LibretroCore::s_instance = nullptr;
 
@@ -25,7 +28,7 @@ void logCb(enum retro_log_level level, const char* fmt, ...)
 }
 
 LibretroCore::LibretroCore(const CoreProfile& profile)
-    : m_profile(profile)
+    : m_profile(&profile)
     , m_options(profile.options)
 {
     s_instance = this;
@@ -43,8 +46,26 @@ LibretroCore::~LibretroCore()
     s_instance = nullptr;
 }
 
+bool LibretroCore::useCore(const CoreProfile& profile, const QString& corePath, QString* error)
+{
+    if (m_loaded && m_profile == &profile && m_corePath == corePath)
+        return true;
+    unloadGame();
+    if (m_loaded) {
+        m_deinit();
+        m_lib.unload();
+        m_loaded = false;
+    }
+    m_profile = &profile;
+    m_options = profile.options;
+    m_usedOnce = false;
+    m_name.clear();
+    return load(corePath, error);
+}
+
 bool LibretroCore::load(const QString& corePath, QString* error)
 {
+    m_corePath = corePath;
     m_lib.setFileName(corePath);
     if (!m_lib.load()) {
         *error = QString("Cannot load core '%1': %2").arg(corePath, m_lib.errorString());
@@ -80,6 +101,7 @@ bool LibretroCore::load(const QString& corePath, QString* error)
         m_lib.unload();
         return false;
     }
+    m_setControllerPortDevice = reinterpret_cast<decltype(m_setControllerPortDevice)>(m_lib.resolve("retro_set_controller_port_device"));
     m_serializeSize = reinterpret_cast<decltype(m_serializeSize)>(m_lib.resolve("retro_serialize_size"));
     m_serialize = reinterpret_cast<decltype(m_serialize)>(m_lib.resolve("retro_serialize"));
     m_unserialize = reinterpret_cast<decltype(m_unserialize)>(m_lib.resolve("retro_unserialize"));
@@ -117,12 +139,15 @@ bool LibretroCore::loadGame(const QString& gamePath, QString* error)
         *error = "No core is loaded";
         return false;
     }
-    if (m_profile.reloadPerGame && m_usedOnce && !reloadCore(error))
+    if (m_profile->reloadPerGame && m_usedOnce && !reloadCore(error))
         return false;
     m_usedOnce = true;
     unloadGame();
 
-    m_gamePath = gamePath.toUtf8();
+    const QString content = contentPath(gamePath, error);
+    if (content.isEmpty())
+        return false;
+    m_gamePath = content.toUtf8();
     retro_game_info game{};
     game.path = m_gamePath.constData();
     if (!m_loadGame(&game)) {
@@ -130,11 +155,48 @@ bool LibretroCore::loadGame(const QString& gamePath, QString* error)
         return false;
     }
     m_hasGame = true;
+    applyPortDevices();
     for (auto& pad : m_buttons)
         for (auto& button : pad)
             button = false;
     updateAvInfo();
     return true;
+}
+
+// Cores that do not open zip files get the game unpacked to a temporary file named like the game inside (the
+// extension tells them what it is). SC-3000 games are SG-1000 ones to them. Everything else is passed as it is.
+QString LibretroCore::contentPath(const QString& gamePath, QString* error)
+{
+    m_unpacked.reset();
+    const QFileInfo info(gamePath);
+    if (!m_profile->needsExtractedGames || info.suffix().compare("zip", Qt::CaseInsensitive) != 0)
+        return gamePath;
+
+    static const QStringList gameExtensions = {"md", "gen", "smd", "bin", "32x", "sms", "gg", "sg", "sc"};
+    for (const ZipEntry& entry : zipEntries(gamePath)) {
+        const QFileInfo inner(entry.name);
+        if (!gameExtensions.contains(inner.suffix().toLower()))
+            continue;
+        const QByteArray bytes = zipReadHead(gamePath, entry, int(qMin<quint32>(entry.size, 64u * 1024 * 1024)));
+        if (bytes.size() != qsizetype(entry.size)) {
+            *error = QString("The game inside %1 could not be unpacked").arg(info.fileName());
+            return {};
+        }
+        m_unpacked = std::make_unique<QTemporaryDir>();
+        QString name = inner.fileName();
+        if (inner.suffix().compare("sc", Qt::CaseInsensitive) == 0)
+            name = inner.completeBaseName() + ".sg";
+        const QString target = m_unpacked->filePath(name);
+        QFile file(target);
+        if (!m_unpacked->isValid() || !file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) {
+            *error = "A temporary file for the game could not be written";
+            m_unpacked.reset();
+            return {};
+        }
+        return target;
+    }
+    *error = QString("There is no game inside %1").arg(info.fileName());
+    return {};
 }
 
 bool LibretroCore::reloadCore(QString* error)
@@ -153,6 +215,7 @@ void LibretroCore::unloadGame()
         return;
     m_unloadGame();
     m_hasGame = false;
+    m_unpacked.reset();
 }
 
 void LibretroCore::run()
@@ -169,24 +232,36 @@ void LibretroCore::reset()
 
 void LibretroCore::setButton(int player, PadButton button, bool pressed)
 {
-    const unsigned retroId = m_profile.retroId(button);
+    const unsigned retroId = m_profile->retroId(button);
     if (player >= 0 && player < kPlayers && retroId < m_buttons[0].size())
         m_buttons[static_cast<std::size_t>(player)][retroId].store(pressed, std::memory_order_relaxed);
 }
 
-void LibretroCore::setPads(PadType type, bool secondPadConnected)
+void LibretroCore::setPads(PadType type, bool secondPadConnected, bool genesisFamily)
 {
-    for (std::size_t port = 0; port < m_profile.padTypeKeys.size(); ++port) {
-        const bool empty = port > 0 && !secondPadConnected && !m_profile.noPadValue.empty();
-        const std::string& wanted = empty ? m_profile.noPadValue : m_profile.padTypeValue(type);
-        std::string& value = m_options[m_profile.padTypeKeys[port]];
+    for (std::size_t port = 0; port < m_profile->padTypeKeys.size(); ++port) {
+        const bool empty = port > 0 && !secondPadConnected && !m_profile->noPadValue.empty();
+        const std::string& wanted = empty ? m_profile->noPadValue : m_profile->padTypeValue(type);
+        std::string& value = m_options[m_profile->padTypeKeys[port]];
         if (value != wanted) {
             value = wanted;
             m_optionsChanged = true;
         }
     }
+    // Cores that take the pad as a device (Genesis Plus GX) get it now if a game is running, and when the next one loads.
+    m_choosePortDevices = genesisFamily && m_profile->padDevices[0] != 0;
+    m_portDevices[0] = m_profile->padDevices[static_cast<std::size_t>(type)];
+    m_portDevices[1] = secondPadConnected ? m_portDevices[0] : RETRO_DEVICE_NONE;
+    applyPortDevices();
 }
 
+void LibretroCore::applyPortDevices()
+{
+    if (!m_hasGame || !m_choosePortDevices || !m_setControllerPortDevice)
+        return;
+    for (unsigned port = 0; port < 2; ++port)
+        m_setControllerPortDevice(port, m_portDevices[port]);
+}
 void LibretroCore::updateAvInfo()
 {
     retro_system_av_info av{};

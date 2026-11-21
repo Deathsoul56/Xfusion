@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFileInfo>
 
 #include "CoreProfile.h"
 
@@ -87,6 +88,16 @@ QString settingsPath()
 QString libraryPath()
 {
     return configDir() + "/library.json";
+}
+
+QString corePath(const QString& coreId)
+{
+    return coresDir() + "/" + coreProfileById(coreId).libraryFileName();
+}
+
+bool coreInstalled(const QString& coreId)
+{
+    return QFileInfo::exists(corePath(coreId));
 }
 
 QString defaultCorePath()

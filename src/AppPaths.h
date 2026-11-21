@@ -26,5 +26,8 @@ QString settingsPath();
 // Play time, last played and the scan cache of the library.
 QString libraryPath();
 QString defaultCorePath();
+// The file of a core (CoreRules.h id) in the cores folder, and whether it is there.
+QString corePath(const QString& coreId);
+bool coreInstalled(const QString& coreId);
 
 }

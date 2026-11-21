@@ -1,5 +1,6 @@
 #include "EmulationPage.h"
 
+#include "CoreRules.h"
 #include "FormAlign.h"
 
 #include <QComboBox>
@@ -7,6 +8,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
+#include <algorithm>
 #include <QSpinBox>
 #include <QVBoxLayout>
 
@@ -45,6 +47,26 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
     m_rewindInterval->setRange(1, 99);
     m_rewindInterval->setToolTip("Frames between snapshots. Larger values go back further and rewind faster.");
 
+    // Two cores play the systems (ADR-0024). Each system uses its default unless one is chosen here; a core that is
+    // not installed is replaced by another that can play the system.
+    auto* cores = new QGroupBox("Cores", this);
+    auto* coresLayout = new QFormLayout(cores);
+    for (const SystemDef& def : allSystems()) {
+        auto* combo = new QComboBox(cores);
+        combo->addItem(QString("Default (%1)").arg(coreInfo(defaultCoreFor(def.id))->name), QString());
+        for (const CoreInfo& core : allCores())
+            if (core.supports(def.id))
+                combo->addItem(core.name, core.id);
+        combo->setToolTip(QString("The core that plays %1 games. Applies the next time a game opens.").arg(def.folder));
+        coresLayout->addRow(def.folder + ":", combo);
+        m_cores.emplace_back(def.id, combo);
+    }
+    auto* coresNote = new QLabel("Sega CD discs with .mp3 audio tracks go to PicoDrive when the default is used: Genesis Plus GX cannot play "
+                                 "them. Save states are not shared between cores.", cores);
+    coresNote->setWordWrap(true);
+    coresNote->setEnabled(false);
+    coresLayout->addRow(coresNote);
+
     auto* speed = new QGroupBox("Emulation Speed", this);
     auto* speedLayout = new QFormLayout(speed);
     speedLayout->addRow("Speed control method:", m_method);
@@ -62,6 +84,7 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
     rewindLayout->addRow("Frames between steps:", m_rewindInterval);
 
     auto* layout = new QVBoxLayout(this);
+    layout->addWidget(cores);
     layout->addWidget(speed);
     layout->addWidget(rewind);
     layout->addStretch(1);
@@ -79,6 +102,8 @@ void EmulationPage::setValues(const AppSettings& s)
     m_fixedSkip->setValue(s.fixedFrameSkip);
     m_rewindMb->setValue(s.rewindMegabytes);
     m_rewindInterval->setValue(s.rewindInterval);
+    for (const auto& [system, combo] : m_cores)
+        combo->setCurrentIndex(std::max(0, combo->findData(s.coreChoices.value(systemKey(system)))));
 }
 
 void EmulationPage::applyTo(AppSettings& s) const
@@ -90,4 +115,8 @@ void EmulationPage::applyTo(AppSettings& s) const
     s.fixedFrameSkip = m_fixedSkip->value();
     s.rewindMegabytes = m_rewindMb->value();
     s.rewindInterval = m_rewindInterval->value();
+    s.coreChoices.clear();
+    for (const auto& [system, combo] : m_cores)
+        if (!combo->currentData().toString().isEmpty())
+            s.coreChoices[systemKey(system)] = combo->currentData().toString();
 }

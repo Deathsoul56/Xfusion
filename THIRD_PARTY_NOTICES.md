@@ -12,6 +12,13 @@ sección 10.3). Esto es una nota técnica, no asesoría legal.
 | snes_ntsc 0.2.2 (filtros NTSC) | `third_party/snes_ntsc/` | LGPL-2.1 (`LICENSE.txt`), © Shay Green (Blargg) | Copia del árbol `filter/` de `snes9xrd`. Solo se cambió `snes_ntsc_config.h`: entrada y salida RGB565. |
 | hqx (HQ2x, HQ3x, HQ4x) | `third_party/hqx/` | ISC, según la cabecera del archivo (© Clément Bosch, de FFmpeg; diseño original de Maxim Stepin) | Copia de `filter/hq2x.cpp` de `snes9xrd`, que ya trae una adaptación a RGB565 hecha para Snes9x. Cambios aquí: sin `port.h`, tabla YUV con el orden de canales de Qt y un `hq2x.h` propio. **Pendiente de verificar:** quién escribió esa adaptación a RGB565; la cabecera declara ISC, pero la procedencia de ese cambio no está comprobada. |
 
+## Cores (no están en el repositorio)
+
+| Core | Licencia | Origen |
+|---|---|---|
+| PicoDrive | Propia, no comercial (`COPYING`, ADR-0006) | `scripts/setup-picodrive.ps1`, commit `26ecb2b` |
+| Genesis Plus GX | Propia, © Charles MacDonald y Eke-Eke; las redistribuciones no pueden venderse ni usarse comercialmente (`LICENSE.txt` del repositorio) | `scripts/setup-genesis-plus-gx.ps1`, commit `4fd32ef`. Incluye componentes con licencia propia (libchdr, zstd, lzma, zlib, minimp3, tremor) que hay que listar en cada paquete. Esto es una nota técnica, no asesoría legal. |
+
 ## Bibliotecas enlazadas
 
 zlib (licencia zlib) se enlaza, a través de Qt, y se usa directamente en `src/ZipRead.cpp` para leer la cabecera de los juegos dentro de un `.zip`.

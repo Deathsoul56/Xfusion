@@ -34,8 +34,8 @@ de firmware requeridos.
 
 | Core | Uso | Consideraciones |
 |---|---|---|
-| PicoDrive | **Core único por ahora** para SG-1000, Master System, Game Gear, Genesis, Sega CD y 32X (ADR-0007) | Probado con 611 de 634 ROMs locales y con un juego de Sega CD |
-| Genesis Plus GX | Candidato futuro | Solo si aporta compatibilidad o precisión que PicoDrive no ofrece; requiere perfil, pruebas y revisión de licencia |
+| Genesis Plus GX | **Core por defecto** de SG-1000, Master System, Game Gear, Genesis y Sega CD (ADR-0024) | Es el más preciso y el mejor para Sega CD; no reproduce audio `.mp3` de discos ni emula 32X |
+| PicoDrive | **Core del 32X** y de los discos de Sega CD con audio `.mp3` (ADR-0007, ADR-0024) | Único core libretro razonable para 32X; las 37 ROMs locales arrancan |
 | BlastEm | Candidato futuro (Genesis) | Igual que el anterior |
 
 El frontend trata cada core como un componente independiente descrito por un
@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0023; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0024; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).

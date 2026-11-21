@@ -69,6 +69,7 @@ dudas), `mixto`, `externo`, `sin verificar`.
 
 | P-023 | Corrección manual del sistema de un juego desde la biblioteca | (sin equivalente en `snes9xrd`, que solo tiene un sistema) | nuevo | 2 | Elección por huella en `library.json`; la cabecera corrige la extensión (32X, Game Gear) | nuevo (ADR-0023) |
 ## De Xfusion a snes9xrd
+| P-024 | Dos cores con reglas por sistema y extracción de zips | (sin equivalente en `snes9xrd`, un solo core) | nuevo | 2 | GPGX por defecto salvo 32X; mp3 de Sega CD a PicoDrive; perfil de GPGX | nuevo (ADR-0024) |
 
 | ID | Mejora | Origen en Xfusion | Propiedad | Qué cambia entre SEGA y SNES | Estado |
 |---|---|---|---|---|---|

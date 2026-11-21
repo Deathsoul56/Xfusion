@@ -1,5 +1,6 @@
 #include "AppSettings.h"
 
+#include "CoreRules.h"
 #include "VideoFilters.h"
 
 #include <QFile>
@@ -38,6 +39,14 @@ const Names<OsdCorner> kCorner{{{OsdCorner::BottomLeft, "bottom_left"}, {OsdCorn
 const Names<SpeedMethod> kSpeed{{{SpeedMethod::SoundSync, "sound_sync"}, {SpeedMethod::Timer, "timer"},
                                  {SpeedMethod::TimerFrameskip, "timer_frameskip"}, {SpeedMethod::Unlimited, "unlimited"}}};
 const Names<FileLocation> kLocation{{{FileLocation::DataFolder, "data"}, {FileLocation::RomFolder, "rom"}, {FileLocation::Custom, "custom"}}};
+
+QJsonObject coreChoicesToJson(const QMap<QString, QString>& choices)
+{
+    QJsonObject object;
+    for (auto it = choices.begin(); it != choices.end(); ++it)
+        object[it.key()] = it.value();
+    return object;
+}
 
 QJsonObject folderToJson(const FolderSetting& folder)
 {
@@ -97,7 +106,8 @@ QJsonObject AppSettings::toJson() const
                      {"fast_forward_skip", fastForwardSkip},
                      {"fixed_frame_skip", fixedFrameSkip},
                      {"rewind_megabytes", rewindMegabytes},
-                     {"rewind_interval", rewindInterval}}},
+                     {"rewind_interval", rewindInterval},
+                     {"cores", coreChoicesToJson(coreChoices)}}},
         {"files",
          QJsonObject{{"sram", folderToJson(sramFolder)},
                      {"states", folderToJson(stateFolder)},
@@ -178,6 +188,10 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     s.fixedFrameSkip = std::clamp(emulation.value("fixed_frame_skip").toInt(s.fixedFrameSkip), 0, 59);
     s.rewindMegabytes = std::clamp(emulation.value("rewind_megabytes").toInt(s.rewindMegabytes), 0, 1024);
     s.rewindInterval = std::clamp(emulation.value("rewind_interval").toInt(s.rewindInterval), 1, 99);
+    const QJsonObject cores = emulation.value("cores").toObject();
+    for (auto it = cores.begin(); it != cores.end(); ++it)
+        if (it.value().isString() && coreInfo(it.value().toString()))
+            s.coreChoices[it.key()] = it.value().toString();
 
     const QJsonObject files = object.value("files").toObject();
     s.sramFolder = folderFromJson(files.value("sram").toObject());
