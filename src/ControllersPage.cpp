@@ -13,8 +13,10 @@
 #include <QTableWidget>
 #include <QVBoxLayout>
 #include <algorithm>
+#include <vector>
 
 #include "BindingIcons.h"
+#include "Icons.h"
 #include "ControllerDiagram.h"
 
 namespace {
@@ -84,23 +86,31 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     m_autoAssignButton->setMenu(m_autoAssignMenu);
     m_raw->setStyleSheet("color: gray; font-size: 9pt;");
 
+    // The labels share one width so that every box starts at the same distance from the edge.
+    std::vector<QLabel*> labels;
+    const auto rowLabel = [&labels](const QString& text, QWidget* parent) {
+        auto* label = new QLabel(text, parent);
+        labels.push_back(label);
+        return label;
+    };
+
     // The platform group is the parent: ports, sets and bindings below all belong to it.
     auto* platformRow = new QHBoxLayout;
-    platformRow->addWidget(new QLabel("Platform:", this));
+    platformRow->addWidget(rowLabel("Platform:", this));
     platformRow->addWidget(m_platform, 1);
 
     auto* portsRow = new QHBoxLayout;
-    portsRow->addWidget(new QLabel("Controller Ports:", this));
+    portsRow->addWidget(rowLabel("Controller Ports:", this));
     portsRow->addWidget(m_ports, 1);
 
     auto* top = new QHBoxLayout;
-    top->addWidget(new QLabel("Set:", this));
+    top->addWidget(rowLabel("Set:", this));
     top->addWidget(m_player, 1);
     top->addWidget(editButton);
     top->addWidget(m_autoAssignButton);
 
     auto* deviceRow = new QHBoxLayout;
-    deviceRow->addWidget(new QLabel("Gamepad:", this));
+    deviceRow->addWidget(rowLabel("Gamepad:", this));
     deviceRow->addWidget(m_device, 1);
 
     m_padType->addItem("6 button pad", static_cast<int>(PadType::SixButton));
@@ -108,8 +118,13 @@ ControllersPage::ControllersPage(InputManager& input, const InputConfig& config,
     m_padType->setToolTip("The pad the game sees, for both players. Some games misbehave with the 6 button pad; X, Y, Z and Mode only exist on it.");
     auto* padLayout = new QHBoxLayout(m_padRow);
     padLayout->setContentsMargins(0, 0, 0, 0);
-    padLayout->addWidget(new QLabel("Pad type:", m_padRow));
+    padLayout->addWidget(rowLabel("Pad type:", m_padRow));
     padLayout->addWidget(m_padType, 1);
+    int labelWidth = 0;
+    for (const QLabel* label : labels)
+        labelWidth = std::max(labelWidth, label->sizeHint().width());
+    for (QLabel* label : labels)
+        label->setMinimumWidth(labelWidth);
 
     m_status->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
     m_status->setMinimumHeight(m_status->fontMetrics().height() + 6);
@@ -271,12 +286,14 @@ void ControllersPage::rebuildTable()
         font.setBold(true);
         label->setFont(font);
         label->setFlags(Qt::ItemIsEnabled);
+        label->setIcon(padButtonIcon(action.button, palette().color(QPalette::Text)));
         m_table->setItem(row, 0, label);
 
         for (int slot = 0; slot < InputConfig::kSlots; ++slot)
             m_table->setItem(row, kFirstBindingColumn + slot, new QTableWidgetItem);
 
         auto* clear = new QPushButton("\u2212", m_table);
+        clear->setObjectName("clearBindingButton");
         clear->setToolTip("Clear all bindings of this button");
         connect(clear, &QPushButton::clicked, this, [this, row] { clearRow(row); });
         m_table->setCellWidget(row, kClearColumn, clear);

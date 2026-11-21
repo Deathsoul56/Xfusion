@@ -1,5 +1,7 @@
 #include "DisplayPage.h"
 
+#include "FormAlign.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
@@ -75,6 +77,7 @@ DisplayPage::DisplayPage(const AppSettings& settings, QWidget* parent)
     layout->addWidget(messages);
     layout->addWidget(hint);
     layout->addStretch(1);
+    alignFormLabels(this);
 
     setValues(settings);
 }

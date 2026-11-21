@@ -12,6 +12,18 @@ sección 10.3). Esto es una nota técnica, no asesoría legal.
 | snes_ntsc 0.2.2 (filtros NTSC) | `third_party/snes_ntsc/` | LGPL-2.1 (`LICENSE.txt`), © Shay Green (Blargg) | Copia del árbol `filter/` de `snes9xrd`. Solo se cambió `snes_ntsc_config.h`: entrada y salida RGB565. |
 | hqx (HQ2x, HQ3x, HQ4x) | `third_party/hqx/` | ISC, según la cabecera del archivo (© Clément Bosch, de FFmpeg; diseño original de Maxim Stepin) | Copia de `filter/hq2x.cpp` de `snes9xrd`, que ya trae una adaptación a RGB565 hecha para Snes9x. Cambios aquí: sin `port.h`, tabla YUV con el orden de canales de Qt y un `hq2x.h` propio. **Pendiente de verificar:** quién escribió esa adaptación a RGB565; la cabecera declara ISC, pero la procedencia de ese cambio no está comprobada. |
 
+## Bibliotecas enlazadas
+
+zlib (licencia zlib) se enlaza, a través de Qt, y se usa directamente en `src/ZipRead.cpp` para leer la cabecera de los juegos dentro de un `.zip`.
+
+## Iconos (`src/resources/icons/`)
+
+| Componente | Carpeta | Licencia | Origen |
+|---|---|---|---|
+| Material Icons (apertura, refrescar, reinicio, salir, pausa, jugar, pantalla completa, ajustes, pantalla, sonido, memoria, mando, teclado, carpeta, marca, flechas, rayo) | `src/resources/icons/` | Apache-2.0 (`LICENSE.txt`), © Google | Descargados del repositorio `google/material-design-icons` (versión `materialicons/24px.svg` de cada icono). Sin cambios, salvo `checkwhite`, `checkblack`, que son `check` con relleno fijo. Los archivos `arrow*` y las letras de los botones del mando son propios (se dibujan en `Icons.cpp`). |
+
+Los iconos de `snes9xrd` no se copiaron: los que no son de Material llevan la licencia Snes9x, y los diagramas de botones del SNES no sirven para un mando SEGA.
+
 Los filtros Simple 2x/3x/4x, Scanlines, Sharp Bilinear 4x, EPX, Super Eagle, 2xSaI y Super 2xSaI están
 escritos para Xfusion (`src/VideoFilters.cpp`) a partir de las ideas publicadas de cada algoritmo, sin código de
 Snes9x (cuya licencia no es compatible con GPL-3). 2xSaI sigue las reglas de decisión conocidas; Super Eagle y Super

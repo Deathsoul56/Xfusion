@@ -1,5 +1,7 @@
 #include "SoundPage.h"
 
+#include "FormAlign.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
@@ -79,6 +81,7 @@ SoundPage::SoundPage(const AppSettings& settings, QWidget* parent)
     layout->addWidget(output);
     layout->addWidget(mute);
     layout->addStretch(1);
+    alignFormLabels(this);
 
     setValues(settings);
 }

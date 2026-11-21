@@ -7,6 +7,8 @@
 
 class QComboBox;
 class QLineEdit;
+class QLabel;
+class QListWidget;
 class QPushButton;
 
 // Settings > Files: where saves, states, screenshots and BIOS files live, each one a choice of the data folder next
@@ -31,8 +33,14 @@ private:
         QString custom;
     };
 
+    void addLibraryFolder();
+    void findBios();
+    QString biosFolder() const;
+    void refreshBiosStatus();
     void refreshRow(Row& row);
     void buttonClicked(Row& row);
 
     std::array<Row, 4> m_rows;
+    QListWidget* m_libraryFolders = nullptr;
+    QLabel* m_biosStatus = nullptr;
 };

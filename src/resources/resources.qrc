@@ -1,6 +1,37 @@
 <RCC>
+    <qresource prefix="/">
+        <file>theme.qss</file>
+    </qresource>
     <qresource prefix="/app">
         <file alias="icon.png">Xfusion.png</file>
+    </qresource>
+    <qresource prefix="/icons">
+        <file alias="open.svg">icons/open.svg</file>
+        <file alias="refresh.svg">icons/refresh.svg</file>
+        <file alias="reset.svg">icons/reset.svg</file>
+        <file alias="exit.svg">icons/exit.svg</file>
+        <file alias="pause.svg">icons/pause.svg</file>
+        <file alias="play.svg">icons/play.svg</file>
+        <file alias="fullscreen.svg">icons/fullscreen.svg</file>
+        <file alias="settings.svg">icons/settings.svg</file>
+        <file alias="display.svg">icons/display.svg</file>
+        <file alias="sound.svg">icons/sound.svg</file>
+        <file alias="emulation.svg">icons/emulation.svg</file>
+        <file alias="joypad.svg">icons/joypad.svg</file>
+        <file alias="keyboard.svg">icons/keyboard.svg</file>
+        <file alias="folders.svg">icons/folders.svg</file>
+        <file alias="check.svg">icons/check.svg</file>
+        <file alias="up.svg">icons/up.svg</file>
+        <file alias="down.svg">icons/down.svg</file>
+        <file alias="left.svg">icons/left.svg</file>
+        <file alias="right.svg">icons/right.svg</file>
+        <file alias="turbo.svg">icons/turbo.svg</file>
+        <file alias="checkwhite.svg">icons/checkwhite.svg</file>
+        <file alias="checkblack.svg">icons/checkblack.svg</file>
+        <file alias="arrowupwhite.svg">icons/arrowupwhite.svg</file>
+        <file alias="arrowupblack.svg">icons/arrowupblack.svg</file>
+        <file alias="arrowdownwhite.svg">icons/arrowdownwhite.svg</file>
+        <file alias="arrowdownblack.svg">icons/arrowdownblack.svg</file>
     </qresource>
     <qresource prefix="/controllers">
         <file alias="genesis_3button.png">controllers/genesis_3button.png</file>

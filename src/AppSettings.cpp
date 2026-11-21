@@ -3,6 +3,7 @@
 #include "VideoFilters.h"
 
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <algorithm>
@@ -101,7 +102,8 @@ QJsonObject AppSettings::toJson() const
          QJsonObject{{"sram", folderToJson(sramFolder)},
                      {"states", folderToJson(stateFolder)},
                      {"screenshots", folderToJson(screenshotFolder)},
-                     {"bios", folderToJson(biosFolder)}}},
+                     {"bios", folderToJson(biosFolder)},
+                     {"library_folders", QJsonArray::fromStringList(libraryFolders)}}},
         {"shortcuts", shortcuts.toJson()},
     };
 }
@@ -110,7 +112,7 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
 {
     AppSettings s;
     const int version = object.value("version").toInt();
-    if (version != 1 && version != kFileVersion) {
+    if (version < 1 || version > kFileVersion) {
         if (error)
             *error = QString("Unsupported settings version %1").arg(version);
         return s;
@@ -135,6 +137,11 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     s.confirmSaveLoad = general.value("confirm_save_load").toBool(s.confirmSaveLoad);
     s.saveStateOnClose = general.value("save_state_on_close").toBool(s.saveStateOnClose);
     s.theme = std::clamp(general.value("theme").toInt(s.theme), 0, 99);
+    if (version == 2) {
+        // Version 2 had seven themes of its own; the list is now the one of snes9xrd.
+        static constexpr int kVersion2Themes[] = {0, 1, 8, 2, 3, 4, 17, 18};
+        s.theme = s.theme < 8 ? kVersion2Themes[s.theme] : 0;
+    }
     s.showFps = general.value("show_fps").toBool(s.showFps);
     s.showIndicators = general.value("show_indicators").toBool(s.showIndicators);
     s.showPressedKeys = general.value("show_pressed_keys").toBool(s.showPressedKeys);
@@ -177,6 +184,9 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     s.stateFolder = folderFromJson(files.value("states").toObject());
     s.screenshotFolder = folderFromJson(files.value("screenshots").toObject());
     s.biosFolder = folderFromJson(files.value("bios").toObject());
+    for (const QJsonValue& folder : files.value("library_folders").toArray())
+        if (folder.isString() && !folder.toString().isEmpty() && !s.libraryFolders.contains(folder.toString()))
+            s.libraryFolders << folder.toString();
 
     s.shortcuts = ShortcutMap::fromJson(object.value("shortcuts").toObject());
     return s;
