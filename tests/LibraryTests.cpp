@@ -204,6 +204,23 @@ private slots:
         QCOMPARE(loaded.files["C:/x/Sonic.md"].system, 3);
     }
 
+    void aSystemChosenByTheUserSurvivesARestart()
+    {
+        QTemporaryDir dir;
+        const QString file = dir.filePath("library.json");
+        LibraryData data;
+        data.systemChoices["game-a"] = static_cast<int>(System::Sega32X);
+        QVERIFY(data.save(file));
+        const LibraryData loaded = LibraryData::load(file);
+        QCOMPARE(loaded.systemChoices.value("game-a"), static_cast<int>(System::Sega32X));
+        // A value that is no system is dropped.
+        QFile bad(file);
+        QVERIFY(bad.open(QIODevice::WriteOnly));
+        bad.write("{\"version\":1,\"scan_version\":3,\"system_choices\":{\"x\":99,\"y\":2},\"stats\":{},\"files\":[]}");
+        bad.close();
+        QCOMPARE(LibraryData::load(file).systemChoices.size(), 1);
+    }
+
     void anUnreadableFileIsKeptBeforeItIsReplaced()
     {
         QTemporaryDir dir;

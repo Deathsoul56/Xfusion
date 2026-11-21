@@ -74,6 +74,10 @@ LibraryData LibraryData::load(const QString& path, QString* error)
         const QJsonObject entry = it.value().toObject();
         data.stats[it.key()] = {qint64(entry.value("playtime_ms").toDouble()), qint64(entry.value("last_played_ms").toDouble())};
     }
+    const QJsonObject choices = root.value("system_choices").toObject();
+    for (auto it = choices.begin(); it != choices.end(); ++it)
+        if (it.value().isDouble() && it.value().toInt() >= 0 && it.value().toInt() <= static_cast<int>(System::Sega32X))
+            data.systemChoices[it.key()] = it.value().toInt();
     for (const QJsonValue& value : root.value("scan_version").toInt() == kScanVersion ? root.value("files").toArray() : QJsonArray()) {
         const QJsonObject entry = value.toObject();
         LibraryCachedFile cached;
@@ -102,6 +106,9 @@ bool LibraryData::save(const QString& path, QString* error)
     QJsonObject statsJson;
     for (auto it = stats.begin(); it != stats.end(); ++it)
         statsJson[it.key()] = QJsonObject{{"playtime_ms", double(it->playtimeMs)}, {"last_played_ms", double(it->lastPlayedMs)}};
+    QJsonObject choicesJson;
+    for (auto it = systemChoices.begin(); it != systemChoices.end(); ++it)
+        choicesJson[it.key()] = it.value();
     QJsonArray filesJson;
     for (const LibraryCachedFile& cached : files)
         filesJson.append(QJsonObject{{"path", cached.path}, {"size", double(cached.size)}, {"mtime_ms", double(cached.mtimeMs)},
@@ -115,7 +122,7 @@ bool LibraryData::save(const QString& path, QString* error)
             *error = QString("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString());
         return false;
     }
-    file.write(QJsonDocument(QJsonObject{{"version", kFileVersion}, {"scan_version", kScanVersion}, {"stats", statsJson}, {"files", filesJson}}).toJson(QJsonDocument::Compact));
+    file.write(QJsonDocument(QJsonObject{{"version", kFileVersion}, {"scan_version", kScanVersion}, {"stats", statsJson}, {"system_choices", choicesJson}, {"files", filesJson}}).toJson(QJsonDocument::Compact));
     if (!file.commit()) {
         if (error)
             *error = QString("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString());

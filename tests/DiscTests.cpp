@@ -260,6 +260,36 @@ private slots:
         QCOMPARE(readCartridgeHeader(dir.filePath("Small.sms")).regionText(), QString("USA / Europe"));
     }
 
+    void theHeaderCorrectsTheExtensionOfACartridge()
+    {
+        QTemporaryDir dir;
+        QByteArray thirtyTwoX = cartridge(0x100);
+        thirtyTwoX.replace(0x100, 8, "SEGA 32X");
+        writeFile(dir.filePath("Game.bin"), thirtyTwoX);
+        writeFile(dir.filePath("Game.md"), thirtyTwoX);
+        writeFile(dir.filePath("Real.md"), cartridge(0x100));
+        writeFile(dir.filePath("Game.32x"), cartridge(0x100)); // some 32X games carry a plain Mega Drive header
+        writeZip(dir.filePath("Zipped.zip"), {{"Game.bin", thirtyTwoX, true}});
+        for (const char* name : {"Game.bin", "Game.md", "Zipped.zip", "Game.32x"})
+            QCOMPARE(systemForFile(dir.filePath(name)), std::optional<System>(System::Sega32X));
+        QCOMPARE(systemForFile(dir.filePath("Real.md")), std::optional<System>(System::Genesis));
+
+        // A Game Gear game called .sms and a Master System game called .gg.
+        for (const auto& [name, nibble] : {std::pair{"Gg.sms", 6}, std::pair{"Sms.gg", 4}}) {
+            QByteArray rom(0x8000, 0);
+            rom.replace(0x7FF0, 8, "TMR SEGA");
+            rom[0x7FFF] = char(nibble << 4);
+            writeFile(dir.filePath(name), rom);
+        }
+        QCOMPARE(systemForFile(dir.filePath("Gg.sms")), std::optional<System>(System::GameGear));
+        QCOMPARE(systemForFile(dir.filePath("Sms.gg")), std::optional<System>(System::MasterSystem));
+        // Without a header the extension decides, as it must for SG-1000 games.
+        writeFile(dir.filePath("Plain.sg"), QByteArray(0x8000, 0));
+        writeFile(dir.filePath("Plain.gg"), QByteArray(0x8000, 0));
+        QCOMPARE(systemForFile(dir.filePath("Plain.sg")), std::optional<System>(System::SG1000));
+        QCOMPARE(systemForFile(dir.filePath("Plain.gg")), std::optional<System>(System::GameGear));
+    }
+
     void aBiosIsRecognisedByItsContentNotItsName()
     {
         QTemporaryDir dir;

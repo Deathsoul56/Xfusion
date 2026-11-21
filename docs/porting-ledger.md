@@ -67,6 +67,7 @@ dudas), `mixto`, `externo`, `sin verificar`.
 | P-021 | Página Library: estado vacío, lista con búsqueda y orden, carpetas, tiempo jugado y última vez | `LibraryPage.cpp`, `GameListWidget.cpp`, `EmuGameList.cpp`, `FoldersPanel.cpp` | reescritos a partir del comportamiento observado; sin código copiado | 2 | Árbol con licencia Snes9x, autoría sin verificar. Cambia: estadísticas por id de juego, caché de escaneo, duplicados por contenido, pistas de `.cue` excluidas, filtro por sistema | adaptado (ADR-0021) |
 | P-022 | Región, título y BIOS de Sega CD reconocidos por contenido | (sin equivalente en `snes9xrd`; referencia de comportamiento: la lectura de cabeceras de los emuladores de Mega Drive) | escrito de nuevo; zlib (licencia zlib) para leer zips | 2 | Primer sector, no extensión; BIOS por contenido y región; cabecera de cartuchos y de zips | nuevo (ADR-0022) |
 
+| P-023 | Corrección manual del sistema de un juego desde la biblioteca | (sin equivalente en `snes9xrd`, que solo tiene un sistema) | nuevo | 2 | Elección por huella en `library.json`; la cabecera corrige la extensión (32X, Game Gear) | nuevo (ADR-0023) |
 ## De Xfusion a snes9xrd
 
 | ID | Mejora | Origen en Xfusion | Propiedad | Qué cambia entre SEGA y SNES | Estado |

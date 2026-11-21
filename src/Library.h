@@ -21,6 +21,7 @@ struct LibraryEntry {
     qint64 size = 0; // of the whole game: for a disc, all its track files
     qint64 mtimeMs = 0;
     QStringList duplicates; // other files with the same content; they are not listed separately
+    bool systemSet = false; // `system` is what the user chose, not what was detected
 };
 
 // What is remembered about a file between scans, so that a rescan does not open every game again. `system` is -1 for
@@ -47,6 +48,8 @@ struct LibraryStats {
 class LibraryData {
 public:
     QMap<QString, LibraryStats> stats;
+    // The system the user chose for a game, by game id, when the detection got it wrong (or the file says nothing).
+    QMap<QString, int> systemChoices;
     QMap<QString, LibraryCachedFile> files; // by canonical path
 
     // A missing file is an empty library. An unreadable one is too, with `error` set; it is then kept as
