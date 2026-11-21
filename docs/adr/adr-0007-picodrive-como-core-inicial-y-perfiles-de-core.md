@@ -14,7 +14,7 @@ superseded_by: ""
 
 Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
-La decisión de usar solo PicoDrive está aprobada. El diseño de perfiles está aceptado pero sin implementar.
+Sustituida en parte por el ADR-0024 (dos cores). La decisión de usar solo PicoDrive está aprobada. El diseño de perfiles está aceptado pero sin implementar.
 
 ## Context
 

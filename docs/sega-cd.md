@@ -6,7 +6,7 @@
 
 | Tema | Estado |
 |---|---|
-| Core | PicoDrive 2.04 (libretro), el único integrado. Carga el disco y emula el Sega CD. |
+| Core | Genesis Plus GX por defecto; PicoDrive para los discos con audio `.mp3` (ADR-0024) |
 | Formatos reconocidos | `.cue` + `.bin`, `.iso` (con audio suelto), `.chd` (sin inspeccionar) |
 | Reconocimiento | Por el contenido del primer sector, no por la extensión |
 | Región y título | Leídos de la cabecera del disco y mostrados en la biblioteca |
@@ -113,7 +113,11 @@ La versión sale del final del título (`1.00S`, `2.00W`, `2.11X`).
 1. Se reconoce el sistema (§4.1).
 2. `prepareDisc` lee el disco: si faltan pistas, avisa.
 3. Con la región del disco, comprueba que haya un BIOS para alguna de sus regiones. Si no, un cuadro explica cuál falta (`bios_CD_E.bin`...), en qué carpeta va, y ofrece **Find BIOS Files...** para elegir una carpeta con los volcados. Un `.chd` o una cabecera sin región se saltan esta comprobación: decide el core.
-4. Se carga con PicoDrive, que elige el BIOS por la región del propio disco.
+4. Se elige el core (§4.6) y se carga; el core elige el BIOS por la región del propio disco.
+
+### 4.6 Qué core juega el disco
+
+Por defecto, **Genesis Plus GX** (el más maduro para Sega CD, con CHD y RAM de respaldo). Tiene una limitación: no reproduce las pistas `.mp3` (solo WAV y OGG), así que un disco con audio `.mp3` (los tres `.iso` locales) va a **PicoDrive**, que sí; el aviso sale en la barra de estado. Para usar Genesis Plus GX con esos discos hay que convertir sus pistas a OGG o WAV con el mismo nombre (`<nombre> NN.ogg`). El usuario puede fijar un core para Sega CD en Options > Emulation > Cores y entonces no se aplica esta regla. Un `.cue` con `.bin` funciona con Genesis Plus GX.
 
 ## 5. Biblioteca
 
@@ -127,7 +131,7 @@ La página Library (ADR-0021) lista los discos con su sistema (`Sega CD`), su **
 
 ## 7. Saves
 
-- La copia de seguridad interna del Sega CD la escribe el propio core en `saves\Sega CD\`, junto a los demás archivos del sistema (ADR-0002). La carpeta se llama `Sega CD`.
+- La copia de seguridad interna del Sega CD la escribe el propio core en `saves\Sega CD\` (ADR-0002). **Genesis Plus GX** usa un archivo por región, compartido por todos los juegos como en la consola (`scd_J.brm`, `scd_U.brm`, `scd_E.brm`); **PicoDrive** uno por juego (`<juego>.brm`). Los dos formatos no se migran de uno a otro.
 - Los estados y las capturas también van en carpetas por sistema (`states\Sega CD\`, `screenshots\Sega CD\`).
 - La identidad del juego para los saves es la **huella del archivo** (tamaño más principio y final), no el código de producto. Para un `.cue`, la huella incluye los archivos que cita. Así no se pierden los saves ya existentes y un mismo disco en `.iso` y en `.cue` no comparte saves por casualidad.
 - Los archivos que escribe el core no pasan por el índice `saves.json`.

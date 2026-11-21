@@ -64,6 +64,8 @@ add_library(xfusion_input STATIC
     src/GameSaves.cpp
     src/Library.cpp
     src/Library.h
+    src/CoreRules.cpp
+    src/CoreRules.h
     src/ZipRead.cpp
     src/ZipRead.h
     src/GameHeader.cpp

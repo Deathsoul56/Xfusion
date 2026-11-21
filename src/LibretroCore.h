@@ -6,7 +6,9 @@
 #include <QString>
 #include <array>
 #include <atomic>
+#include <QTemporaryDir>
 #include <cstdint>
+#include <memory>
 #include <functional>
 
 #include "CoreProfile.h"
@@ -30,6 +32,9 @@ public:
     LibretroCore& operator=(const LibretroCore&) = delete;
 
     bool load(const QString& corePath, QString* error);
+    // Changes to another core: the current one is unloaded (with its game) and `corePath`, described by `profile`,
+    // loaded. Does nothing when that core is already the one loaded.
+    bool useCore(const CoreProfile& profile, const QString& corePath, QString* error);
     bool loadGame(const QString& gamePath, QString* error);
     void unloadGame();
     void run();
@@ -47,11 +52,13 @@ public:
     void setButton(int player, PadButton button, bool pressed);
     // Selects the pad the core emulates. Call from the emulation thread (or with it stopped): the core
     // reads the new value at the start of its next frame.
-    void setPads(PadType type, bool secondPadConnected);
+    // `genesisFamily` is false for the 8-bit systems, whose pad needs no choosing.
+    void setPads(PadType type, bool secondPadConnected, bool genesisFamily = true);
     // While set, frames the core produces are not delivered (frame skipping). The core is told it may skip
     // rendering too.
     void setSkipVideo(bool skip) { m_skipVideo.store(skip, std::memory_order_relaxed); }
-    const CoreProfile& profile() const { return m_profile; }
+    const CoreProfile& profile() const { return *m_profile; }
+    const QString& corePath() const { return m_corePath; }
 
     // Battery RAM, as the core exposes it: empty while the core has none (PicoDrive reports it only once it is
     // not all zero). Call from the emulation thread, or with it stopped.
@@ -77,9 +84,15 @@ private:
 
     bool handleEnvironment(unsigned cmd, void* data);
     void updateAvInfo();
+    // The path the core is given: the game itself, or what a zip held when the core cannot open zips.
+    QString contentPath(const QString& gamePath, QString* error);
     bool reloadCore(QString* error);
 
-    const CoreProfile& m_profile;
+    const CoreProfile* m_profile;
+    QString m_corePath;
+    unsigned m_portDevices[2] = {0, 0};
+    bool m_choosePortDevices = false;
+    void applyPortDevices();
     std::map<std::string, std::string> m_options;
     bool m_optionsChanged = false;
     QLibrary m_lib;
@@ -92,6 +105,7 @@ private:
     QByteArray m_systemDir;
     QByteArray m_saveDir;
     QByteArray m_gamePath;
+    std::unique_ptr<QTemporaryDir> m_unpacked; // the game extracted from a zip, while it is loaded
     std::array<std::array<std::atomic<bool>, 16>, kPlayers> m_buttons{};
     std::atomic<bool> m_skipVideo{false};
     VideoCallback m_video;
@@ -103,6 +117,7 @@ private:
     void (*m_setAudioSampleBatch)(retro_audio_sample_batch_t) = nullptr;
     void (*m_setInputPoll)(retro_input_poll_t) = nullptr;
     void (*m_setInputState)(retro_input_state_t) = nullptr;
+    void (*m_setControllerPortDevice)(unsigned, unsigned) = nullptr; // optional
     void (*m_init)() = nullptr;
     void (*m_deinit)() = nullptr;
     unsigned (*m_apiVersion)() = nullptr;

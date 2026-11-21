@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QMap>
 #include <QString>
 #include <QStringList>
 
@@ -103,6 +104,8 @@ struct AppSettings {
     int fixedFrameSkip = 0;
     int rewindMegabytes = 10; // 0 turns rewind off
     int rewindInterval = 5; // frames between rewind snapshots
+    // The core the user chose for a system (key of systemKey(), core id), when not the default of CoreRules.
+    QMap<QString, QString> coreChoices;
 
     // Files
     FolderSetting sramFolder;

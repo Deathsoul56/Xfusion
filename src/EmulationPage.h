@@ -1,14 +1,17 @@
 #pragma once
 
 #include <QWidget>
+#include <utility>
+#include <vector>
 
 #include "AppSettings.h"
+#include "SystemInfo.h"
 
 class QComboBox;
 class QDoubleSpinBox;
 class QSpinBox;
 
-// Settings > Emulation: speed control and rewind.
+// Settings > Emulation: which core plays each system, speed control and rewind.
 class EmulationPage : public QWidget {
     Q_OBJECT
 public:
@@ -19,6 +22,7 @@ public:
     void restoreDefaults() { setValues(AppSettings()); }
 
 private:
+    std::vector<std::pair<System, QComboBox*>> m_cores; // one per system
     QComboBox* m_method;
     QDoubleSpinBox* m_frameRate;
     QSpinBox* m_maxSkip;

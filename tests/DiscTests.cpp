@@ -3,6 +3,7 @@
 #include <QtTest>
 
 #include "Bios.h"
+#include "CoreRules.h"
 #include "DiscInfo.h"
 #include "GameHeader.h"
 #include "SystemInfo.h"
@@ -258,6 +259,55 @@ private slots:
         QCOMPARE(readCartridgeHeader(dir.filePath("Japan.gg")).regionText(), QString("Japan"));
         QCOMPARE(readCartridgeHeader(dir.filePath("Japan.gg")).systemType, QString("Game Gear"));
         QCOMPARE(readCartridgeHeader(dir.filePath("Small.sms")).regionText(), QString("USA / Europe"));
+    }
+
+    void everySystemHasItsDefaultCore()
+    {
+        for (const SystemDef& def : allSystems())
+            QCOMPARE(defaultCoreFor(def.id), def.id == System::Sega32X ? CoreId::PicoDrive : CoreId::GenesisPlusGx);
+        // The default of each system is a core that can play it.
+        for (const SystemDef& def : allSystems())
+            QVERIFY(coreInfo(defaultCoreFor(def.id))->supports(def.id));
+        QVERIFY(!coreInfo(CoreId::GenesisPlusGx)->supports(System::Sega32X));
+        QCOMPARE(systemKey(System::Sega32X), QString("32x"));
+    }
+
+    void theUsersChoiceWinsOnlyWhenTheCoreCanPlayTheSystem()
+    {
+        const auto all = [](const QString&) { return true; };
+        QCOMPARE(chooseCore(System::Genesis, nullptr, {{"genesis", CoreId::PicoDrive}}, all).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Sega32X, nullptr, {{"32x", CoreId::GenesisPlusGx}}, all).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Genesis, nullptr, {{"genesis", "no-such-core"}}, all).id, CoreId::GenesisPlusGx);
+    }
+
+    void aDiscWithMp3AudioGoesToPicoDriveUnlessTheUserChose()
+    {
+        const auto all = [](const QString&) { return true; };
+        DiscInfo mp3;
+        mp3.audioFiles = {"C:/games/Sonic CD 02.mp3", "C:/games/Sonic CD 03.MP3"};
+        DiscInfo ogg;
+        ogg.audioFiles = {"C:/games/Game 02.ogg", "C:/games/Game 03.wav"};
+        const CoreDecision withMp3 = chooseCore(System::SegaCD, &mp3, {}, all);
+        QCOMPARE(withMp3.id, CoreId::PicoDrive);
+        QVERIFY(withMp3.note.contains("mp3"));
+        const CoreDecision withOgg = chooseCore(System::SegaCD, &ogg, {}, all);
+        QCOMPARE(withOgg.id, CoreId::GenesisPlusGx);
+        QVERIFY(withOgg.note.isEmpty());
+        QCOMPARE(chooseCore(System::SegaCD, &mp3, {{"segacd", CoreId::GenesisPlusGx}}, all).id, CoreId::GenesisPlusGx);
+        QCOMPARE(chooseCore(System::SegaCD, nullptr, {}, all).id, CoreId::GenesisPlusGx);
+        // The mp3 rule is for Sega CD only.
+        QCOMPARE(chooseCore(System::Genesis, &mp3, {}, all).id, CoreId::GenesisPlusGx);
+    }
+
+    void aCoreThatIsNotInstalledIsReplacedWhenAnotherCanPlayTheSystem()
+    {
+        const auto onlyPico = [](const QString& id) { return id == CoreId::PicoDrive; };
+        const CoreDecision genesis = chooseCore(System::Genesis, nullptr, {}, onlyPico);
+        QCOMPARE(genesis.id, CoreId::PicoDrive);
+        QVERIFY(genesis.note.contains("Genesis Plus GX is not installed"));
+        const auto onlyGpgx = [](const QString& id) { return id == CoreId::GenesisPlusGx; };
+        QVERIFY(chooseCore(System::Sega32X, nullptr, {}, onlyGpgx).id.isEmpty()); // nothing else plays 32X
+        QVERIFY(chooseCore(System::Genesis, nullptr, {}, [](const QString&) { return false; }).id.isEmpty());
     }
 
     void theHeaderCorrectsTheExtensionOfACartridge()

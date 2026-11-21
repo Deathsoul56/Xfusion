@@ -118,6 +118,18 @@ private slots:
         QCOMPARE(AppSettings::fromJson(json).libraryFolders, QStringList({"C:/roms", "E:/x"}));
     }
 
+    void coreChoicesRoundTripAndUnknownCoresAreDropped()
+    {
+        AppSettings s;
+        s.coreChoices = {{"genesis", "picodrive"}, {"segacd", "genesis_plus_gx"}};
+        QCOMPARE(AppSettings::fromJson(s.toJson()).coreChoices, s.coreChoices);
+        QJsonObject json = s.toJson();
+        QJsonObject emulation = json["emulation"].toObject();
+        emulation["cores"] = QJsonObject{{"genesis", "picodrive"}, {"gamegear", "made-up"}, {"32x", 7}};
+        json["emulation"] = emulation;
+        QCOMPARE(AppSettings::fromJson(json).coreChoices, (QMap<QString, QString>{{"genesis", "picodrive"}}));
+    }
+
     void aVersionTwoFileKeepsItsThemeByName()
     {
         // 7 was "AMOLED (Black/Purple)" and 2 "Dark (Gray)" before the list became the one of snes9xrd.
