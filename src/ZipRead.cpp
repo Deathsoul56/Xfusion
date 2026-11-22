@@ -5,8 +5,8 @@
 
 namespace {
 
-quint16 u16(const QByteArray& b, int at) { return quint16(quint8(b[at]) | quint8(b[at + 1]) << 8); }
-quint32 u32(const QByteArray& b, int at) { return quint32(u16(b, at)) | quint32(u16(b, at + 2)) << 16; }
+quint16 u16(const QByteArray& b, qsizetype at) { return quint16(quint8(b[at]) | quint8(b[at + 1]) << 8); }
+quint32 u32(const QByteArray& b, qsizetype at) { return quint32(u16(b, at)) | quint32(u16(b, at + 2)) << 16; }
 
 }
 
@@ -20,7 +20,7 @@ std::vector<ZipEntry> zipEntries(const QString& path)
     const qint64 tailSize = qMin<qint64>(file.size(), eocdSize + 0xFFFF);
     file.seek(file.size() - tailSize);
     const QByteArray tail = file.read(tailSize);
-    const int eocd = tail.lastIndexOf(QByteArray("PK\x05\x06", 4));
+    const qsizetype eocd = tail.lastIndexOf(QByteArray("PK\x05\x06", 4));
     if (eocd < 0 || tail.size() - eocd < eocdSize)
         return {};
 
@@ -29,7 +29,7 @@ std::vector<ZipEntry> zipEntries(const QString& path)
     const QByteArray dir = file.read(u32(tail, eocd + 12));
 
     std::vector<ZipEntry> entries;
-    int pos = 0;
+    qsizetype pos = 0;
     for (int i = 0; i < count && pos + 46 <= dir.size(); ++i) {
         const int nameLen = u16(dir, pos + 28);
         const int extraLen = u16(dir, pos + 30);

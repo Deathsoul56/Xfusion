@@ -21,7 +21,7 @@
 FilesPage::FilesPage(const AppSettings& settings, QWidget* parent)
     : QWidget(parent)
 {
-    m_rows = {{{"Save RAM (SRAM)", "saves", true}, {"Save states", "states", true}, {"Screenshots", "screenshots", true}, {"BIOS", "system", false}}};
+    m_rows = {{{"Save RAM (SRAM)", "saves", true}, {"Save states", "states", true}, {"Screenshots", "screenshots", true}, {"BIOS", "system", false}, {"Patches", "patches", true}}};
 
     auto* group = new QGroupBox("Data Locations", this);
     auto* grid = new QGridLayout(group);
@@ -73,7 +73,9 @@ FilesPage::FilesPage(const AppSettings& settings, QWidget* parent)
 
     auto* hint = new QLabel("Saves, states and screenshots keep one folder per system, so games with the same name on different systems never "
                             "overwrite each other. Data Folder is next to the program (or XFUSION_DATA_DIR). Game Folder puts the files "
-                            "beside each game instead. Changes apply the next time a game opens.",
+                            "beside each game instead. Changes apply the next time a game opens.\n\nPatches: a file with the name of the game and the "
+                            "extension .bps, .ups or .ips, in the Patches folder (directly or in the folder of its system), is applied when the "
+                            "game opens. The game file is not changed, and a patched game has its own saves and states.",
                             this);
     hint->setWordWrap(true);
     hint->setEnabled(false);
@@ -88,7 +90,7 @@ FilesPage::FilesPage(const AppSettings& settings, QWidget* parent)
 
 void FilesPage::setValues(const AppSettings& s)
 {
-    const FolderSetting* folders[] = {&s.sramFolder, &s.stateFolder, &s.screenshotFolder, &s.biosFolder};
+    const FolderSetting* folders[] = {&s.sramFolder, &s.stateFolder, &s.screenshotFolder, &s.biosFolder, &s.patchFolder};
     for (std::size_t i = 0; i < m_rows.size(); ++i) {
         Row& row = m_rows[i];
         row.custom = folders[i]->custom;
@@ -103,7 +105,7 @@ void FilesPage::setValues(const AppSettings& s)
 
 void FilesPage::applyTo(AppSettings& s) const
 {
-    FolderSetting* folders[] = {&s.sramFolder, &s.stateFolder, &s.screenshotFolder, &s.biosFolder};
+    FolderSetting* folders[] = {&s.sramFolder, &s.stateFolder, &s.screenshotFolder, &s.biosFolder, &s.patchFolder};
     for (std::size_t i = 0; i < m_rows.size(); ++i) {
         const Row& row = m_rows[i];
         folders[i]->location = static_cast<FileLocation>(row.location->currentData().toInt());

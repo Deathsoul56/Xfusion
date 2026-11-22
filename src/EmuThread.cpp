@@ -200,7 +200,7 @@ void EmuThread::loop()
             behind = false;
         } else {
             const double speedUp = fastForward ? cfg.fastForwardSkip + 1 : std::max(0.05, ratio);
-            const int64_t frameNs = static_cast<int64_t>(baseFrameNs / speedUp);
+            const int64_t frameNs = static_cast<int64_t>(double(baseFrameNs) / speedUp);
             nextNs += frameNs;
             sleepUntil(nextNs);
             const int64_t late = static_cast<int64_t>(SDL_GetTicksNS()) - nextNs;

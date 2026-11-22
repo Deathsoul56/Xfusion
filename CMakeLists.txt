@@ -66,6 +66,12 @@ add_library(xfusion_input STATIC
     src/Library.h
     src/CoreRules.cpp
     src/CoreRules.h
+    src/CoreProfile.cpp
+    src/CoreProfile.h
+    src/Patch.cpp
+    src/Patch.h
+    src/RomInfo.cpp
+    src/RomInfo.h
     src/ZipRead.cpp
     src/ZipRead.h
     src/GameHeader.cpp
@@ -81,6 +87,7 @@ add_library(xfusion_input STATIC
     src/DisplayLayout.h
 )
 target_include_directories(xfusion_input PUBLIC src third_party)
+target_include_directories(xfusion_input PRIVATE "${LIBRETRO_INCLUDE_DIR}")
 target_link_libraries(xfusion_input PUBLIC Qt6::Gui ${XFUSION_SDL3} ${XFUSION_STATIC_LIBS})
 
 add_executable(xfusion
@@ -126,8 +133,6 @@ add_executable(xfusion
     src/Icons.h
     src/Theme.cpp
     src/Theme.h
-    src/CoreProfile.cpp
-    src/CoreProfile.h
     src/EmuThread.cpp
     src/EmuThread.h
 )
@@ -176,7 +181,8 @@ add_executable(settings_tests tests/SettingsTests.cpp)
 add_executable(save_tests tests/SaveTests.cpp)
 add_executable(library_tests tests/LibraryTests.cpp)
 add_executable(disc_tests tests/DiscTests.cpp)
-foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests)
+add_executable(patch_tests tests/PatchTests.cpp)
+foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests patch_tests)
     target_link_libraries(${testTarget} PRIVATE xfusion_input Qt6::Test)
     add_test(NAME ${testTarget} COMMAND ${testTarget})
     set_tests_properties(${testTarget} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -188,6 +194,7 @@ if(XFUSION_STATIC)
     target_link_options(save_tests PRIVATE -static)
     target_link_options(library_tests PRIVATE -static)
     target_link_options(disc_tests PRIVATE -static)
+    target_link_options(patch_tests PRIVATE -static)
     # Static Qt links its plugins into the exe; take only the ones used instead of every default one
     # (image formats, TLS, ... would pull in more libraries).
     qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin Qt6::QSvgPlugin)
@@ -196,4 +203,5 @@ if(XFUSION_STATIC)
     qt_import_plugins(save_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(library_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(disc_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(patch_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
 endif()

@@ -54,6 +54,9 @@ public:
     // reads the new value at the start of its next frame.
     // `genesisFamily` is false for the 8-bit systems, whose pad needs no choosing.
     void setPads(PadType type, bool secondPadConnected, bool genesisFamily = true);
+    // The options the user changed for this core (key to value). Only those the profile lists, with a value it lists,
+    // are taken; every other option the user may change goes back to the core's default. Call before loading a game.
+    void setUserOptions(const std::map<std::string, std::string>& values);
     // While set, frames the core produces are not delivered (frame skipping). The core is told it may skip
     // rendering too.
     void setSkipVideo(bool skip) { m_skipVideo.store(skip, std::memory_order_relaxed); }

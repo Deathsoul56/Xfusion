@@ -71,6 +71,8 @@ dudas), `mixto`, `externo`, `sin verificar`.
 ## De Xfusion a snes9xrd
 | P-024 | Dos cores con reglas por sistema y extracción de zips | (sin equivalente en `snes9xrd`, un solo core) | nuevo | 2 | GPGX por defecto salvo 32X; mp3 de Sega CD a PicoDrive; perfil de GPGX | nuevo (ADR-0024) |
 
+| P-025 | Parches IPS, BPS y UPS aplicados por el frontend, carpeta configurable | (sin equivalente en `snes9xrd`, que no tiene parches) | nuevo; escrito desde las especificaciones públicas | 2 | Sumas de comprobación de BPS/UPS; saves propios por juego parcheado | nuevo (ADR-0025) |
+| P-026 | Textos de los mensajes en pantalla igual que snes9xrd: `<archivo> saved`, `<archivo> loaded`, `Failed to save/load <archivo>`, `Turbo mode: on/off`, `Current slot: N [used]`, y el mensaje de inicio de tres líneas (nombre, estándar de vídeo y versión; sistema, core, tamaño y SRAM; id, CRC32 y suma de comprobación) | `Snes9xController.cpp`, `controls.cpp`, `memmap.cpp` (`GetMultilineROMInfo`) | sin copiar código; solo el texto de los mensajes | 2 | Sin mensajes en la barra de estado (snes9xrd solo usa la pantalla); el deshacer no dice nada; las rutas se muestran solo con el nombre del archivo porque la ruta completa no cabe en la ventana; la suma de comprobación solo se calcula para Mega Drive y 32X | nuevo (`RomInfo`) |
 | ID | Mejora | Origen en Xfusion | Propiedad | Qué cambia entre SEGA y SNES | Estado |
 |---|---|---|---|---|---|
 | X-001 | Leer el teclado por estado físico en cada fotograma, para no perder pulsaciones tras diálogos o cambios de foco | `MainWindow::pollKeyboard` | propio | Comprobar primero si `snes9xrd` tiene ese síntoma; allí las entradas pasan por `SDLInputManager` | por evaluar |

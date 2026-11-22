@@ -4,6 +4,7 @@
 #include "SystemInfo.h"
 
 #include <QString>
+#include <QStringList>
 
 namespace AppPaths {
 
@@ -17,6 +18,10 @@ QString savesDir(System system, const QString& romDir);
 // Created when a state is written, not here.
 QString statesDir(System system, const QString& romDir);
 QString screenshotsDir(System system, const QString& romDir);
+// Where to look for the patch of a game, first match wins: the folder of the game, or the patches folder (next to the
+// program by default, Settings > Files) with the folder of the system inside it tried first. The patches folder is
+// created when it is the default one.
+QStringList patchFolders(System system, const QString& romDir);
 // The BIOS folder: next to the executable unless a custom folder was chosen.
 QString systemDir();
 QString coresDir();
@@ -25,7 +30,6 @@ QString inputConfigPath();
 QString settingsPath();
 // Play time, last played and the scan cache of the library.
 QString libraryPath();
-QString defaultCorePath();
 // The file of a core (CoreRules.h id) in the cores folder, and whether it is there.
 QString corePath(const QString& coreId);
 bool coreInstalled(const QString& coreId);

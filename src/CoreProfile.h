@@ -3,12 +3,23 @@
 #include <array>
 #include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <QString>
 #include <QStringList>
 
 #include "PadButton.h"
+
+// A core option the user may change (Options > Emulation > Core Options). The values are what the core takes, with the
+// text shown for each; the first one listed is not necessarily the default.
+struct CoreOption {
+    std::string key;
+    QString label;
+    QString tip;
+    std::vector<std::pair<std::string, QString>> values;
+    std::string defaultValue;
+};
 
 // Everything that is specific to one libretro core. The rest of the frontend must not
 // hardcode core names, option keys or button ids.
@@ -17,6 +28,9 @@ struct CoreProfile {
     QString libraryBaseName;
     // Core options forced to a fixed value; any other option falls back to the core's default.
     std::map<std::string, std::string> options;
+    // The options the user can change; the rest stay at the core's default or at `options`.
+    std::vector<CoreOption> userOptions;
+    const CoreOption* userOption(const std::string& key) const;
     // Options that select the Genesis-family pad and the value each PadType takes. Empty when the core has none.
     std::vector<std::string> padTypeKeys;
     std::string padTypeValues[2];
@@ -42,6 +56,9 @@ struct CoreProfile {
     unsigned retroId(PadButton button) const { return retroIds[static_cast<std::size_t>(button)]; }
     QString libraryFileName() const;
 };
+
+// True when `value` is one the option lists.
+bool isValidCoreOption(const CoreOption& option, const std::string& value);
 
 const CoreProfile& picoDriveProfile();
 const CoreProfile& genesisPlusGxProfile();

@@ -14,8 +14,6 @@ namespace {
 
 constexpr int kAxisThreshold = 16384;
 constexpr uint64_t kRefreshIntervalNs = 500'000'000;
-constexpr int kControllerSlot = 0;
-constexpr int kStickSlot = 2;
 
 struct GamepadDefault {
     PadButton button;
@@ -409,7 +407,7 @@ int InputManager::autoAssign(InputGroup group, int player, int slot, const QStri
     const char* name = SDL_GetGamepadName(gamepad);
     if (message)
         *message = QString("Assigned %1 controls from %2").arg(assigned).arg(name ? name : "the gamepad");
-    SDL_free(bindings);
+    SDL_free(static_cast<void*>(bindings));
     SDL_CloseGamepad(gamepad);
     return assigned;
 }

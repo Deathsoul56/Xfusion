@@ -106,12 +106,15 @@ struct AppSettings {
     int rewindInterval = 5; // frames between rewind snapshots
     // The core the user chose for a system (key of systemKey(), core id), when not the default of CoreRules.
     QMap<QString, QString> coreChoices;
+    // The core options the user changed, by core id and then option key. An option that is not here is at the core's default.
+    QMap<QString, QMap<QString, QString>> coreOptions;
 
     // Files
     FolderSetting sramFolder;
     FolderSetting stateFolder;
     FolderSetting screenshotFolder;
     FolderSetting biosFolder;
+    FolderSetting patchFolder; // IPS, BPS and UPS patches for the games (Patch.h)
     QStringList libraryFolders; // searched for games, with their subfolders (the Library page)
 
     ShortcutMap shortcuts = ShortcutMap::defaults();

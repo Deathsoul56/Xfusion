@@ -1,5 +1,6 @@
 #include "EmulationPage.h"
 
+#include "CoreProfile.h"
 #include "CoreRules.h"
 #include "FormAlign.h"
 
@@ -10,6 +11,7 @@
 #include <QLabel>
 #include <algorithm>
 #include <QSpinBox>
+#include <QStackedWidget>
 #include <QVBoxLayout>
 
 EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
@@ -61,11 +63,45 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
         coresLayout->addRow(def.folder + ":", combo);
         m_cores.emplace_back(def.id, combo);
     }
-    auto* coresNote = new QLabel("Sega CD discs with .mp3 audio tracks go to PicoDrive when the default is used: Genesis Plus GX cannot play "
-                                 "them. Save states are not shared between cores.", cores);
+    auto* coresNote = new QLabel("Genesis Plus GX plays Sega CD audio from WAV or OGG tracks (and .chd or .cue images), not .mp3; PicoDrive plays "
+                                 ".mp3 (MPEG-1, 44.1 kHz). Choose PicoDrive for Sega CD to hear the .mp3 tracks of a disc. Save states are not "
+                                 "shared between cores.", cores);
     coresNote->setWordWrap(true);
     coresNote->setEnabled(false);
     coresLayout->addRow(coresNote);
+
+    // What each core lets the user change. One form per core, the one of the core picked above shown; the choices of
+    // all of them are kept. They reach the core when a game opens.
+    auto* coreOptions = new QGroupBox("Core Options", this);
+    auto* coreOptionsLayout = new QVBoxLayout(coreOptions);
+    auto* optionCore = new QComboBox(coreOptions);
+    auto* optionForms = new QStackedWidget(coreOptions);
+    for (const CoreInfo& core : allCores()) {
+        const CoreProfile& profile = coreProfileById(core.id);
+        if (profile.userOptions.empty())
+            continue;
+        auto* form = new QWidget(optionForms);
+        form->setBackgroundRole(QPalette::NoRole); // let the group box show through
+        auto* formLayout = new QFormLayout(form);
+        formLayout->setContentsMargins(0, 0, 0, 0);
+        for (const CoreOption& option : profile.userOptions) {
+            auto* combo = new QComboBox(form);
+            for (const auto& [value, text] : option.values)
+                combo->addItem(value == option.defaultValue ? text + " (default)" : text, QString::fromStdString(value));
+            combo->setToolTip(option.tip);
+            formLayout->addRow(option.label + ":", combo);
+            m_coreOptions.push_back({core.id, &option, combo});
+        }
+        optionCore->addItem(core.name);
+        optionForms->addWidget(form);
+    }
+    connect(optionCore, &QComboBox::currentIndexChanged, optionForms, &QStackedWidget::setCurrentIndex);
+    auto* optionsNote = new QLabel("These options reach the core when a game opens. Systems a core does not play ignore its options.", coreOptions);
+    optionsNote->setWordWrap(true);
+    optionsNote->setEnabled(false);
+    coreOptionsLayout->addWidget(optionCore);
+    coreOptionsLayout->addWidget(optionForms);
+    coreOptionsLayout->addWidget(optionsNote);
 
     auto* speed = new QGroupBox("Emulation Speed", this);
     auto* speedLayout = new QFormLayout(speed);
@@ -85,6 +121,7 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
 
     auto* layout = new QVBoxLayout(this);
     layout->addWidget(cores);
+    layout->addWidget(coreOptions);
     layout->addWidget(speed);
     layout->addWidget(rewind);
     layout->addStretch(1);
@@ -104,6 +141,10 @@ void EmulationPage::setValues(const AppSettings& s)
     m_rewindInterval->setValue(s.rewindInterval);
     for (const auto& [system, combo] : m_cores)
         combo->setCurrentIndex(std::max(0, combo->findData(s.coreChoices.value(systemKey(system)))));
+    for (const OptionRow& row : m_coreOptions) {
+        const QString value = s.coreOptions.value(row.coreId).value(QString::fromStdString(row.option->key), QString::fromStdString(row.option->defaultValue));
+        row.combo->setCurrentIndex(std::max(0, row.combo->findData(value)));
+    }
 }
 
 void EmulationPage::applyTo(AppSettings& s) const
@@ -119,4 +160,10 @@ void EmulationPage::applyTo(AppSettings& s) const
     for (const auto& [system, combo] : m_cores)
         if (!combo->currentData().toString().isEmpty())
             s.coreChoices[systemKey(system)] = combo->currentData().toString();
+    s.coreOptions.clear();
+    for (const OptionRow& row : m_coreOptions) {
+        const QString value = row.combo->currentData().toString();
+        if (value.toStdString() != row.option->defaultValue)
+            s.coreOptions[row.coreId][QString::fromStdString(row.option->key)] = value;
+    }
 }

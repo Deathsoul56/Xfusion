@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QTemporaryDir>
 #include <QHash>
 #include <QMainWindow>
 #include <QTimer>
@@ -22,6 +23,7 @@
 class QAction;
 class QActionGroup;
 class LibraryPage;
+struct DiscInfo;
 class QLabel;
 class QMenu;
 class QStackedWidget;
@@ -62,8 +64,13 @@ private:
     // Games
     void promptOpenGame();
     bool closeGame();
-    bool prepareDisc(const QString& path);
-    bool selectCore(System system, const QString& path);
+    bool prepareDisc(const DiscInfo& disc);
+    bool selectCore(System system, const QString& gameCoreChoice);
+    void warnAboutAudio(const DiscInfo& disc);
+    // The file to play: the game itself, or a patched copy when the game has a patch (Patch.h). Empty when the user
+    // cancels. Discs are not patched.
+    QString preparePatchedGame(const QString& path, System system);
+    QString startText(const QString& path, const QString& playPath, System system, const DiscInfo& disc, qsizetype sramSize) const;
     void resetGame(bool powerCycle);
     void showRomInfo();
     void takeScreenshot();
@@ -120,6 +127,10 @@ private:
     VideoWidget* m_video;
     LibraryPage* m_library;
     bool m_coreForced = false;
+    std::unique_ptr<QTemporaryDir> m_patchedGame; // the patched copy, while the game is open
+    QString m_patchName; // the patch applied to the game that is open, if any
+    QString m_patchKind; // "IPS", "BPS" or "UPS"
+    QString m_libraryId; // the id the library knows the game by: the original file, even when a patched copy is played
     QString m_coreNote; // why the core is not the first choice for the game that is open, if it is not
     QStackedWidget* m_central;
     // m_emu is declared after m_audio so the thread stops before the audio device it uses is destroyed.

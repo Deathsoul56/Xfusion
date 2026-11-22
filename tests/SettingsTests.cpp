@@ -118,6 +118,19 @@ private slots:
         QCOMPARE(AppSettings::fromJson(json).libraryFolders, QStringList({"C:/roms", "E:/x"}));
     }
 
+    void thePatchesFolderRoundTrips()
+    {
+        AppSettings s;
+        QCOMPARE(s.patchFolder.location, FileLocation::DataFolder);
+        s.patchFolder.location = FileLocation::Custom;
+        s.patchFolder.custom = "D:/my patches";
+        const AppSettings loaded = AppSettings::fromJson(s.toJson());
+        QCOMPARE(loaded.patchFolder.location, FileLocation::Custom);
+        QCOMPARE(loaded.patchFolder.custom, QString("D:/my patches"));
+        s.patchFolder.location = FileLocation::RomFolder;
+        QCOMPARE(AppSettings::fromJson(s.toJson()).patchFolder.location, FileLocation::RomFolder);
+    }
+
     void coreChoicesRoundTripAndUnknownCoresAreDropped()
     {
         AppSettings s;
@@ -128,6 +141,25 @@ private slots:
         emulation["cores"] = QJsonObject{{"genesis", "picodrive"}, {"gamegear", "made-up"}, {"32x", 7}};
         json["emulation"] = emulation;
         QCOMPARE(AppSettings::fromJson(json).coreChoices, (QMap<QString, QString>{{"genesis", "picodrive"}}));
+    }
+
+    void coreOptionsRoundTripAndOnlyOnesTheCoreOffersAreKept()
+    {
+        AppSettings s;
+        s.coreOptions = {{"genesis_plus_gx", {{"genesis_plus_gx_region_detect", "pal"}, {"genesis_plus_gx_gg_extra", "enabled"}}},
+                         {"picodrive", {{"picodrive_region", "Europe"}}}};
+        QCOMPARE(AppSettings::fromJson(s.toJson()).coreOptions, s.coreOptions);
+
+        QJsonObject json = s.toJson();
+        QJsonObject emulation = json["emulation"].toObject();
+        emulation["core_options"] = QJsonObject{{"genesis_plus_gx", QJsonObject{{"genesis_plus_gx_region_detect", "mars"}, // not a value of the option
+                                                                                  {"genesis_plus_gx_made_up", "on"},      // not an option
+                                                                                  {"genesis_plus_gx_lcd_filter", "enabled"}}},
+                                                 {"no-such-core", QJsonObject{{"x", "y"}}}};
+        json["emulation"] = emulation;
+        const AppSettings loaded = AppSettings::fromJson(json);
+        QCOMPARE(loaded.coreOptions.size(), 1);
+        QCOMPARE(loaded.coreOptions.value("genesis_plus_gx"), (QMap<QString, QString>{{"genesis_plus_gx_lcd_filter", "enabled"}}));
     }
 
     void aVersionTwoFileKeepsItsThemeByName()

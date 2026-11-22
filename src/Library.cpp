@@ -78,7 +78,11 @@ LibraryData LibraryData::load(const QString& path, QString* error)
     for (auto it = choices.begin(); it != choices.end(); ++it)
         if (it.value().isDouble() && it.value().toInt() >= 0 && it.value().toInt() <= static_cast<int>(System::Sega32X))
             data.systemChoices[it.key()] = it.value().toInt();
-    for (const QJsonValue& value : root.value("scan_version").toInt() == kScanVersion ? root.value("files").toArray() : QJsonArray()) {
+    const QJsonObject coreChoices = root.value("core_choices").toObject();
+    for (auto it = coreChoices.begin(); it != coreChoices.end(); ++it)
+        if (it.value().isString() && !it.value().toString().isEmpty())
+            data.coreChoices[it.key()] = it.value().toString();
+    for (const QJsonValue value : root.value("scan_version").toInt() == kScanVersion ? root.value("files").toArray() : QJsonArray()) {
         const QJsonObject entry = value.toObject();
         LibraryCachedFile cached;
         cached.path = entry.value("path").toString();
@@ -109,6 +113,9 @@ bool LibraryData::save(const QString& path, QString* error)
     QJsonObject choicesJson;
     for (auto it = systemChoices.begin(); it != systemChoices.end(); ++it)
         choicesJson[it.key()] = it.value();
+    QJsonObject coresJson;
+    for (auto it = coreChoices.begin(); it != coreChoices.end(); ++it)
+        coresJson[it.key()] = it.value();
     QJsonArray filesJson;
     for (const LibraryCachedFile& cached : files)
         filesJson.append(QJsonObject{{"path", cached.path}, {"size", double(cached.size)}, {"mtime_ms", double(cached.mtimeMs)},
@@ -122,7 +129,7 @@ bool LibraryData::save(const QString& path, QString* error)
             *error = QString("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString());
         return false;
     }
-    file.write(QJsonDocument(QJsonObject{{"version", kFileVersion}, {"scan_version", kScanVersion}, {"stats", statsJson}, {"system_choices", choicesJson}, {"files", filesJson}}).toJson(QJsonDocument::Compact));
+    file.write(QJsonDocument(QJsonObject{{"version", kFileVersion}, {"scan_version", kScanVersion}, {"stats", statsJson}, {"system_choices", choicesJson}, {"core_choices", coresJson}, {"files", filesJson}}).toJson(QJsonDocument::Compact));
     if (!file.commit()) {
         if (error)
             *error = QString("Cannot write %1: %2").arg(QDir::toNativeSeparators(path), file.errorString());
@@ -195,7 +202,10 @@ LibraryScan scanLibrary(const QStringList& folders, const QMap<QString, LibraryC
         LibraryCachedFile cached = cache.value(it.key());
         const qint64 mtimeMs = info.lastModified().toMSecsSinceEpoch();
         if (cached.path != it.key() || cached.size != info.size() || cached.mtimeMs != mtimeMs) {
-            cached = {it.key(), info.size(), mtimeMs, {}, -1};
+            cached = LibraryCachedFile();
+            cached.path = it.key();
+            cached.size = info.size();
+            cached.mtimeMs = mtimeMs;
             if (const auto system = systemForFile(it.key())) {
                 cached.id = GameSaves::fingerprint(it.key());
                 if (!cached.id.isEmpty()) {

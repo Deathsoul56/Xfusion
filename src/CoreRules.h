@@ -8,8 +8,6 @@
 
 #include "SystemInfo.h"
 
-struct DiscInfo;
-
 // Which libretro core plays which system. Two cores are used (ADR-0024): Genesis Plus GX for most systems, because it
 // is the most precise and has the best Sega CD support, and PicoDrive for the 32X, which only it can emulate.
 // This file is data and decisions only; what is particular to each core (options, button ids) lives in CoreProfile.
@@ -40,9 +38,8 @@ struct CoreDecision {
     QString note; // why it is not the first choice, when it is not; empty otherwise
 };
 
-// The core for a game. The user's choice for the system wins when that core can play it; otherwise the default.
-// Genesis Plus GX cannot play the .mp3 audio tracks that some Sega CD dumps carry, so a disc with them goes to
-// PicoDrive, which can, unless the user chose a core for Sega CD. A core that is not installed (`installed`) is
-// replaced by another that can play the system.
-CoreDecision chooseCore(System system, const DiscInfo* disc, const QMap<QString, QString>& userChoices,
-                        const std::function<bool(const QString& coreId)>& installed);
+// The core for a game: the one chosen for that game (`gameChoice`), else the one chosen for the system, else the default;
+// a choice is only taken when that core can play the system. A core that is not installed (`installed`) is replaced by
+// another that can play the system.
+CoreDecision chooseCore(System system, const QMap<QString, QString>& userChoices, const std::function<bool(const QString& coreId)>& installed,
+                        const QString& gameChoice = QString());

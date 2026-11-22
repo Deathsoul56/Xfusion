@@ -1,7 +1,5 @@
 #include "CoreRules.h"
 
-#include "DiscInfo.h"
-
 bool CoreInfo::supports(System system) const
 {
     for (System candidate : systems)
@@ -47,26 +45,17 @@ QString systemKey(System system)
     return "genesis";
 }
 
-CoreDecision chooseCore(System system, const DiscInfo* disc, const QMap<QString, QString>& userChoices,
-                        const std::function<bool(const QString&)>& installed)
+CoreDecision chooseCore(System system, const QMap<QString, QString>& userChoices, const std::function<bool(const QString&)>& installed,
+                        const QString& gameChoice)
 {
     QString wanted = defaultCoreFor(system);
-    QString reason;
-    const QString chosen = userChoices.value(systemKey(system));
-    if (!chosen.isEmpty() && coreInfo(chosen) && coreInfo(chosen)->supports(system)) {
-        wanted = chosen;
-    } else if (system == System::SegaCD && disc) {
-        for (const QString& file : disc->audioFiles) {
-            if (file.endsWith(".mp3", Qt::CaseInsensitive)) {
-                wanted = CoreId::PicoDrive;
-                reason = "this disc has .mp3 audio tracks, which Genesis Plus GX cannot play";
-                break;
-            }
-        }
+    for (const QString& chosen : {userChoices.value(systemKey(system)), gameChoice}) {
+        if (!chosen.isEmpty() && coreInfo(chosen) && coreInfo(chosen)->supports(system))
+            wanted = chosen;
     }
 
     if (installed(wanted))
-        return {wanted, reason};
+        return {wanted, {}};
     // Not installed: any other core that can play the system.
     for (const CoreInfo& core : allCores())
         if (core.id != wanted && core.supports(system) && installed(core.id))

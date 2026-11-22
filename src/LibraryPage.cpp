@@ -26,13 +26,14 @@
 #include <functional>
 
 #include "AppPaths.h"
+#include "CoreRules.h"
 
 namespace {
 
 QString sizeText(qint64 bytes)
 {
     if (bytes >= 1024 * 1024)
-        return QString("%1 MB").arg(bytes / 1048576.0, 0, 'f', 1);
+        return QString("%1 MB").arg(double(bytes) / 1048576.0, 0, 'f', 1);
     return QString("%1 KB").arg((bytes + 1023) / 1024);
 }
 
@@ -288,7 +289,7 @@ LibraryPage::LibraryPage(QWidget* parent)
     columns->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     columns->setSectionResizeMode(QHeaderView::Interactive);
     columns->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_table->setColumnWidth(LibraryModel::Name, 240);
+    m_table->setColumnWidth(LibraryModel::Name, 320);
     m_table->setColumnWidth(LibraryModel::SystemColumn, 110);
     m_table->setColumnWidth(LibraryModel::RegionColumn, 115);
     m_table->setColumnWidth(LibraryModel::Size, 80);
@@ -417,6 +418,15 @@ void LibraryPage::chooseSystem(const QString& gameId, std::optional<System> syst
     m_model->setEntries(std::move(entries), m_data.stats);
 }
 
+void LibraryPage::setCoreChoice(const QString& gameId, const QString& coreId)
+{
+    if (coreId.isEmpty())
+        m_data.coreChoices.remove(gameId);
+    else
+        m_data.coreChoices[gameId] = coreId;
+    saveData();
+}
+
 void LibraryPage::applyChoices(std::vector<LibraryEntry>& entries) const
 {
     for (LibraryEntry& entry : entries) {
@@ -499,6 +509,24 @@ void LibraryPage::showContextMenu(const QPoint& position)
             action->setCheckable(true);
             action->setChecked(entry->systemSet && entry->system == def.id);
             group->addAction(action);
+        }
+
+        QMenu* cores = menu.addMenu("Core");
+        cores->setToolTip("The core that plays this game. By default the one chosen for its system in Options > Emulation > Cores.");
+        auto* coreGroup = new QActionGroup(cores);
+        const QString chosenCore = coreChoice(id);
+        QAction* systemDefault = cores->addAction("Use the system's core", this, [this, id] { setCoreChoice(id, QString()); });
+        systemDefault->setCheckable(true);
+        systemDefault->setChecked(chosenCore.isEmpty());
+        coreGroup->addAction(systemDefault);
+        cores->addSeparator();
+        for (const CoreInfo& core : allCores()) {
+            if (!core.supports(entry->system))
+                continue;
+            QAction* action = cores->addAction(core.name, this, [this, id, coreId = core.id] { setCoreChoice(id, coreId); });
+            action->setCheckable(true);
+            action->setChecked(chosenCore == core.id);
+            coreGroup->addAction(action);
         }
     }
     menu.addAction("Show in Folder", this, [path] { QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath())); });

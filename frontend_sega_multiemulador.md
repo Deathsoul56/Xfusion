@@ -35,7 +35,7 @@ de firmware requeridos.
 | Core | Uso | Consideraciones |
 |---|---|---|
 | Genesis Plus GX | **Core por defecto** de SG-1000, Master System, Game Gear, Genesis y Sega CD (ADR-0024) | Es el más preciso y el mejor para Sega CD; no reproduce audio `.mp3` de discos ni emula 32X |
-| PicoDrive | **Core del 32X** y de los discos de Sega CD con audio `.mp3` (ADR-0007, ADR-0024) | Único core libretro razonable para 32X; las 37 ROMs locales arrancan |
+| PicoDrive | **Core del 32X** (ADR-0007, ADR-0024); opcional para el resto | Único core libretro razonable para 32X; las 37 ROMs locales arrancan |
 | BlastEm | Candidato futuro (Genesis) | Igual que el anterior |
 
 El frontend trata cada core como un componente independiente descrito por un
@@ -74,7 +74,7 @@ integración entre Qt, SDL3 y el renderizado de libretro es el principal punto
 técnico que debe validarse antes de construir funciones encima.
 
 Las decisiones de arquitectura se registran una a una en [`docs/adr/`](docs/adr/)
-(ADR-0001 a ADR-0024; el ADR-0008, kit compartido, quedó sustituido por el
+(ADR-0001 a ADR-0025; el ADR-0008, kit compartido, quedó sustituido por el
 ADR-0009 y diferido. El ADR-0005, hilo de emulación, está implementado; la
 licencia del proyecto ya tiene su `LICENSE`, y el empaquetado con los avisos de
 terceros llegará en la Fase 6).
@@ -408,10 +408,11 @@ sin duplicados innecesarios.
   se queda en negro tras la pantalla de licencia) y la región de los `.chd`.)*
 - [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
-- [ ] Implementar selección manual de core y reglas de compatibilidad por juego.
-  *(Parcial, ADR-0023: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System) y se recuerda por huella; el core es uno solo, así que no hay nada que elegir aún.)*
+- [x] Implementar selección manual de core y reglas de compatibilidad por juego.
+  *(ADR-0023 y ADR-0024: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System); el core se elige por sistema en Options > Emulation > Cores y por juego con clic derecho > Core; ambas elecciones se recuerdan por huella y solo valen si el core sabe jugar el sistema.)*
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
+  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); pendiente la corrección por juego y la región de los `.chd`.)*
 
 **Salida:** matriz de compatibilidad por sistema/core documentada y probada con
 juegos de referencia obtenidos legalmente. No declarar un sistema soportado

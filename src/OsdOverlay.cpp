@@ -48,20 +48,6 @@ void OsdOverlay::post(const QString& text)
     update();
 }
 
-QStringList OsdOverlay::messageTexts() const
-{
-    QStringList texts;
-    for (const Message& message : m_messages)
-        texts << message.text;
-    return texts;
-}
-
-void OsdOverlay::clearMessages()
-{
-    m_messages.clear();
-    update();
-}
-
 void OsdOverlay::expire()
 {
     while (!m_messages.empty() && m_messages.front().age.elapsed() >= kMessageMs)
