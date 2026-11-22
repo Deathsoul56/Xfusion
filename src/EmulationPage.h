@@ -10,6 +10,7 @@
 class QComboBox;
 class QDoubleSpinBox;
 class QSpinBox;
+struct CoreOption;
 
 // Settings > Emulation: which core plays each system, speed control and rewind.
 class EmulationPage : public QWidget {
@@ -23,6 +24,12 @@ public:
 
 private:
     std::vector<std::pair<System, QComboBox*>> m_cores; // one per system
+    struct OptionRow {
+        QString coreId;
+        const CoreOption* option;
+        QComboBox* combo;
+    };
+    std::vector<OptionRow> m_coreOptions; // every option of every core
     QComboBox* m_method;
     QDoubleSpinBox* m_frameRate;
     QSpinBox* m_maxSkip;

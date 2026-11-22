@@ -50,6 +50,8 @@ public:
     QMap<QString, LibraryStats> stats;
     // The system the user chose for a game, by game id, when the detection got it wrong (or the file says nothing).
     QMap<QString, int> systemChoices;
+    // The core the user chose for one game, by game id (a CoreId); it wins over the choice for the whole system.
+    QMap<QString, QString> coreChoices;
     QMap<QString, LibraryCachedFile> files; // by canonical path
 
     // A missing file is an empty library. An unreadable one is too, with `error` set; it is then kept as

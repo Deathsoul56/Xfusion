@@ -64,11 +64,11 @@ public:
 
     // The system the user chose for a game, if any: it wins over what the files say.
     std::optional<System> systemChoice(const QString& gameId) const;
+    QString coreChoice(const QString& gameId) const { return m_data.coreChoices.value(gameId); }
     // Scans again when the list changed (or `force`).
     void setFolders(const QStringList& folders, bool force = false);
     // Adds the time of a play session to the game and saves it, whether or not the game is in the library.
     void recordSession(const QString& gameId, qint64 durationMs);
-    int gameCount() const { return m_model->rowCount(); }
     // Scans the folders again (F5).
     void refresh() { setFolders(m_folders, true); }
     // Gives the keyboard to the list, so that typing searches it.
@@ -91,6 +91,7 @@ private:
     void saveData();
     void applyChoices(std::vector<LibraryEntry>& entries) const;
     void chooseSystem(const QString& gameId, std::optional<System> system);
+    void setCoreChoice(const QString& gameId, const QString& coreId);
     void showEvent(QShowEvent* event) override;
 
     LibraryModel* m_model;

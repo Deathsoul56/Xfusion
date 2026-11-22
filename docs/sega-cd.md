@@ -6,7 +6,7 @@
 
 | Tema | Estado |
 |---|---|
-| Core | Genesis Plus GX por defecto; PicoDrive para los discos con audio `.mp3` (ADR-0024) |
+| Core | Genesis Plus GX (ADR-0024); PicoDrive solo si se elige en Options > Emulation > Cores |
 | Formatos reconocidos | `.cue` + `.bin`, `.iso` (con audio suelto), `.chd` (sin inspeccionar) |
 | Reconocimiento | Por el contenido del primer sector, no por la extensión |
 | Región y título | Leídos de la cabecera del disco y mostrados en la biblioteca |
@@ -54,12 +54,25 @@ El campo de región usa dos notaciones. Las cabeceras antiguas escriben letras (
 
 Los discos están en `Roms\CD\` (ignorada por git; no se distribuyen).
 
-| Juego | Forma | Región (cabecera) | Producto | Notas |
-|---|---|---|---|---|
-| Sonic CD | `.iso` 121 MB + 34 `.mp3` | USA (`U`) | MK-4407 -00 | Arranca; muestra la animación del logo |
-| Mortal Kombat | `.iso` 31 MB + 20 `.mp3` | Europe (`E`) | T-81025-00 | Llega a la pantalla de licencia de Sega |
-| Final Fight CD | `.iso` 23,4 MB + 25 `.mp3` | Europe (`E`) | MK-4410 -00 | Llega a la licencia y luego queda en negro (ver §8). El `.iso` mide 24 561 712 bytes, que no es múltiplo de 2048 |
-| Shin Megami Tensei (Japan) | `.cue` + 29 `.bin` | Japan (`J`) | T-044044-00 | Usa el BIOS japonés (versión 1.00) |
+| Juego | Forma | Región (cabecera) | Notas |
+|---|---|---|---|
+| Brutal Paws of Fury | `.iso` + 14 `.mp3` | USA | Arranca (logo de GameTek); sin música con Genesis Plus GX (`.mp3`) |
+| Dune | `.cue` + 2 `.bin` | USA | Arranca y recorre las pantallas de Virgin y Cryo |
+| Earthworm Jim - Special Edition | `.cue` + 28 `.bin` | USA | Arranca (licencia de Sega) |
+| Eternal Champions | `.iso` + 19 `.mp3` | USA | Arranca hasta el aviso de la RAM de respaldo; sin música (`.mp3`) |
+| FIFA International Soccer | `.cue` + 46 `.bin` | USA | Arranca hasta la intro con el futbolín |
+| Final Fight CD | `.chd` | sin leer | Arranca y suena (60 fps) |
+| Lunar - The Silver Star | `.cue` + 52 `.bin` | USA | Arranca (Working Designs) |
+| Mortal Kombat | `.iso` + 20 `.mp3` | Europe | 50 fps (PAL); sin música (`.mp3`) |
+| Prince of Persia | `.cue` + 25 `.bin` | Japan (la cabecera; el nombre dice USA) | Arranca hasta la intro |
+| Robo Aleste | `.cue` + 17 `.bin` | USA | Arranca y recorre la intro (Tengen) |
+| Samurai Shodown | `.iso` + 29 `.mp3` | USA | Arranca hasta el título; sin música (`.mp3`) |
+| Shin Megami Tensei (Japan) | `.cue` + 29 `.bin` | Japan | Usa el BIOS japonés (versión 1.00) |
+| Sonic CD | `.iso` + 34 `.mp3` | USA | Arranca; sin música (`.mp3`) |
+| The Secret of Monkey Island (RE) | `.cue` + 27 `.bin` | USA | Arranca; con el parche de `build\patches` no se aplica (los discos no se parchean) |
+| Vay | `.cue` + 22 `.bin` | USA | Arranca (licencia de Sega) |
+
+Prueba del 2026-11-21 con Genesis Plus GX: los 15 discos arrancan sin ningún error ni aviso, corren a 60 fotogramas por segundo (50 el europeo) sin cortes de sonido durante 25 s, y la biblioteca los reconoce a todos con su región y su título. Guardar y cargar estado funciona con Dune. Los cuatro `.iso` con `.mp3` no suenan por lo explicado en 4.6 y 4.7.
 
 Los BIOS de prueba están en `Sega CD BIOS\` (también ignorada por git):
 
@@ -117,7 +130,11 @@ La versión sale del final del título (`1.00S`, `2.00W`, `2.11X`).
 
 ### 4.6 Qué core juega el disco
 
-Por defecto, **Genesis Plus GX** (el más maduro para Sega CD, con CHD y RAM de respaldo). Tiene una limitación: no reproduce las pistas `.mp3` (solo WAV y OGG), así que un disco con audio `.mp3` (los tres `.iso` locales) va a **PicoDrive**, que sí; el aviso sale en la barra de estado. Para usar Genesis Plus GX con esos discos hay que convertir sus pistas a OGG o WAV con el mismo nombre (`<nombre> NN.ogg`). El usuario puede fijar un core para Sega CD en Options > Emulation > Cores y entonces no se aplica esta regla. Un `.cue` con `.bin` funciona con Genesis Plus GX.
+**Genesis Plus GX** siempre, salvo que el usuario elija PicoDrive para Sega CD en Options > Emulation > Cores. Genesis Plus GX es el más maduro para Sega CD (CHD, un `.cue` con `.bin`) pero **no reproduce pistas `.mp3`**, solo WAV y OGG: con un disco como los tres `.iso` locales se abre y se avisa de cuántas pistas `.mp3` no sonarán. Para oírlas: convertir las pistas a OGG o WAV con el mismo nombre (`<nombre> NN.ogg`), o elegir PicoDrive para Sega CD (que sí reproduce `.mp3`, si son MPEG-1 a 44,1 kHz, §4.7).
+
+### 4.7 Audio `.mp3` que ningún core reproduce
+
+PicoDrive solo reproduce `.mp3` MPEG-1 Layer III a **44,1 kHz**. Si el primer fotograma de una pista es de otro tipo, la salta, y las pistas siguientes **se desplazan un número**: el juego pide la pista 5 y suena otra, o ninguna. Es lo que le pasa al `Final Fight CD.iso` local: sus 25 `.mp3` son MPEG-2 a 22,05 kHz (los de Sonic CD y Mortal Kombat son MPEG-1 a 44,1 kHz y suenan). El registro de PicoDrive lo delata: `track 5: mp3 bitrate 0` y la pista 5 pasa a ser `... 06.mp3`. Genesis Plus GX tampoco los reproduce (solo WAV y OGG). Con PicoDrive, Xfusion lo detecta al abrir el disco (`DiscInfo::unplayableMp3`) y avisa con los nombres. Soluciones: convertir las pistas a MPEG-1 a 44,1 kHz (`ffmpeg -i "in.mp3" -ar 44100 "out.mp3"`), convertirlas a OGG o WAV (que sí lee Genesis Plus GX), o usar una imagen `.chd` (con la que Final Fight CD suena).
 
 ## 5. Biblioteca
 
@@ -141,10 +158,9 @@ La página Library (ADR-0021) lista los discos con su sistema (`Sega CD`), su **
 
 **Sin resolver**
 
-- **Final Fight CD** llega a la pantalla "Produced by or under license from Sega" y después queda en negro (observado hasta unos 45 s, sin pulsar nada). En una sesión anterior el mismo juego se jugó a 50 fotogramas por segundo (PAL). Puede que necesite una pulsación o más tiempo, o que el volcado esté dañado: el `.iso` mide 24 561 712 bytes, y 24 561 712 / 2048 = 11 993,02, así que no es una imagen entera de sectores. Falta compararlo con otra copia o un `.cue` de referencia.
-- **Mortal Kombat** y **Sonic CD** arrancan y llegan a las pantallas de inicio; no se ha jugado ninguno.
+- **Discos .iso con .mp3** (Brutal Paws of Fury, Eternal Champions, Mortal Kombat, Samurai Shodown, Sonic CD): se abren y corren, pero Genesis Plus GX no reproduce .mp3, así que no suena la música (4.6). Con PicoDrive suenan si los .mp3 son MPEG-1 a 44,1 kHz (4.7).
 - **Juegos multidisco** (varios `.cue` o varios `.iso` de un mismo juego): sin soporte. Cada disco se trata como un juego distinto.
-- **`.chd`:** no se lee la región ni el título, así que tampoco se avisa de un BIOS ausente; no hay ningún `.chd` local para probar.
+- **`.chd`:** no se lee la región ni el título, así que tampoco se avisa de un BIOS ausente; el `.chd` local (Final Fight CD) arranca y suena con Genesis Plus GX.
 - **Un `.bin` suelto de disco sin `.cue`:** se reconoce como Sega CD, pero el core no lo carga; hace falta el `.cue`.
 - **Elección del BIOS:** la hace PicoDrive según la región del disco. Xfusion solo comprueba que exista alguno de las regiones que el disco declara; no permite forzar otro.
 - **El BIOS no se valida más allá de su cabecera** (no hay comprobación de suma ni de versiones conocidas).

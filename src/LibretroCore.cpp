@@ -186,7 +186,7 @@ QString LibretroCore::contentPath(const QString& gamePath, QString* error)
         QString name = inner.fileName();
         if (inner.suffix().compare("sc", Qt::CaseInsensitive) == 0)
             name = inner.completeBaseName() + ".sg";
-        const QString target = m_unpacked->filePath(name);
+        QString target = m_unpacked->filePath(name);
         QFile file(target);
         if (!m_unpacked->isValid() || !file.open(QIODevice::WriteOnly) || file.write(bytes) != bytes.size()) {
             *error = "A temporary file for the game could not be written";
@@ -253,6 +253,18 @@ void LibretroCore::setPads(PadType type, bool secondPadConnected, bool genesisFa
     m_portDevices[0] = m_profile->padDevices[static_cast<std::size_t>(type)];
     m_portDevices[1] = secondPadConnected ? m_portDevices[0] : RETRO_DEVICE_NONE;
     applyPortDevices();
+}
+
+void LibretroCore::setUserOptions(const std::map<std::string, std::string>& values)
+{
+    for (const CoreOption& option : m_profile->userOptions) {
+        const auto wanted = values.find(option.key);
+        if (wanted != values.end() && isValidCoreOption(option, wanted->second))
+            m_options[option.key] = wanted->second;
+        else
+            m_options.erase(option.key);
+    }
+    m_optionsChanged = true;
 }
 
 void LibretroCore::applyPortDevices()

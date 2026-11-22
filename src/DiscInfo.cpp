@@ -55,6 +55,17 @@ QStringList siblingAudio(const QString& isoPath)
     return files;
 }
 
+void findUnplayableMp3(DiscInfo* info, const QDir& folder)
+{
+    for (const QString& file : info->audioFiles) {
+        if (!file.endsWith(".mp3", Qt::CaseInsensitive))
+            continue;
+        const QString full = QFileInfo(file).isAbsolute() ? file : folder.absoluteFilePath(file);
+        if (QFileInfo::exists(full) && !mp3IsPlayableByPicoDrive(full))
+            info->unplayableMp3 << QFileInfo(file).fileName();
+    }
+}
+
 DiscInfo readCue(const QString& cuePath)
 {
     DiscInfo info;
@@ -99,11 +110,37 @@ DiscInfo readCue(const QString& cuePath)
     }
     if (!readDataTrack(folder.absoluteFilePath(dataFile), &info) && QFileInfo::exists(folder.absoluteFilePath(dataFile)))
         info.problems << "The data track does not look like a Sega CD disc";
+    findUnplayableMp3(&info, folder);
     return info;
 }
 
 }
 
+bool mp3IsPlayableByPicoDrive(const QString& path)
+{
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return false;
+    QByteArray start = file.read(10);
+    qint64 offset = 0;
+    if (start.startsWith("ID3") && start.size() == 10) // a tag in front: its size is stored 7 bits at a time
+        offset = 10 + ((static_cast<unsigned char>(start[6]) & 0x7F) << 21 | (static_cast<unsigned char>(start[7]) & 0x7F) << 14
+                       | (static_cast<unsigned char>(start[8]) & 0x7F) << 7 | (static_cast<unsigned char>(start[9]) & 0x7F));
+    file.seek(offset);
+    start = file.read(4096);
+    // The first frame decides what the file is. PicoDrive plays MPEG-1 Layer III at 44.1 kHz and nothing else; it
+    // looks for such a header and skips a file where it finds none (or finds one by chance in the data).
+    for (int i = 0; i + 3 < start.size(); ++i) {
+        const auto b0 = static_cast<unsigned char>(start[i]), b1 = static_cast<unsigned char>(start[i + 1]), b2 = static_cast<unsigned char>(start[i + 2]);
+        if (b0 != 0xFF || (b1 & 0xE0) != 0xE0)
+            continue;
+        const int version = (b1 >> 3) & 3, layer = (b1 >> 1) & 3, rate = (b2 >> 2) & 3, bitrate = b2 >> 4;
+        if (version == 1 || layer == 0 || rate == 3 || bitrate == 0xF)
+            continue; // not a frame header: keep looking
+        return version == 3 && layer == 1 && rate == 0; // MPEG-1, Layer III, 44.1 kHz
+    }
+    return false;
+}
 DiscInfo readDisc(const QString& path)
 {
     const QString ext = QFileInfo(path).suffix().toLower();
@@ -126,9 +163,10 @@ DiscInfo readDisc(const QString& path)
     info.totalSize = QFileInfo(path).size();
     if (ext == "iso") {
         info.audioFiles = siblingAudio(path);
-        info.audioTracks = info.audioFiles.size();
+        info.audioTracks = int(info.audioFiles.size());
         for (const QString& audio : info.audioFiles)
             info.totalSize += QFileInfo(audio).size();
+        findUnplayableMp3(&info, QFileInfo(path).absoluteDir());
     }
     return info;
 }

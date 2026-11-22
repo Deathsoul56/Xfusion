@@ -210,8 +210,10 @@ private slots:
         const QString file = dir.filePath("library.json");
         LibraryData data;
         data.systemChoices["game-a"] = static_cast<int>(System::Sega32X);
+        data.coreChoices["game-a"] = "picodrive";
         QVERIFY(data.save(file));
         const LibraryData loaded = LibraryData::load(file);
+        QCOMPARE(loaded.coreChoices.value("game-a"), QString("picodrive"));
         QCOMPARE(loaded.systemChoices.value("game-a"), static_cast<int>(System::Sega32X));
         // A value that is no system is dropped.
         QFile bad(file);

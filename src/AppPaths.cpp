@@ -58,6 +58,17 @@ QString screenshotsDir(System system, const QString& romDir)
     return resolve(g_files.screenshotFolder, "screenshots", system, romDir);
 }
 
+QStringList patchFolders(System system, const QString& romDir)
+{
+    const FolderSetting& setting = g_files.patchFolder;
+    if (setting.location == FileLocation::RomFolder)
+        return romDir.isEmpty() ? QStringList() : QStringList{romDir};
+    const QString root = setting.location == FileLocation::Custom && !setting.custom.isEmpty() ? setting.custom : dataRoot() + "/patches";
+    if (setting.location != FileLocation::Custom)
+        ensured(root);
+    return {root + "/" + systemDef(system).folder, root};
+}
+
 QString systemDir()
 {
     if (g_files.biosFolder.location == FileLocation::Custom && !g_files.biosFolder.custom.isEmpty())
@@ -98,11 +109,6 @@ QString corePath(const QString& coreId)
 bool coreInstalled(const QString& coreId)
 {
     return QFileInfo::exists(corePath(coreId));
-}
-
-QString defaultCorePath()
-{
-    return coresDir() + "/" + defaultCoreProfile().libraryFileName();
 }
 
 }

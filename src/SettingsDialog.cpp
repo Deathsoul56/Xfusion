@@ -135,8 +135,8 @@ void SettingsDialog::showCurrentPageHelp()
         "Binding it again moves it. Right-click a cell to clear it. Turbo rows auto-fire the button they name.\n"
         "Each controller reads one gamepad: Automatic gives them the connected gamepads in the order they were plugged in, or pick one by name.\n"
         "With one controller the second port is empty for the game.",
-        "Click a binding cell and press a key (with its modifiers) or a gamepad input. Esc clears the cell. A binding used by "
-        "more than one shortcut is highlighted but still works. Reset to Default writes the defaults into one binding column.",
+        ("Click a binding cell and press a key (with its modifiers) or a gamepad input. Esc clears the cell. A binding used by "
+         "more than one shortcut is highlighted but still works. Reset to Default writes the defaults into one binding column."),
         "Where saves, states, screenshots and BIOS files are kept. Changes apply the next time a game opens.",
     };
     const int index = m_stack->currentIndex();

@@ -5,6 +5,7 @@
 #include "Bios.h"
 #include "CoreRules.h"
 #include "DiscInfo.h"
+#include "RomInfo.h"
 #include "GameHeader.h"
 #include "SystemInfo.h"
 
@@ -136,6 +137,33 @@ private slots:
             writeFile(dir.filePath(name), "audio");
         const DiscInfo disc = readDisc(dir.filePath("Sonic CD.iso"));
         QCOMPARE(disc.audioTracks, 3);
+    }
+
+    void onlyMpeg1At44100HzMp3sArePlayableByPicoDrive()
+    {
+        QTemporaryDir dir;
+        const QByteArray body(3000, 0x55);
+        writeFile(dir.filePath("good.mp3"), QByteArray("\xFF\xFB\x90\x00", 4) + body);
+        writeFile(dir.filePath("mpeg2.mp3"), QByteArray("\xFF\xF3\x90\x00", 4) + body); // 22.05 kHz
+        writeFile(dir.filePath("48k.mp3"), QByteArray("\xFF\xFB\x94\x00", 4) + body); // 48 kHz
+        QByteArray tag("ID3\x03\x00\x00\x00\x00\x00\x0A", 10); // a 10 byte tag
+        writeFile(dir.filePath("tagged.mp3"), tag + QByteArray(10, 0) + QByteArray("\xFF\xFB\x90\x00", 4) + body);
+        writeFile(dir.filePath("noise.mp3"), body);
+        QVERIFY(mp3IsPlayableByPicoDrive(dir.filePath("good.mp3")));
+        QVERIFY(mp3IsPlayableByPicoDrive(dir.filePath("tagged.mp3")));
+        QVERIFY(!mp3IsPlayableByPicoDrive(dir.filePath("mpeg2.mp3")));
+        QVERIFY(!mp3IsPlayableByPicoDrive(dir.filePath("48k.mp3")));
+        QVERIFY(!mp3IsPlayableByPicoDrive(dir.filePath("noise.mp3")));
+        QVERIFY(!mp3IsPlayableByPicoDrive(dir.filePath("missing.mp3")));
+
+        // A disc says which of its tracks are the problem.
+        writeFile(dir.filePath("Game.iso"), discTrack(false));
+        writeFile(dir.filePath("Game 02.mp3"), QByteArray("\xFF\xFB\x90\x00", 4) + body);
+        writeFile(dir.filePath("Game 03.mp3"), QByteArray("\xFF\xF3\x90\x00", 4) + body);
+        writeFile(dir.filePath("Game 04.mp3"), QByteArray("\xFF\xF3\x90\x00", 4) + body);
+        const DiscInfo disc = readDisc(dir.filePath("Game.iso"));
+        QCOMPARE(disc.audioTracks, 3);
+        QCOMPARE(disc.unplayableMp3, QStringList({"Game 03.mp3", "Game 04.mp3"}));
     }
 
     void aRawBinIsADiscTrackAndACartridgeBinIsAGame()
@@ -275,39 +303,88 @@ private slots:
     void theUsersChoiceWinsOnlyWhenTheCoreCanPlayTheSystem()
     {
         const auto all = [](const QString&) { return true; };
-        QCOMPARE(chooseCore(System::Genesis, nullptr, {{"genesis", CoreId::PicoDrive}}, all).id, CoreId::PicoDrive);
-        QCOMPARE(chooseCore(System::Sega32X, nullptr, {{"32x", CoreId::GenesisPlusGx}}, all).id, CoreId::PicoDrive);
-        QCOMPARE(chooseCore(System::Genesis, nullptr, {{"genesis", "no-such-core"}}, all).id, CoreId::GenesisPlusGx);
+        QCOMPARE(chooseCore(System::Genesis, {{"genesis", CoreId::PicoDrive}}, all).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Sega32X, {{"32x", CoreId::GenesisPlusGx}}, all).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Genesis, {{"genesis", "no-such-core"}}, all).id, CoreId::GenesisPlusGx);
     }
 
-    void aDiscWithMp3AudioGoesToPicoDriveUnlessTheUserChose()
+    void segaCdUsesGenesisPlusGxUnlessTheUserChoosesPicoDrive()
     {
         const auto all = [](const QString&) { return true; };
-        DiscInfo mp3;
-        mp3.audioFiles = {"C:/games/Sonic CD 02.mp3", "C:/games/Sonic CD 03.MP3"};
-        DiscInfo ogg;
-        ogg.audioFiles = {"C:/games/Game 02.ogg", "C:/games/Game 03.wav"};
-        const CoreDecision withMp3 = chooseCore(System::SegaCD, &mp3, {}, all);
-        QCOMPARE(withMp3.id, CoreId::PicoDrive);
-        QVERIFY(withMp3.note.contains("mp3"));
-        const CoreDecision withOgg = chooseCore(System::SegaCD, &ogg, {}, all);
-        QCOMPARE(withOgg.id, CoreId::GenesisPlusGx);
-        QVERIFY(withOgg.note.isEmpty());
-        QCOMPARE(chooseCore(System::SegaCD, &mp3, {{"segacd", CoreId::GenesisPlusGx}}, all).id, CoreId::GenesisPlusGx);
-        QCOMPARE(chooseCore(System::SegaCD, nullptr, {}, all).id, CoreId::GenesisPlusGx);
-        // The mp3 rule is for Sega CD only.
-        QCOMPARE(chooseCore(System::Genesis, &mp3, {}, all).id, CoreId::GenesisPlusGx);
+        QCOMPARE(chooseCore(System::SegaCD, {}, all).id, CoreId::GenesisPlusGx);
+        QVERIFY(chooseCore(System::SegaCD, {}, all).note.isEmpty());
+        QCOMPARE(chooseCore(System::SegaCD, {{"segacd", CoreId::PicoDrive}}, all).id, CoreId::PicoDrive);
+    }
+
+    void theStartMessageHasTheThreeLinesOfSnes9xrd()
+    {
+        StartInfo info;
+        info.title = "SONIC THE HEDGEHOG";
+        info.system = "Genesis";
+        info.core = "Genesis Plus GX";
+        info.size = sizeInBits(512 * 1024);
+        info.sram = "none";
+        info.product = "MK-1079 -00";
+        info.revision = revisionOfProduct(info.product);
+        info.hasCrc = true;
+        info.crc = 0xABCD;
+        info.checksum = Checksum::Ok;
+        QCOMPARE(startMessage(info), QString("\"SONIC THE HEDGEHOG\" (NTSC) version 1.0\nGenesis: Genesis Plus GX: 4Mbits, SRAM: none\n"
+                                             "ID: MK-1079 -00, CRC32: 0000abcd, Checksum OK"));
+        // A patched game fails its checksum, and the line says why; an unpatched one says it is wrong.
+        info.checksum = Checksum::Invalid;
+        info.pal = true;
+        info.patch = "IPS";
+        QVERIFY(startMessage(info).endsWith("Checksum OK") == false && startMessage(info).endsWith("IPS patched"));
+        QVERIFY(startMessage(info).startsWith("\"SONIC THE HEDGEHOG\" (PAL)"));
+        info.patch.clear();
+        QVERIFY(startMessage(info).endsWith("Invalid Checksum"));
+        info.checksum = Checksum::None;
+        info.product.clear();
+        info.revision.clear();
+        QCOMPARE(startMessage(info).section('\n', 2), QString("CRC32: 0000abcd"));
+        QCOMPARE(revisionOfProduct("MK-4407 -01"), QString("1.1"));
+        QCOMPARE(revisionOfProduct("7055"), QString());
+        QCOMPARE(sizeInBits(32 * 1024), QString("256Kbits"));
+        QCOMPARE(crc32Of("123456789"), quint32(0xCBF43926));
+    }
+
+    void aMegaDriveChecksumIsTheSumOfTheWordsAfterTheHeader()
+    {
+        QByteArray rom(0x300, 0);
+        rom.replace(0x100, 4, "SEGA");
+        rom[0x200] = char(0x12);
+        rom[0x201] = char(0x34);
+        rom[0x2FE] = char(0x00);
+        rom[0x2FF] = char(0x02);
+        QCOMPARE(cartridgeChecksum(rom), Checksum::Invalid); // header holds 0
+        rom[0x18E] = char(0x12);
+        rom[0x18F] = char(0x36);
+        QCOMPARE(cartridgeChecksum(rom), Checksum::Ok);
+        QCOMPARE(cartridgeChecksum(QByteArray(0x300, 0)), Checksum::None); // not a Mega Drive image
+    }
+
+    void aCoreChosenForAGameWinsOverTheOneChosenForItsSystem()
+    {
+        const auto all = [](const QString&) { return true; };
+        const QMap<QString, QString> pico = {{"genesis", CoreId::PicoDrive}};
+        QCOMPARE(chooseCore(System::Genesis, pico, all, CoreId::GenesisPlusGx).id, CoreId::GenesisPlusGx);
+        QCOMPARE(chooseCore(System::Genesis, {}, all, CoreId::PicoDrive).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Genesis, pico, all, QString()).id, CoreId::PicoDrive);
+        // A core that cannot play the system is ignored, as is one that does not exist.
+        QCOMPARE(chooseCore(System::Sega32X, {}, all, CoreId::GenesisPlusGx).id, CoreId::PicoDrive);
+        QCOMPARE(chooseCore(System::Genesis, {}, all, "no-such-core").id, CoreId::GenesisPlusGx);
     }
 
     void aCoreThatIsNotInstalledIsReplacedWhenAnotherCanPlayTheSystem()
     {
         const auto onlyPico = [](const QString& id) { return id == CoreId::PicoDrive; };
-        const CoreDecision genesis = chooseCore(System::Genesis, nullptr, {}, onlyPico);
+        const CoreDecision genesis = chooseCore(System::Genesis, {}, onlyPico);
         QCOMPARE(genesis.id, CoreId::PicoDrive);
         QVERIFY(genesis.note.contains("Genesis Plus GX is not installed"));
         const auto onlyGpgx = [](const QString& id) { return id == CoreId::GenesisPlusGx; };
-        QVERIFY(chooseCore(System::Sega32X, nullptr, {}, onlyGpgx).id.isEmpty()); // nothing else plays 32X
-        QVERIFY(chooseCore(System::Genesis, nullptr, {}, [](const QString&) { return false; }).id.isEmpty());
+        QVERIFY(chooseCore(System::Sega32X, {}, onlyGpgx).id.isEmpty()); // nothing else plays 32X
+        QVERIFY(chooseCore(System::Genesis, {}, [](const QString&) { return false; }).id.isEmpty());
     }
 
     void theHeaderCorrectsTheExtensionOfACartridge()

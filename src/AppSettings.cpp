@@ -1,5 +1,6 @@
 #include "AppSettings.h"
 
+#include "CoreProfile.h"
 #include "CoreRules.h"
 #include "VideoFilters.h"
 
@@ -45,6 +46,14 @@ QJsonObject coreChoicesToJson(const QMap<QString, QString>& choices)
     QJsonObject object;
     for (auto it = choices.begin(); it != choices.end(); ++it)
         object[it.key()] = it.value();
+    return object;
+}
+
+QJsonObject coreOptionsToJson(const QMap<QString, QMap<QString, QString>>& options)
+{
+    QJsonObject object;
+    for (auto core = options.begin(); core != options.end(); ++core)
+        object[core.key()] = coreChoicesToJson(core.value());
     return object;
 }
 
@@ -107,12 +116,14 @@ QJsonObject AppSettings::toJson() const
                      {"fixed_frame_skip", fixedFrameSkip},
                      {"rewind_megabytes", rewindMegabytes},
                      {"rewind_interval", rewindInterval},
-                     {"cores", coreChoicesToJson(coreChoices)}}},
+                     {"cores", coreChoicesToJson(coreChoices)},
+                                {"core_options", coreOptionsToJson(coreOptions)}}},
         {"files",
          QJsonObject{{"sram", folderToJson(sramFolder)},
                      {"states", folderToJson(stateFolder)},
                      {"screenshots", folderToJson(screenshotFolder)},
                      {"bios", folderToJson(biosFolder)},
+                     {"patches", folderToJson(patchFolder)},
                      {"library_folders", QJsonArray::fromStringList(libraryFolders)}}},
         {"shortcuts", shortcuts.toJson()},
     };
@@ -192,13 +203,27 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     for (auto it = cores.begin(); it != cores.end(); ++it)
         if (it.value().isString() && coreInfo(it.value().toString()))
             s.coreChoices[it.key()] = it.value().toString();
+    // Only what the profile of the core lists, with a value it lists, so that a stale or edited file cannot set an option the core was not meant to get.
+    const QJsonObject coreOptions = emulation.value("core_options").toObject();
+    for (auto core = coreOptions.begin(); core != coreOptions.end(); ++core) {
+        const CoreInfo* info = coreInfo(core.key());
+        if (!info)
+            continue;
+        const QJsonObject values = core.value().toObject();
+        for (auto it = values.begin(); it != values.end(); ++it) {
+            const CoreOption* option = coreProfileById(info->id).userOption(it.key().toStdString());
+            if (option && it.value().isString() && isValidCoreOption(*option, it.value().toString().toStdString()))
+                s.coreOptions[info->id][it.key()] = it.value().toString();
+        }
+    }
 
     const QJsonObject files = object.value("files").toObject();
     s.sramFolder = folderFromJson(files.value("sram").toObject());
     s.stateFolder = folderFromJson(files.value("states").toObject());
     s.screenshotFolder = folderFromJson(files.value("screenshots").toObject());
     s.biosFolder = folderFromJson(files.value("bios").toObject());
-    for (const QJsonValue& folder : files.value("library_folders").toArray())
+    s.patchFolder = folderFromJson(files.value("patches").toObject());
+    for (const QJsonValue folder : files.value("library_folders").toArray())
         if (folder.isString() && !folder.toString().isEmpty() && !s.libraryFolders.contains(folder.toString()))
             s.libraryFolders << folder.toString();
 

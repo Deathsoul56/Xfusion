@@ -30,14 +30,6 @@ System refineByHeader(System guessed, const GameHeader& header)
     return guessed;
 }
 
-QStringList zipEntryNames(const QString& path)
-{
-    QStringList names;
-    for (const ZipEntry& entry : zipEntries(path))
-        names << entry.name;
-    return names;
-}
-
 }
 
 const std::vector<SystemDef>& allSystems()

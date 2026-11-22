@@ -31,9 +31,6 @@ public:
     void setOptions(const Options& options);
     // The message list and its texts, newest last; for tests and the status bar.
     void post(const QString& text);
-    int messageCount() const { return static_cast<int>(m_messages.size()); }
-    QStringList messageTexts() const;
-    void clearMessages();
 
     void setFps(double fps);
     void setIndicators(bool paused, bool fastForward, bool rewinding);

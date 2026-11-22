@@ -21,10 +21,16 @@ struct DiscInfo {
     int dataTracks = 0;
     int audioTracks = 0;
     QStringList audioFiles;
+    // The .mp3 audio tracks that PicoDrive cannot play: it takes only MPEG-1 at 44.1 kHz. It skips such a file, so the
+    // tracks after it shift by one and the game plays the wrong music, or none. File names, for the user.
+    QStringList unplayableMp3;
     // What is wrong with the files of the disc: a track the cue names that is not there, a data track that cannot be
     // read. Empty when the disc is complete as far as can be told.
     QStringList problems;
 };
+
+// True when the first frame of an .mp3 file is MPEG-1 Layer III at 44.1 kHz, the only kind PicoDrive plays.
+bool mp3IsPlayableByPicoDrive(const QString& path);
 
 // `path` is a .cue, .iso, .bin or .chd file. A file that is not a Sega CD disc gives `isSegaCd == false`.
 DiscInfo readDisc(const QString& path);

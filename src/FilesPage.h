@@ -24,9 +24,12 @@ public:
 
 private:
     struct Row {
+        Row() = default;
+        Row(QString label_, QString subfolder_, bool allowRomFolder_)
+            : label(std::move(label_)), subfolder(std::move(subfolder_)), allowRomFolder(allowRomFolder_) {}
         QString label;
         QString subfolder; // under the data folder
-        bool allowRomFolder;
+        bool allowRomFolder = false;
         QComboBox* location = nullptr;
         QLineEdit* path = nullptr;
         QPushButton* button = nullptr;
@@ -40,7 +43,7 @@ private:
     void refreshRow(Row& row);
     void buttonClicked(Row& row);
 
-    std::array<Row, 4> m_rows;
+    std::array<Row, 5> m_rows;
     QListWidget* m_libraryFolders = nullptr;
     QLabel* m_biosStatus = nullptr;
 };

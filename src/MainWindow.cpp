@@ -32,6 +32,8 @@
 #include "CoreRules.h"
 #include "DiscInfo.h"
 #include "GameHeader.h"
+#include "Patch.h"
+#include "RomInfo.h"
 #include "OsdOverlay.h"
 #include "SettingsDialog.h"
 #include "StatePreviewDialog.h"
@@ -103,9 +105,10 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     applySettings();
     if (configError.isEmpty())
         configError = settingsError;
-    statusBar()->showMessage(configError.isEmpty() ? QString("Core: %1 - open a game to start").arg(m_core.name()) : configError);
-    if (!configError.isEmpty())
+    if (!configError.isEmpty()) {
+        statusBar()->showMessage(configError);
         m_video->osd()->post(configError);
+    }
 
     m_saveTimer.setSingleShot(false);
     connect(&m_saveTimer, &QTimer::timeout, this, [this] { flushSaveRam(false); });
@@ -141,8 +144,12 @@ void MainWindow::createMenus()
     QMenu* helpMenu = menuBar()->addMenu("&Help");
     helpMenu->addAction("&About...", this, [this] {
         QMessageBox::about(this, "About Xfusion",
-                           QString("<b>Xfusion %1</b><br>A frontend for SEGA systems up to the fourth generation, running libretro cores. "
-                                   "Twin of snes9xrd.<br><br>Core: %2").arg(QCoreApplication::applicationVersion().isEmpty() ? "0.1" : QCoreApplication::applicationVersion(), m_core.name()));
+                           QString("<b>Xfusion %1</b> <s>sex edition</s><br>A frontend for SEGA systems up to the fourth generation, running libretro cores. "
+                                   "Twin of snes9xrd.<br><br>Cores it runs:<br>"
+                                   "Genesis Plus GX (c) Charles MacDonald, Eke-Eke - SG-1000, Master System, Game Gear, Genesis, Sega CD<br>"
+                                   "PicoDrive by notaz and contributors - 32X<br><br>Core in use: %2<br><br>"
+                                   "The cores are separate programs with their own licenses; neither may be sold or used commercially. "
+                                   "SEGA is a trademark.").arg(QCoreApplication::applicationVersion().isEmpty() ? "0.1" : QCoreApplication::applicationVersion(), m_core.name()));
     });
 }
 
@@ -352,8 +359,13 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         m_input.setKeyDown(keyEvent->key(), down);
 
     // Releasing a key ends the hold actions it started, whatever modifiers are down by then.
+    // While a key is held the system repeats it, and Qt reports each repeat as a release followed by a press, both
+    // flagged auto-repeat. Those are not the key going up: only the real release ends a hold, or fast-forward would stop
+    // as soon as the repeat starts.
     if (!down) {
         const auto held = m_heldByKey.find(keyEvent->key());
+        if (keyEvent->isAutoRepeat())
+            return held != m_heldByKey.end();
         if (held != m_heldByKey.end()) {
             for (ShortcutAction action : held->second)
                 setHold(action, false);
@@ -363,7 +375,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event)
         return false;
     }
     if (keyEvent->isAutoRepeat())
-        return keyEvent->key() == Qt::Key_Escape && isFullScreen();
+        return (keyEvent->key() == Qt::Key_Escape && isFullScreen()) || m_heldByKey.count(keyEvent->key());
 
     // Esc leaves fullscreen and cannot be rebound.
     if (keyEvent->key() == Qt::Key_Escape && isFullScreen()) {
@@ -456,7 +468,7 @@ void MainWindow::trigger(ShortcutAction action)
     case ShortcutAction::ToggleFastForward:
         m_fastForwardToggled = !m_fastForwardToggled;
         updateAudioMode();
-        showMessage(m_fastForwardToggled ? "Fast-forward: on" : "Fast-forward: off");
+        showMessage(m_fastForwardToggled ? "Turbo mode: on" : "Turbo mode: off");
         break;
     case ShortcutAction::PauseContinue:
         if (m_emu)
@@ -516,8 +528,9 @@ void MainWindow::promptOpenGame()
 
 void MainWindow::openGame(const QString& path)
 {
+    const QString libraryId = GameSaves::fingerprint(path);
     std::optional<System> system = systemForFile(path);
-    if (const auto chosen = m_library->systemChoice(GameSaves::fingerprint(path)))
+    if (const auto chosen = m_library->systemChoice(libraryId))
         system = chosen; // the user said what it is
     if (!system) {
         QString why = QString("Unrecognized game format: %1").arg(QDir::toNativeSeparators(path));
@@ -529,26 +542,39 @@ void MainWindow::openGame(const QString& path)
         QMessageBox::warning(this, "Xfusion", why);
         return;
     }
-    if (*system == System::SegaCD && !prepareDisc(path))
+    const bool isDisc = *system == System::SegaCD;
+    const DiscInfo disc = isDisc ? readDisc(path) : DiscInfo();
+    if (isDisc && !prepareDisc(disc))
         return;
 
     closeGame();
-    if (!selectCore(*system, path))
+    if (!selectCore(*system, m_library->coreChoice(libraryId)))
         return;
+    if (isDisc)
+        warnAboutAudio(disc);
     m_lastDir = QFileInfo(path).absolutePath();
     m_romDir = m_lastDir;
+    const QString playPath = preparePatchedGame(path, *system);
+    if (playPath.isEmpty())
+        return;
+    m_libraryId = libraryId;
 
     const QString saveDir = AppPaths::savesDir(*system, m_romDir);
     m_core.setDirectories(AppPaths::systemDir(), saveDir);
-    m_saves = std::make_unique<GameSaves>(saveDir, AppPaths::statesDir(*system, m_romDir), path);
+    m_saves = std::make_unique<GameSaves>(saveDir, AppPaths::statesDir(*system, m_romDir), playPath);
     if (!m_saves->warning().isEmpty())
         QMessageBox::warning(this, "Xfusion", m_saves->warning() + "\n\nA new index will be started; the old one is kept as saves.json.bad.");
 
     QString error;
     const InputConfig config = m_input.config();
+    std::map<std::string, std::string> coreOptions;
+    const auto userOptions = m_settings.coreOptions.value(m_core.profile().id);
+    for (auto it = userOptions.begin(); it != userOptions.end(); ++it)
+        coreOptions[it.key().toStdString()] = it.value().toStdString();
+    m_core.setUserOptions(coreOptions);
     m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers,
                    systemDef(*system).inputGroup == InputGroup::Genesis);
-    if (!m_core.loadGame(path, &error)) {
+    if (!m_core.loadGame(playPath, &error)) {
         if (*system == System::SegaCD) {
             error += QString("\n\nSega CD games need the BIOS for the disc's region in:\n%1\nExpected file names: %2")
                          .arg(AppPaths::systemDir(), m_core.profile().segaCdBiosFiles.join(", "));
@@ -569,6 +595,7 @@ void MainWindow::openGame(const QString& path)
     m_fastForwardHeld = false;
     m_fastForwardToggled = false;
     loadSaveRam();
+    const qsizetype sramSize = m_core.saveRam().size();
 
     m_audio = std::make_unique<AudioOutput>(m_core.avInfo().sampleRate, m_settings.audioDevice, m_settings.playbackRate);
     m_inputGroup = systemDef(*system).inputGroup;
@@ -583,27 +610,54 @@ void MainWindow::openGame(const QString& path)
     m_central->setCurrentWidget(m_video);
     addRecent(path);
     setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(path).completeBaseName()));
-    statusBar()->showMessage(QString("%1 | %2 | saves: %3%4")
-                                 .arg(m_core.name(), systemDef(*system).folder, saveDir, m_coreNote.isEmpty() ? QString() : " | " + m_coreNote));
     updateActions();
     updatePause();
     setFocus();
 
     if (m_settings.showRomInfo)
-        showMessage(QString("%1 | %2 | %3").arg(QFileInfo(path).completeBaseName(), systemDef(*system).folder, m_core.name()));
+        showMessage(startText(path, playPath, *system, disc, sramSize));
     if (!m_coreNote.isEmpty())
-        showMessage(QString("Using %1: %2").arg(m_core.name(), m_coreNote));
+        showMessage(m_coreNote);
     if (m_settings.fullscreenOnOpen && !isFullScreen())
         toggleFullscreen();
     if (m_settings.saveStateOnClose && m_statesSupported && QFile::exists(m_saves->resumeStatePath()))
         loadStateFromFile(m_saves->resumeStatePath());
 }
 
+// The message snes9xrd shows for a ROM, for this game (RomInfo.h).
+QString MainWindow::startText(const QString& path, const QString& playPath, System system, const DiscInfo& disc, qsizetype sramSize) const
+{
+    StartInfo info;
+    info.system = systemDef(system).folder;
+    info.core = coreInfo(m_core.profile().id) ? coreInfo(m_core.profile().id)->name : m_core.name();
+    info.pal = m_core.avInfo().fps < 55;
+    info.sram = sramSize <= 0 ? QString("none") : sramSize >= 1024 ? QString("%1KB").arg(sramSize / 1024) : QString("%1B").arg(sramSize);
+    info.patch = m_patchKind;
+    GameHeader header;
+    if (system == System::SegaCD) {
+        header = disc.header;
+        info.size = QString("%1 data / %2 audio %3").arg(disc.dataTracks).arg(disc.audioTracks).arg(disc.audioTracks == 1 ? "track" : "tracks");
+    } else {
+        QByteArray data;
+        QString extension, error;
+        if (readGameBytes(playPath, &data, &extension, &error)) {
+            header = parseCartridgeHeader(data.left(0x8000), extension);
+            info.size = sizeInBits(data.size());
+            info.hasCrc = true;
+            info.crc = crc32Of(data);
+            info.checksum = cartridgeChecksum(data);
+        }
+    }
+    info.title = header.title().isEmpty() ? QFileInfo(path).completeBaseName() : header.title();
+    info.product = header.product;
+    info.revision = revisionOfProduct(header.product);
+    return startMessage(info);
+}
+
 // Looks at a Sega CD disc before the core is asked to load it, so that what is wrong is said in plain words: tracks
 // missing from the cue sheet, or no BIOS for the region of the disc.
-bool MainWindow::prepareDisc(const QString& path)
+bool MainWindow::prepareDisc(const DiscInfo& disc)
 {
-    const DiscInfo disc = readDisc(path);
     if (!disc.problems.isEmpty())
         QMessageBox::warning(this, "Xfusion", "Some files of this disc are missing, so it may lack its music:\n\n" + disc.problems.join("\n"));
 
@@ -653,17 +707,36 @@ bool MainWindow::prepareDisc(const QString& path)
     return true;
 }
 
+// Neither core plays every .mp3: Genesis Plus GX none (WAV and OGG only), PicoDrive only MPEG-1 at 44.1 kHz, and
+// it skips the others, which shifts the numbers of the tracks after them. Said when the disc is opened.
+void MainWindow::warnAboutAudio(const DiscInfo& disc)
+{
+    int mp3 = 0;
+    for (const QString& file : disc.audioFiles)
+        if (file.endsWith(".mp3", Qt::CaseInsensitive))
+            ++mp3;
+    if (mp3 == 0)
+        return;
+    if (m_core.profile().id == CoreId::GenesisPlusGx) {
+        const QString note = QString("%1 of %2 audio tracks are .mp3, which Genesis Plus GX cannot play (WAV or OGG only)").arg(mp3).arg(disc.audioFiles.size());
+        m_coreNote = m_coreNote.isEmpty() ? note : m_coreNote + "; " + note;
+    } else if (!disc.unplayableMp3.isEmpty()) {
+        QMessageBox::warning(this, "Xfusion",
+                             QString("%1 of the %2 audio tracks of this disc are .mp3 files in a format PicoDrive cannot play (it plays MPEG-1 at "
+                                     "44.1 kHz only; for example %3 is not).\n\nThe music will be missing, and the tracks after each unplayable one "
+                                     "will be shifted, so the game may play the wrong music.\n\nConvert the tracks, for instance with ffmpeg: "
+                                     "ffmpeg -i \"in.mp3\" -ar 44100 \"out.mp3\".")
+                                 .arg(disc.unplayableMp3.size()).arg(disc.audioFiles.size()).arg(disc.unplayableMp3.first()));
+    }
+}
+
 // Chooses the core for the game (CoreRules) and loads it when it is not the one already loaded.
-bool MainWindow::selectCore(System system, const QString& path)
+bool MainWindow::selectCore(System system, const QString& gameCoreChoice)
 {
     m_coreNote.clear();
     if (m_coreForced)
         return true;
-    DiscInfo disc;
-    if (system == System::SegaCD)
-        disc = readDisc(path);
-    const CoreDecision decision = chooseCore(system, system == System::SegaCD ? &disc : nullptr, m_settings.coreChoices,
-                                             [](const QString& id) { return AppPaths::coreInstalled(id); });
+    const CoreDecision decision = chooseCore(system, m_settings.coreChoices, [](const QString& id) { return AppPaths::coreInstalled(id); }, gameCoreChoice);
     if (decision.id.isEmpty()) {
         QMessageBox::critical(this, "Xfusion",
                               QString("No installed core can play %1 games. Cores go in %2.")
@@ -677,6 +750,67 @@ bool MainWindow::selectCore(System system, const QString& path)
     }
     m_coreNote = decision.note;
     return true;
+}
+
+QString MainWindow::preparePatchedGame(const QString& path, System system)
+{
+    m_patchedGame.reset();
+    m_patchName.clear();
+    m_patchKind.clear();
+    const QString patchFile = findPatch(path, AppPaths::patchFolders(system, QFileInfo(path).absolutePath()));
+    if (patchFile.isEmpty())
+        return path;
+    if (system == System::SegaCD) {
+        // A disc is many files, or a compressed one: there is no single file to patch. Say so instead of ignoring it.
+        const bool chd = QFileInfo(path).suffix().compare("chd", Qt::CaseInsensitive) == 0;
+        const auto answer = QMessageBox::warning(
+            this, "Xfusion",
+            QString("There is a patch for this game (%1), but patches cannot be applied to Sega CD discs%2.\n\nOpen the game without it?")
+                .arg(QFileInfo(patchFile).fileName(),
+                     chd ? " (a .chd is compressed, so its bytes are not where the patch expects them)" : QString()),
+            QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+        return answer == QMessageBox::Yes ? path : QString();
+    }
+
+    const QString patchName = QFileInfo(patchFile).fileName();
+    QByteArray game, patch;
+    QString extension, error;
+    PatchResult result;
+    QFile file(patchFile);
+    if (!readGameBytes(path, &game, &extension, &error)) {
+        // Nothing to patch; the game will report its own problem when it loads.
+        return path;
+    }
+    if (!file.open(QIODevice::ReadOnly)) {
+        error = QString("%1 could not be read").arg(patchName);
+    } else {
+        patch = file.readAll();
+        result = applyPatch(game, patch);
+        if (result.ok)
+            error.clear();
+        else
+            error = result.error;
+    }
+    if (!error.isEmpty()) {
+        const auto answer = QMessageBox::warning(this, "Xfusion",
+                                                 QString("The patch %1 could not be applied to %2:\n\n%3\n\nOpen the game without the patch?")
+                                                     .arg(patchName, QFileInfo(path).fileName(), error),
+                                                 QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+        return answer == QMessageBox::Yes ? path : QString();
+    }
+
+    // The patched copy is named after the game and the patch, so that its saves and states are its own.
+    m_patchedGame = std::make_unique<QTemporaryDir>();
+    QString target = m_patchedGame->filePath(QString("%1 [%2].%3").arg(QFileInfo(path).completeBaseName(), QFileInfo(patchFile).completeBaseName(), extension));
+    QFile out(target);
+    if (!m_patchedGame->isValid() || !out.open(QIODevice::WriteOnly) || out.write(result.data) != result.data.size()) {
+        QMessageBox::warning(this, "Xfusion", "A temporary file for the patched game could not be written.");
+        m_patchedGame.reset();
+        return QString();
+    }
+    m_patchName = patchName;
+    m_patchKind = result.format == PatchFormat::Ips ? "IPS" : result.format == PatchFormat::Bps ? "BPS" : "UPS";
+    return target;
 }
 
 bool MainWindow::closeGame()
@@ -700,6 +834,7 @@ bool MainWindow::closeGame()
     m_emu.reset();
     flushSaveRam(true);
     m_core.unloadGame();
+    m_patchedGame.reset();
     m_audio.reset();
     m_saves.reset();
     m_gameSystem.reset();
@@ -711,7 +846,6 @@ bool MainWindow::closeGame()
     m_central->setCurrentWidget(m_library);
     m_library->focusList();
     setWindowTitle("Xfusion");
-    statusBar()->showMessage("Game closed");
     updateActions();
     return true;
 }
@@ -751,6 +885,8 @@ void MainWindow::showRomInfo()
     } else {
         header = readCartridgeHeader(m_gamePath);
     }
+    if (!m_patchName.isEmpty())
+        extra += "Patch applied: " + m_patchName + "\n";
     if (header.valid) {
         extra += QString("Name in game: %1\nProduct: %2\nRegion: %3\n").arg(header.title(), header.product, header.regionText().isEmpty() ? QString("not stated") : header.regionText());
     }
@@ -951,15 +1087,15 @@ void MainWindow::saveStateToFile(const QString& path, int confirmSlot)
     QByteArray state;
     if (!captureState(&state, &error)) {
         QMessageBox::warning(this, "Xfusion", QString("Could not save the state: %1").arg(error));
-        showMessage(QString("Failed to save %1").arg(QFileInfo(path).fileName()));
+        showMessage("Failed to save " + QFileInfo(path).fileName());
         return;
     }
     if (!writeState(path, state)) {
-        showMessage(QString("Failed to save %1").arg(QFileInfo(path).fileName()));
+        showMessage("Failed to save " + QFileInfo(path).fileName());
         return;
     }
     m_lastStateActivityMs = QDateTime::currentMSecsSinceEpoch();
-    showMessage(QString("%1 saved").arg(QFileInfo(path).fileName()));
+    showMessage(QFileInfo(path).fileName() + " saved");
 }
 
 void MainWindow::loadStateFromSlot(int slot, bool confirm)
@@ -971,7 +1107,7 @@ void MainWindow::loadStateFromSlot(int slot, bool confirm)
     }
     const QString path = m_saves->statePath(slot);
     if (!QFile::exists(path)) {
-        showMessage(QString("Slot %1 is empty").arg(slot));
+        showMessage("Failed to load " + QFileInfo(path).fileName());
         return;
     }
     if (confirm && m_settings.confirmSaveLoad
@@ -997,7 +1133,6 @@ void MainWindow::loadUndoState()
         return;
     const QString path = m_saves->undoStatePath();
     if (!QFile::exists(path)) {
-        showMessage("Nothing to undo");
         return;
     }
     QString error;
@@ -1007,7 +1142,7 @@ void MainWindow::loadUndoState()
         return;
     }
     // Undo goes back without making a new undo point, so it can be repeated.
-    applyState(state->raw, "Load undone", false);
+    applyState(state->raw, QString(), false);
 }
 
 void MainWindow::maybeSaveOops()
@@ -1028,7 +1163,7 @@ void MainWindow::loadStateFromFile(const QString& path)
     const auto state = StateFile::read(path, &error);
     if (!state) {
         QMessageBox::warning(this, "Xfusion", QString("Could not load %1: %2").arg(QFileInfo(path).fileName(), error));
-        showMessage(QString("Failed to load %1").arg(QFileInfo(path).fileName()));
+        showMessage("Failed to load " + QFileInfo(path).fileName());
         return;
     }
     if (state->header.gameId != m_saves->gameId()) {
@@ -1051,7 +1186,7 @@ void MainWindow::loadStateFromFile(const QString& path)
             return;
     }
     maybeSaveOops();
-    applyState(state->raw, QString("%1 loaded").arg(QFileInfo(path).fileName()), true);
+    applyState(state->raw, QFileInfo(path).fileName() + " loaded", true);
 }
 
 // Puts a state into the core. A load first writes the current game to the undo file; if the core rejects the state
@@ -1088,7 +1223,8 @@ bool MainWindow::applyState(const QByteArray& state, const QString& what, bool m
             writeState(m_saves->undoStatePath(), before);
     }
     m_lastStateActivityMs = QDateTime::currentMSecsSinceEpoch();
-    showMessage(what);
+    if (!what.isEmpty())
+        showMessage(what);
     return true;
 }
 
@@ -1147,6 +1283,7 @@ void MainWindow::applySettings()
         appliedTheme = m_settings.theme;
     }
     AppPaths::setFiles(m_settings);
+    AppPaths::patchFolders(System::Genesis, QString()); // creates the default patches folder, so that it is there to find
 
     DisplayOptions display;
     display.aspect = m_settings.aspect;
@@ -1268,8 +1405,8 @@ void MainWindow::commitPlayTime()
 {
     qint64 duration = m_playPendingMs + (m_playRunning ? m_playClock.restart() : 0);
     m_playPendingMs = 0;
-    if (duration > 0 && m_saves && !m_saves->gameId().isEmpty())
-        m_library->recordSession(m_saves->gameId(), duration);
+    if (duration > 0 && m_saves && !m_libraryId.isEmpty())
+        m_library->recordSession(m_libraryId, duration);
 }
 
 void MainWindow::setManualPause(bool paused)
@@ -1325,7 +1462,6 @@ void MainWindow::updateActions()
 
 void MainWindow::showMessage(const QString& text)
 {
-    statusBar()->showMessage(text, 3000);
     m_video->osd()->post(text);
 }
 
@@ -1406,7 +1542,7 @@ void MainWindow::loadSession()
     if (!file.open(QIODevice::ReadOnly))
         return;
     const QJsonObject object = QJsonDocument::fromJson(file.readAll()).object();
-    for (const QJsonValue& value : object.value("recent").toArray())
+    for (const QJsonValue value : object.value("recent").toArray())
         if (m_recent.size() < kMaxRecent)
             m_recent << value.toString();
     m_lastDir = object.value("last_dir").toString();
