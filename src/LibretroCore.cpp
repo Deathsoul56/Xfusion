@@ -215,7 +215,41 @@ void LibretroCore::unloadGame()
         return;
     m_unloadGame();
     m_hasGame = false;
+    m_hasDiskControl = false;
+    m_extraDiscs.clear();
     m_unpacked.reset();
+}
+
+bool LibretroCore::addDisc(const QString& path)
+{
+    if (!m_hasGame || !m_hasDiskControl || !m_disk.add_image_index || !m_disk.replace_image_index || !m_disk.add_image_index())
+        return false;
+    const unsigned index = m_disk.get_num_images() - 1;
+    m_extraDiscs.push_back(path.toUtf8());
+    retro_game_info info{};
+    info.path = m_extraDiscs.back().constData();
+    return m_disk.replace_image_index(index, &info);
+}
+
+int LibretroCore::discCount() const
+{
+    return m_hasGame && m_hasDiskControl ? int(m_disk.get_num_images()) : 0;
+}
+
+int LibretroCore::discIndex() const
+{
+    return m_hasGame && m_hasDiskControl ? int(m_disk.get_image_index()) : -1;
+}
+
+bool LibretroCore::swapDisc(int index)
+{
+    if (!m_hasGame || !m_hasDiskControl || index < 0 || index >= discCount())
+        return false;
+    if (!m_disk.set_eject_state(true))
+        return false;
+    const bool selected = m_disk.set_image_index(unsigned(index));
+    m_disk.set_eject_state(false);
+    return selected;
 }
 
 void LibretroCore::run()
@@ -395,6 +429,16 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
     case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
         if (m_hasGame)
             updateAvInfo();
+        return true;
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_INTERFACE:
+    case RETRO_ENVIRONMENT_SET_DISK_CONTROL_EXT_INTERFACE: // starts with the same seven functions
+        // A core with no disc to change (a cartridge game) passes NULL.
+        if (!data) {
+            m_hasDiskControl = false;
+            return true;
+        }
+        m_disk = *static_cast<const retro_disk_control_callback*>(data);
+        m_hasDiskControl = m_disk.set_eject_state && m_disk.get_eject_state && m_disk.get_image_index && m_disk.set_image_index && m_disk.get_num_images;
         return true;
     case RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL:
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:

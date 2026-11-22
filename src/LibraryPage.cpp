@@ -146,6 +146,8 @@ QVariant LibraryModel::data(const QModelIndex& index, int role) const
             text = entry->title + "\n" + text;
         if (!entry->problem.isEmpty())
             text += "\nProblem: " + entry->problem;
+        for (int i = 0; i < entry->otherDiscs.size(); ++i)
+            text += QString("\nDisc %1: %2").arg(i + 2).arg(QDir::toNativeSeparators(entry->otherDiscs[i]));
         for (const QString& other : entry->duplicates)
             text += "\nAlso found at " + QDir::toNativeSeparators(other);
         return text;

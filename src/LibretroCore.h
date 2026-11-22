@@ -9,6 +9,7 @@
 #include <QTemporaryDir>
 #include <cstdint>
 #include <memory>
+#include <vector>
 #include <functional>
 
 #include "CoreProfile.h"
@@ -37,6 +38,13 @@ public:
     bool useCore(const CoreProfile& profile, const QString& corePath, QString* error);
     bool loadGame(const QString& gamePath, QString* error);
     void unloadGame();
+    // Multi-disc games (libretro disk control). The disc the game was loaded from is disc 0; `addDisc` puts another
+    // one behind it, before the game runs. `swapDisc` takes the disc out, puts the chosen one in and closes the tray,
+    // and has to run where the core runs. False when the core has no disk control or refuses.
+    bool addDisc(const QString& path);
+    int discCount() const;
+    int discIndex() const;
+    bool swapDisc(int index);
     void run();
     void reset();
 
@@ -108,6 +116,9 @@ private:
     QByteArray m_systemDir;
     QByteArray m_saveDir;
     QByteArray m_gamePath;
+    std::vector<QByteArray> m_extraDiscs; // the paths handed to the core, which keeps only the pointers it is given
+    retro_disk_control_callback m_disk{};
+    bool m_hasDiskControl = false;
     std::unique_ptr<QTemporaryDir> m_unpacked; // the game extracted from a zip, while it is loaded
     std::array<std::array<std::atomic<bool>, 16>, kPlayers> m_buttons{};
     std::atomic<bool> m_skipVideo{false};

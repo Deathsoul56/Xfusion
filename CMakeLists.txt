@@ -29,7 +29,7 @@ else()
     set(XFUSION_SDL3 SDL3::SDL3)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Svg Test)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Svg Network Test)
 find_package(SDL3 REQUIRED CONFIG)
 find_package(Threads REQUIRED)
 
@@ -68,6 +68,10 @@ add_library(xfusion_input STATIC
     src/CoreRules.h
     src/CoreProfile.cpp
     src/CoreProfile.h
+    src/CoreManifest.cpp
+    src/CoreManifest.h
+    src/CoreProbe.cpp
+    src/CoreProbe.h
     src/Patch.cpp
     src/Patch.h
     src/RomInfo.cpp
@@ -135,13 +139,17 @@ add_executable(xfusion
     src/Theme.h
     src/EmuThread.cpp
     src/EmuThread.h
+    src/CoreInstaller.cpp
+    src/CoreInstaller.h
+    src/CoresDialog.cpp
+    src/CoresDialog.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
 if(WIN32)
     target_sources(xfusion PRIVATE src/resources/xfusion.rc)
     set_target_properties(xfusion PROPERTIES WIN32_EXECUTABLE ON) # no console window
 endif()
-target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets Qt6::Svg ${XFUSION_SDL3} Threads::Threads)
+target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets Qt6::Svg Qt6::Network ${XFUSION_SDL3} Threads::Threads)
 
 # `cmake --install build --prefix build` leaves a runnable build\xfusion.exe; another prefix makes a portable folder.
 if(WIN32)
@@ -182,7 +190,8 @@ add_executable(save_tests tests/SaveTests.cpp)
 add_executable(library_tests tests/LibraryTests.cpp)
 add_executable(disc_tests tests/DiscTests.cpp)
 add_executable(patch_tests tests/PatchTests.cpp)
-foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests patch_tests)
+add_executable(core_tests tests/CoreTests.cpp)
+foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests patch_tests core_tests)
     target_link_libraries(${testTarget} PRIVATE xfusion_input Qt6::Test)
     add_test(NAME ${testTarget} COMMAND ${testTarget})
     set_tests_properties(${testTarget} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -195,13 +204,15 @@ if(XFUSION_STATIC)
     target_link_options(library_tests PRIVATE -static)
     target_link_options(disc_tests PRIVATE -static)
     target_link_options(patch_tests PRIVATE -static)
+    target_link_options(core_tests PRIVATE -static)
     # Static Qt links its plugins into the exe; take only the ones used instead of every default one
     # (image formats, TLS, ... would pull in more libraries).
-    qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin Qt6::QSvgPlugin)
+    qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin Qt6::QSvgPlugin Qt6::QSchannelBackendPlugin)
     qt_import_plugins(input_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(settings_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(save_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(library_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(disc_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(patch_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(core_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
 endif()

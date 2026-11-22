@@ -316,6 +316,23 @@ private slots:
         QCOMPARE(chooseCore(System::SegaCD, {{"segacd", CoreId::PicoDrive}}, all).id, CoreId::PicoDrive);
     }
 
+    void theDiscsOfAMultiDiscGameAreFoundByTheirNames()
+    {
+        QTemporaryDir dir;
+        for (const char* name : {"Game (USA) (Disc 1).chd", "Game (USA) (Disc 2).chd", "Game (USA) (Disc 3) (Extra).chd", "Game (USA) (Disc 1).cue",
+                                 "Other (USA) (Disc 1).chd", "Solo (USA).chd"})
+            writeFile(dir.filePath(name), "x");
+        const QStringList expected = {dir.filePath("Game (USA) (Disc 1).chd"), dir.filePath("Game (USA) (Disc 2).chd"),
+                                      dir.filePath("Game (USA) (Disc 3) (Extra).chd")};
+        // Whichever disc is opened, the set is the same and in disc order; another extension or another game is not in it.
+        QCOMPARE(discSetOf(dir.filePath("Game (USA) (Disc 2).chd")), expected);
+        QCOMPARE(discSetOf(dir.filePath("Game (USA) (Disc 1).chd")), expected);
+        QCOMPARE(discSetOf(dir.filePath("Game (USA) (Disc 3) (Extra).chd")), expected);
+        // One disc is not a set.
+        QCOMPARE(discSetOf(dir.filePath("Other (USA) (Disc 1).chd")), QStringList{dir.filePath("Other (USA) (Disc 1).chd")});
+        QCOMPARE(discSetOf(dir.filePath("Solo (USA).chd")), QStringList{dir.filePath("Solo (USA).chd")});
+    }
+
     void theStartMessageHasTheThreeLinesOfSnes9xrd()
     {
         StartInfo info;

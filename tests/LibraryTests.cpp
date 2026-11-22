@@ -113,6 +113,24 @@ private slots:
         QVERIFY(scan.entries[1].problem.isEmpty());
     }
 
+    void theDiscsOfOneGameAreOneEntryWithTheOthersHangingFromIt()
+    {
+        QTemporaryDir dir;
+        const auto chd = [](const char* tag) { return QByteArray("MComprHD") + QByteArray(1000, 0) + tag; }; // a disc image is told by its first bytes
+        writeFile(dir.filePath("Sega CD/Dracula (USA) (Disc 2).chd"), chd("two"));
+        writeFile(dir.filePath("Sega CD/Dracula (USA) (Disc 1).chd"), chd("one"));
+        writeFile(dir.filePath("Sega CD/Solo (USA) (Disc 1).chd"), chd("solo"));
+        writeFile(dir.filePath("Sega CD/Sonic CD.iso"), discTrack(false, "E", "SONIC"));
+        const LibraryScan scan = scanLibrary({dir.path()}, {});
+        QCOMPARE(names(scan), QStringList({"Dracula (USA) [2 discs]", "Solo (USA) (Disc 1)", "Sonic CD"}));
+        const LibraryEntry& dracula = scan.entries[0];
+        QVERIFY(dracula.path.endsWith("(Disc 1).chd")); // the first disc is the one that opens
+        QCOMPARE(dracula.otherDiscs.size(), 1);
+        QVERIFY(dracula.otherDiscs[0].endsWith("(Disc 2).chd"));
+        QCOMPARE(dracula.size, qint64(chd("one").size() + chd("two").size())); // the whole game
+        QVERIFY(scan.entries[1].otherDiscs.isEmpty()); // one disc is not a set
+    }
+
     void aMissingFolderIsReportedAndTheRestIsScanned()
     {
         QTemporaryDir dir;

@@ -65,8 +65,9 @@ intentas cargarlo con otro.
 
 ## Empezar
 
-1. **Cores.** Coloca `genesis_plus_gx_libretro.dll` y `picodrive_libretro.dll` en la carpeta `cores\` junto al
-   ejecutable. Los scripts `scripts\setup-genesis-plus-gx.ps1` y `scripts\setup-picodrive.ps1` los clonan, compilan e
+1. **Cores.** Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
+   libretro; se guardan por versión en `cores\<core>\<versión>\` y puedes volver a una anterior o borrarla. También sirve
+   colocar `genesis_plus_gx_libretro.dll` y `picodrive_libretro.dll` en `cores\` junto al ejecutable: los scripts `scripts\setup-genesis-plus-gx.ps1` y `scripts\setup-picodrive.ps1` los clonan, compilan e
    instalan (ver *Compilar*).
 2. **Juegos.** Abre uno con *File > Open File...* o añade tus carpetas en *Options > Files > Library Folders* (o con el
    botón *Add Game Folder...* de la pantalla de bienvenida). Se buscan también las subcarpetas.
@@ -75,6 +76,10 @@ intentas cargarlo con otro.
    contenido y copia los que faltan con el nombre correcto. Xfusion no incluye BIOS ni juegos.
 4. **Controles.** *Options > Controllers*: por defecto la cruceta son las flechas, A/B/C son Z/X/C, X/Y/Z son A/S/D y
    Start es Enter. Los atajos del frontend están en *Options > Shortcuts*.
+
+### Juegos de Sega CD en varios discos
+
+Pon los discos en la misma carpeta con el nombre de Redump (`Juego (USA) (Disc 1).chd`, `Juego (USA) (Disc 2).chd`, también `.cue` o `.iso`). Al abrir uno, el menú *Emulation > Disc* cambia de disco mientras juegas, como abrir la bandeja de la consola. Los discos de un mismo juego deben tener el mismo formato (más en *Limitaciones conocidas*).
 
 ## Parches
 
@@ -102,6 +107,23 @@ patches\      parches IPS, BPS y UPS
 SRAM, estados, capturas, BIOS y parches se pueden mover a otra carpeta, o junto a cada juego, en
 *Options > Files*.
 
+## Limitaciones conocidas
+
+- **Sega CD en varios discos** (menú *Emulation > Disc*):
+  - Los estados guardados son del disco con el que abriste el juego; no se comparten entre discos. La RAM de respaldo sí es común.
+  - La biblioteca los junta en una entrada (`Juego [2 discs]`) que abre el disco 1.
+  - Solo se emparejan discos de la misma carpeta, con la misma extensión y el nombre de Redump (`(Disc N)`); hasta 4 discos.
+  - No hay atajo de teclado para cambiar de disco.
+  - Solo se ha probado con Dracula Unleashed (el cambio del disco 2 al 1); no se ha jugado una partida entera pasando de un disco a otro.
+- **Discos de Sega CD con pistas `.mp3`:** sin música con Genesis Plus GX (ver arriba).
+- **Parches:** los discos de Sega CD no se parchean.
+- **Estados guardados:** no se comparten entre cores ni entre los discos de un mismo juego.
+- **Opciones de core:** llegan al core cuando abres un juego, no en caliente.
+- **Región:** se fuerza para todo un core, no por juego; la región de los `.chd` no se lee (la biblioteca no la muestra y no se avisa de un BIOS ausente antes de cargar).
+- **Mensaje de inicio:** la suma de comprobación solo se calcula para Mega Drive y 32X.
+- **Gestión de cores:** el buildbot de libretro solo ofrece el último build, así que solo se pueden tener las versiones que instalaste antes; la búsqueda de actualizaciones es manual, no hay firmas que comprobar (solo HTTPS y el SHA-256 que se guarda) y la descarga solo está probada en Windows.
+- **RetroAchievements:** no está integrado. Es viable en modo casual, pero el hardcore exige la aprobación de RetroAchievements y la prueba completa necesita una cuenta; el análisis y las decisiones pendientes están en la Fase 7 de `frontend_sega_multiemulador.md`.
+- **Plataformas:** solo se ha probado en Windows.
 ## Compilar
 
 Windows con [MSYS2](https://www.msys2.org/): entornos CLANG64 y UCRT64, `cmake`, `ninja`, Qt 6 estático

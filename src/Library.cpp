@@ -147,6 +147,52 @@ void LibraryData::addSession(const QString& id, qint64 durationMs, qint64 played
     entry.lastPlayedMs = std::max(entry.lastPlayedMs, playedAtMs);
 }
 
+// "Game (Disc 1).chd" and "Game (Disc 2).chd" in one folder are one game: the lowest disc stays in the list, called
+// "Game [2 discs]", and the others hang from it.
+static void groupDiscSets(std::vector<LibraryEntry>& entries)
+{
+    struct Disc {
+        int number;
+        std::size_t index;
+    };
+    QMap<QString, QList<Disc>> sets;
+    QMap<QString, QString> names;
+    for (std::size_t i = 0; i < entries.size(); ++i) {
+        const QFileInfo info(entries[i].path);
+        int number = 0;
+        QString game;
+        if (entries[i].system != System::SegaCD || !parseDiscTag(info.completeBaseName(), &number, &game))
+            continue;
+        const QString key = info.absolutePath().toLower() + "|" + game.toLower() + "|" + info.suffix().toLower();
+        sets[key].append({number, i});
+        names[key] = game;
+    }
+    std::vector<bool> hidden(entries.size(), false);
+    for (auto it = sets.begin(); it != sets.end(); ++it) {
+        QList<Disc> discs = it.value();
+        if (discs.size() < 2)
+            continue;
+        std::stable_sort(discs.begin(), discs.end(), [](const Disc& a, const Disc& b) { return a.number < b.number; });
+        // Two files for the same disc number: the first one counts and the other stays in the list on its own.
+        discs.erase(std::unique(discs.begin(), discs.end(), [](const Disc& a, const Disc& b) { return a.number == b.number; }), discs.end());
+        if (discs.size() < 2)
+            continue;
+        LibraryEntry& first = entries[discs.first().index];
+        first.name = QString("%1 [%2 discs]").arg(names[it.key()]).arg(discs.size());
+        for (qsizetype i = 1; i < discs.size(); ++i) {
+            const LibraryEntry& other = entries[discs[i].index];
+            first.otherDiscs << other.path;
+            first.size += other.size;
+            hidden[discs[i].index] = true;
+        }
+    }
+    std::vector<LibraryEntry> kept;
+    for (std::size_t i = 0; i < entries.size(); ++i)
+        if (!hidden[i])
+            kept.push_back(std::move(entries[i]));
+    entries = std::move(kept);
+}
+
 LibraryScan scanLibrary(const QStringList& folders, const QMap<QString, LibraryCachedFile>& cache, const std::atomic<bool>* cancel,
                         const std::function<void(int)>& progress)
 {
@@ -245,5 +291,6 @@ LibraryScan scanLibrary(const QStringList& folders, const QMap<QString, LibraryC
             ++scan.duplicateFiles;
         }
     }
+    groupDiscSets(scan.entries);
     return scan;
 }
