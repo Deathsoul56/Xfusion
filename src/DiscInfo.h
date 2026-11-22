@@ -34,3 +34,12 @@ bool mp3IsPlayableByPicoDrive(const QString& path);
 
 // `path` is a .cue, .iso, .bin or .chd file. A file that is not a Sega CD disc gives `isSegaCd == false`.
 DiscInfo readDisc(const QString& path);
+
+// "Game (USA) (Disc 2) (Juice)" is disc 2 of "Game (USA)": the number and the name without the disc tag. False when the
+// name has no disc tag.
+bool parseDiscTag(const QString& baseName, int* number, QString* gameName);
+
+// The discs of a multi-disc game, in disc order, when `path` is one of them: the files next to it with the same name
+// and the same extension, apart from a "(Disc N)" tag (Redump naming; a "(Disc 2) (Juice)" style title after the tag
+// is ignored too). Just `path` when the game has one disc.
+QStringList discSetOf(const QString& path);

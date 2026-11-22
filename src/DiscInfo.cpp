@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QMap>
 #include <QRegularExpression>
 
 namespace {
@@ -141,6 +142,54 @@ bool mp3IsPlayableByPicoDrive(const QString& path)
     }
     return false;
 }
+namespace {
+
+const QRegularExpression& discTag()
+{
+    static const QRegularExpression tag("\\s*\\((?:Disc|Disk|CD)\\s*(\\d+)(?:\\s*of\\s*\\d+)?\\)(?:\\s*\\([^)]*\\))*", QRegularExpression::CaseInsensitiveOption);
+    return tag;
+}
+
+}
+
+bool parseDiscTag(const QString& baseName, int* number, QString* gameName)
+{
+    const auto match = discTag().match(baseName);
+    if (!match.hasMatch())
+        return false;
+    if (number)
+        *number = match.captured(1).toInt();
+    if (gameName) {
+        *gameName = baseName;
+        gameName->remove(discTag());
+    }
+    return true;
+}
+
+QStringList discSetOf(const QString& path)
+{
+    const QRegularExpression& tag = discTag();
+    const QFileInfo info(path);
+    const auto own = tag.match(info.completeBaseName());
+    if (!own.hasMatch())
+        return {path};
+    QString key = info.completeBaseName();
+    key.remove(tag);
+
+    QMap<int, QString> discs; // by disc number; the first file found for a number is the one kept
+    const QFileInfoList files = info.absoluteDir().entryInfoList({"*." + info.suffix()}, QDir::Files, QDir::Name | QDir::IgnoreCase);
+    for (const QFileInfo& file : files) {
+        const auto match = tag.match(file.completeBaseName());
+        QString name = file.completeBaseName();
+        name.remove(tag);
+        if (match.hasMatch() && name.compare(key, Qt::CaseInsensitive) == 0 && !discs.contains(match.captured(1).toInt()))
+            discs.insert(match.captured(1).toInt(), file.absoluteFilePath());
+    }
+    // The file that was opened always counts, even when another one has its number.
+    discs.insert(own.captured(1).toInt(), info.absoluteFilePath());
+    return discs.size() > 1 ? QStringList(discs.values()) : QStringList{path};
+}
+
 DiscInfo readDisc(const QString& path)
 {
     const QString ext = QFileInfo(path).suffix().toLower();

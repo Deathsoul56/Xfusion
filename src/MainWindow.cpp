@@ -258,6 +258,10 @@ void MainWindow::createEmulationMenu()
     setThemedActionIcon(hardReset, "reset");
     m_actions[ShortcutAction::PowerCycle] = hardReset;
     m_actionTexts[ShortcutAction::PowerCycle] = "&Hard Reset";
+    // Only shown for a game with more than one disc.
+    m_discMenu = menu->addMenu("&Disc");
+    m_discMenu->menuAction()->setVisible(false);
+    connect(m_discMenu, &QMenu::aboutToShow, this, &MainWindow::populateDiscMenu);
     m_gameActions.push_back(m_pauseAction);
     m_gameActions.push_back(frameAdvance);
     m_gameActions.push_back(reset);
@@ -596,6 +600,9 @@ void MainWindow::openGame(const QString& path)
     m_fastForwardToggled = false;
     loadSaveRam();
     const qsizetype sramSize = m_core.saveRam().size();
+    m_discSet.clear();
+    if (isDisc)
+        setupDiscs(path);
 
     m_audio = std::make_unique<AudioOutput>(m_core.avInfo().sampleRate, m_settings.audioDevice, m_settings.playbackRate);
     m_inputGroup = systemDef(*system).inputGroup;
@@ -834,6 +841,7 @@ bool MainWindow::closeGame()
     m_emu.reset();
     flushSaveRam(true);
     m_core.unloadGame();
+    m_discSet.clear();
     m_patchedGame.reset();
     m_audio.reset();
     m_saves.reset();
@@ -1458,6 +1466,61 @@ void MainWindow::updateActions()
         action->setEnabled(playing && m_statesSupported);
     m_saveMenu->setEnabled(playing && m_statesSupported);
     m_loadMenu->setEnabled(playing && m_statesSupported);
+    m_discMenu->menuAction()->setVisible(playing && m_discSet.size() > 1);
+}
+
+// A game on several discs: the core has the disc that was opened and the others are added behind it, so that the
+// Disc menu can swap them while the game runs.
+void MainWindow::setupDiscs(const QString& path)
+{
+    m_discSet = {path};
+    m_discCoreIndex = {0};
+    m_currentDisc = 0;
+    if (m_core.discCount() == 0) // the core has no disk control
+        return;
+    const QStringList set = discSetOf(path);
+    if (set.size() < 2)
+        return;
+    const QString opened = QFileInfo(path).absoluteFilePath();
+    m_discSet.clear();
+    m_discCoreIndex.clear();
+    for (const QString& disc : set) {
+        if (disc == opened) {
+            m_currentDisc = int(m_discSet.size());
+            m_discSet << disc;
+            m_discCoreIndex.push_back(0);
+        } else if (m_core.addDisc(disc)) {
+            m_discSet << disc;
+            m_discCoreIndex.push_back(m_core.discCount() - 1);
+        }
+    }
+}
+
+void MainWindow::populateDiscMenu()
+{
+    m_discMenu->clear();
+    auto* group = new QActionGroup(m_discMenu);
+    for (int i = 0; i < m_discSet.size(); ++i) {
+        QAction* action = m_discMenu->addAction(QString("Disc %1: %2").arg(i + 1).arg(QFileInfo(m_discSet[i]).completeBaseName()), this, [this, i] { swapToDisc(i); });
+        action->setCheckable(true);
+        action->setChecked(i == m_currentDisc);
+        group->addAction(action);
+    }
+}
+
+void MainWindow::swapToDisc(int setIndex)
+{
+    if (!m_emu || setIndex < 0 || setIndex >= m_discSet.size() || setIndex == m_currentDisc)
+        return;
+    bool swapped = false;
+    m_emu->withCore([&] { swapped = m_core.swapDisc(m_discCoreIndex[size_t(setIndex)]); });
+    if (swapped) {
+        m_currentDisc = setIndex;
+        setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(m_discSet[setIndex]).completeBaseName()));
+        showMessage(QString("Disc %1: %2").arg(setIndex + 1).arg(QFileInfo(m_discSet[setIndex]).completeBaseName()));
+    } else {
+        showMessage(QString("The core could not change to disc %1").arg(setIndex + 1));
+    }
 }
 
 void MainWindow::showMessage(const QString& text)

@@ -1,6 +1,7 @@
 #include "EmulationPage.h"
 
 #include "CoreProfile.h"
+#include "CoresDialog.h"
 #include "CoreRules.h"
 #include "FormAlign.h"
 
@@ -9,6 +10,7 @@
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QLabel>
+#include <QPushButton>
 #include <algorithm>
 #include <QSpinBox>
 #include <QStackedWidget>
@@ -69,6 +71,10 @@ EmulationPage::EmulationPage(const AppSettings& settings, QWidget* parent)
     coresNote->setWordWrap(true);
     coresNote->setEnabled(false);
     coresLayout->addRow(coresNote);
+    auto* manage = new QPushButton("Manage Cores...", cores);
+    manage->setToolTip("Install a newer build of a core from the libretro buildbot, or go back to an older one.");
+    connect(manage, &QPushButton::clicked, this, [this] { CoresDialog(this).exec(); });
+    coresLayout->addRow(manage);
 
     // What each core lets the user change. One form per core, the one of the core picked above shown; the choices of
     // all of them are kept. They reach the core when a game opens.

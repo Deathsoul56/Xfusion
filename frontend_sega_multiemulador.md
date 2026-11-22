@@ -114,6 +114,8 @@ Los cores no se compilan dentro del frontend: viven como bibliotecas
 independientes en una carpeta `cores/` del directorio de datos del usuario. Así
 se pueden actualizar sin recompilar ni reinstalar la aplicación.
 
+**Estado (ADR-0027):** implementado en la Fase 5; la fuente quedó validada.
+
 **Fuente de actualizaciones (a validar en Fase 0):** el buildbot público de
 libretro publica binarios por plataforma y arquitectura, incluyendo
 `picodrive`, `genesis_plus_gx` y `blastem`. El frontend consultaría ese índice
@@ -168,7 +170,7 @@ su cuenta.
 | Ajustes de pantalla y audio | Separar ajustes globales de opciones específicas del core |
 | Estados, selección de slot y deshacer carga | Usar la serialización de libretro solo cuando el core la soporte; validar incompatibilidades entre cores/versiones |
 | Rewind | Posponer hasta medir el coste de memoria, rendimiento y serialización por core |
-| RetroAchievements y cheats | Funciones posteriores; comprobar soporte, licencias y requisitos particulares antes de comprometerlas |
+| RetroAchievements y cheats | Funciones posteriores; RetroAchievements tiene su análisis en la Fase 7 (viable solo en casual, pendiente de decisión); los cheats siguen sin analizar |
 | Netplay y movies | Fuera del alcance inicial; no trasladar formatos ni asumir interoperabilidad con Snes9x |
 
 Las funciones específicas de SNES (canales SPC700, Super Scope y mouse SNES,
@@ -202,7 +204,7 @@ del core y definir cómo se presentan en la interfaz.
   multidisco.
 - 32X: integración y pruebas específicas con el core compatible.
 - Filtros, shaders, ghosting de Game Gear y overlays.
-- Rewind, cheats y RetroAchievements, tras validar soporte y coste.
+- Rewind, cheats y RetroAchievements, tras validar soporte y coste (RetroAchievements: análisis en la Fase 7).
 - Periféricos como pistolas, únicamente si el core y el sistema objetivo los
   exponen de forma utilizable.
 
@@ -395,17 +397,16 @@ sin duplicados innecesarios.
 
 ### Fase 5 — Cobertura multi-sistema
 
-- [ ] Implementar la gestión de cores (sección 3.2): instalación por versión,
+- [x] Implementar la gestión de cores (sección 3.2): instalación por versión,
   manifiesto, búsqueda manual de actualizaciones, verificación y reversión.
+  *(ADR-0027: Options > Emulation > Manage Cores...; fuente validada: el buildbot de libretro, que solo ofrece el último build, así que las versiones se conservan al instalar; probado instalando Genesis Plus GX y jugando con él.)*
 - [x] Incorporar SG-1000 y Game Gear con casos de prueba propios.
   *(ADR-0023: pruebas automáticas del reconocimiento (cabecera `TMR SEGA`, región, extensión engañosa, `.sg`/`.sc` sin cabecera) y la colección local: 52 de Game Gear y 62 de SG-1000 se identifican bien, estos últimos dentro de `Roms\MasterSystem`; 13 zips de SF-7000, MyVision y similares se ignoran por estar fuera de alcance.)*
-- [ ] Añadir Sega CD, incluyendo configuración de BIOS y juegos multidisco.
+- [x] Añadir Sega CD, incluyendo configuración de BIOS y juegos multidisco.
   *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
   audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
   reconoce por su contenido y se instala desde una carpeta con "Find BIOS
-  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Pendiente:
-  juegos multidisco, validar la jugabilidad de cada disco local (Final Fight CD
-  se queda en negro tras la pantalla de licencia) y la región de los `.chd`.)*
+  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Pendiente: la región de los `.chd`.)*
 - [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [x] Implementar selección manual de core y reglas de compatibilidad por juego.
@@ -431,6 +432,76 @@ solo porque el core lo anuncie.
 **Salida:** paquete reproducible, instrucciones de instalación y lista de
 compatibilidad verificadas.
 
+### Fase 7 - RetroAchievements (análisis de factibilidad, 2026-11-22; pendiente de decisión del propietario)
+
+**Veredicto: es viable en modo casual, pero no se puede entregar al 100 %.** Hay inconvenientes que no dependen del
+código (el modo hardcore exige la aprobación de RetroAchievements y la prueba completa exige una cuenta), así que no se ha
+empezado a implementar. Lo que sigue es lo que se comprobó y lo que habría que decidir.
+
+**Qué sí es posible (comprobado)**
+
+- **Los seis sistemas existen en RetroAchievements:** Mega Drive/Genesis (id 1), Sega CD (9), 32X (10), Master System (11),
+  Game Gear (15) y SG-1000 (33), según `rc_consoles.h` de rcheevos.
+- **Biblioteca:** rcheevos es MIT, unos 1,2 MB de fuente en 49 archivos, y `snes9xrd` ya la usa (submódulo
+  `external/rcheevos`). Su `rc_client` cubre usuario, identificación del juego, lista de logros, marcadores y presencia
+  enriquecida; solo pide al frontend la red, la lectura de memoria y la interfaz.
+- **Código que se puede reutilizar:** el módulo de `snes9xrd` (`qt/src/Achievements`: cliente, red, diálogo de inicio de
+  sesión y lista, unas 1.100 líneas) tiene un único autor, el propietario (`git log`: solo `deathsoul56`), así que el
+  ADR-0009 permite portarlo. Habría que adaptar la lectura de memoria (en `snes9xrd` sale del motor de Snes9x) y las
+  notificaciones.
+- **Red:** Qt Network ya está enlazado (ADR-0027) y el servidor responde (`dorequest.php` contestó 401 con
+  `invalid_credentials` a un inicio de sesión falso, desde esta máquina).
+- **Memoria de los cores:** Genesis Plus GX y PicoDrive publican su mapa de memoria con
+  `RETRO_ENVIRONMENT_SET_MEMORY_MAPS` y además `retro_get_memory_data(RETRO_MEMORY_SYSTEM_RAM)`. Xfusion todavía no
+  atiende ese comando; hay que añadirlo y comprobar las direcciones de cada consola.
+- **Hilos:** el reloj de los logros (`rc_client_do_frame`) tiene que ir en el hilo de emulación justo después de cada
+  `retro_run`, como en `snes9xrd`; `EmuThread` ya ejecuta trabajo en ese hilo.
+
+**Inconvenientes y bloqueos (por orden de importancia)**
+
+1. **Hardcore no es obtenible por ahora.** RetroAchievements solo acepta puntos en hardcore de emuladores aprobados
+   (<https://docs.retroachievements.org/general/hardcore-compliance-requirements.html>): el emulador debe llevar **al
+   menos 6 meses publicado**, usar un user agent propio y estable (`Xfusion/0.1 (Windows 10.0) genesis_plus_gx/v1.7.4_4fd32ef`),
+   y bloquear en hardcore **rebobinado, cámara lenta, avance de fotograma, carga de estados y trucos**; pasar a hardcore
+   debe reiniciar el juego y el estado de reanudar debe caer a casual. Xfusion tiene todo eso activo. Un cliente no
+   aprobado que se use en hardcore puede dejar la cuenta del jugador como **«Untracked»**. Propuesta: solo casual, con el
+   hardcore sin ofrecer hasta una aprobación. (`snes9xrd` lo ofrece con un aviso de que puede no ser aceptado.)
+2. **No hay validación de extremo a extremo sin una cuenta.** Iniciar sesión, cargar el conjunto de logros de un juego y
+   registrar un desbloqueo necesitan las credenciales del propietario, y los desbloqueos quedan en su perfil real.
+   Sin ellas solo se prueba el camino de error del inicio de sesión, el cálculo del hash y la lectura de memoria.
+3. **Los discos `.chd` no se pueden identificar con lo que ya hay.** La versión de rcheevos de `snes9xrd` lee `.cue`,
+   `.bin` e `.iso` pero no `.chd`. Haría falta un lector de CHD (libchdr, BSD-3; está dentro del árbol de Genesis Plus GX,
+   con dependencias de lzma, zstd, zlib y FLAC). Es el mismo trabajo que falta para leer la región de los `.chd`. Los
+   `.chd` locales (Final Fight CD, Dracula Unleashed) no tendrían logros hasta entonces.
+4. **Los juegos parcheados no tienen logros:** RetroAchievements identifica cada juego por el hash de su contenido, así
+   que con un parche IPS/BPS/UPS (ADR-0025) el hash cambia. Habría que desactivar los logros en esos juegos y decirlo.
+5. **Estados y reinicios:** el progreso de cada logro (conteos de golpes) debería guardarse en los estados
+   (`rc_client_serialize_progress`) y restaurarse al cargarlos; hay que llamar a `rc_client_reset` en Reset, Hard Reset y
+   al cambiar de disco, o la lectura de memoria se interpreta como un salto imposible. Es trabajo en `MainWindow` y en el
+   formato de estados.
+6. **Multidisco:** cada disco tiene su propio hash y su propio conjunto de logros; el cambio de disco en caliente
+   (ADR-0026) no vuelve a identificar el juego.
+7. **Cobertura:** cuántos juegos tienen logros en Sega CD, 32X, Game Gear y SG-1000 depende de la comunidad de
+   RetroAchievements y no se ha medido con la colección local.
+8. **Sin cola sin conexión persistente:** `rc_client` reintenta los envíos fallidos mientras el programa sigue abierto,
+   pero no los guarda en disco; es una exigencia solo para la aprobación de hardcore.
+9. **Mantenimiento y tamaño:** unos 1,2 MB más de fuente propia de terceros (con su aviso en
+   `THIRD_PARTY_NOTICES.md`) y una dependencia más que seguir.
+
+**Decisiones que necesito del propietario**
+
+- ¿Solo casual (propuesta) o también hardcore con el mismo aviso que `snes9xrd`?
+- ¿Se hace antes el lector de CHD (libchdr), que sirve también para la región de los `.chd`, o se empieza con `.cue`,
+  `.iso` y cartuchos?
+- ¿Hay una cuenta de RetroAchievements para probar y está bien que los desbloqueos de prueba queden en ella?
+- ¿Se porta la interfaz completa de `snes9xrd` (lista de logros, marcadores, inicio de sesión y ajustes) o una versión
+  mínima (inicio de sesión, avisos y lista)?
+
+**Plan propuesto si se aprueba** (cada punto con prueba propia): (1) manejar `SET_MEMORY_MAPS` y exponer la memoria al
+cliente; (2) integrar rcheevos en `third_party/` con su aviso; (3) cliente en el hilo de emulación y red con Qt Network;
+(4) inicio de sesión con el token cifrado en disco (nunca la contraseña); (5) identificación de cartuchos, zips y discos
+`.cue`/`.iso`; (6) avisos en pantalla con el mismo estilo que el resto de mensajes y lista de logros; (7) estados, reinicios
+y cambio de disco; (8) CHD con libchdr.
 ### Después de la primera versión
 
 Evaluar shaders avanzados, rewind, cheats, RetroAchievements y periféricos

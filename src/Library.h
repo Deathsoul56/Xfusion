@@ -22,6 +22,9 @@ struct LibraryEntry {
     qint64 mtimeMs = 0;
     QStringList duplicates; // other files with the same content; they are not listed separately
     bool systemSet = false; // `system` is what the user chose, not what was detected
+    // The other discs of a game on several discs (Sega CD), in disc order: the entry is the first disc found and the
+    // rest are not listed separately. The Disc menu changes between them while the game runs.
+    QStringList otherDiscs;
 };
 
 // What is remembered about a file between scans, so that a rescan does not open every game again. `system` is -1 for

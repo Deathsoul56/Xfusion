@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFileInfo>
 
+#include "CoreManifest.h"
 #include "CoreProfile.h"
 
 namespace AppPaths {
@@ -101,8 +102,12 @@ QString libraryPath()
     return configDir() + "/library.json";
 }
 
+// The active version installed through the Cores dialog, else the library that sits in the cores folder.
 QString corePath(const QString& coreId)
 {
+    const QString installed = CoreManifest::load(coresDir()).activePath(coreId);
+    if (!installed.isEmpty() && QFileInfo::exists(installed))
+        return installed;
     return coresDir() + "/" + coreProfileById(coreId).libraryFileName();
 }
 

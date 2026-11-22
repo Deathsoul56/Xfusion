@@ -70,6 +70,9 @@ private:
     // The file to play: the game itself, or a patched copy when the game has a patch (Patch.h). Empty when the user
     // cancels. Discs are not patched.
     QString preparePatchedGame(const QString& path, System system);
+    void setupDiscs(const QString& path);
+    void populateDiscMenu();
+    void swapToDisc(int setIndex);
     QString startText(const QString& path, const QString& playPath, System system, const DiscInfo& disc, qsizetype sramSize) const;
     void resetGame(bool powerCycle);
     void showRomInfo();
@@ -128,6 +131,10 @@ private:
     LibraryPage* m_library;
     bool m_coreForced = false;
     std::unique_ptr<QTemporaryDir> m_patchedGame; // the patched copy, while the game is open
+    QStringList m_discSet; // the discs of the game that is open, in disc order (one entry when it has a single disc)
+    std::vector<int> m_discCoreIndex; // where the core has each of them
+    int m_currentDisc = 0; // an index of m_discSet
+    QMenu* m_discMenu = nullptr;
     QString m_patchName; // the patch applied to the game that is open, if any
     QString m_patchKind; // "IPS", "BPS" or "UPS"
     QString m_libraryId; // the id the library knows the game by: the original file, even when a patched copy is played
