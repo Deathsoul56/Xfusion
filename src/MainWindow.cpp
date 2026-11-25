@@ -20,6 +20,7 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QTimer>
 #include <QSaveFile>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -32,6 +33,7 @@
 #include "AppPaths.h"
 #include "Bios.h"
 #include "CoreRules.h"
+#include "CoresDialog.h"
 #include "DiscInfo.h"
 #include "GameHeader.h"
 #include "Patch.h"
@@ -167,7 +169,7 @@ void MainWindow::createMenus()
                                    "Genesis Plus GX (c) Charles MacDonald, Eke-Eke - SG-1000, Master System, Game Gear, Genesis, Sega CD<br>"
                                    "PicoDrive by notaz and contributors - 32X<br><br>Core in use: %2<br><br>"
                                    "The cores are separate programs with their own licenses; neither may be sold or used commercially. "
-                                   "SEGA is a trademark.").arg(QCoreApplication::applicationVersion().isEmpty() ? "0.1" : QCoreApplication::applicationVersion(), m_core.name()));
+                                   "SEGA is a trademark.").arg(QCoreApplication::applicationVersion(), m_core.name().isEmpty() ? QString("none installed (Options > Emulation > Manage Cores)") : m_core.name()));
     });
 }
 
@@ -769,6 +771,23 @@ void MainWindow::warnAboutAudio(const DiscInfo& disc)
     }
 }
 
+void MainWindow::offerCores(const QString& reason)
+{
+    QTimer::singleShot(0, this, [this, reason] {
+        QMessageBox box(QMessageBox::Information, "Xfusion",
+                        (reason.isEmpty() ? QString("No libretro core is installed.") : reason) +
+                            QString("\n\nXfusion plays games with libretro cores, which are downloaded separately (Genesis Plus GX and PicoDrive, each with its own "
+                                    "license). They are kept in %1.\n\nOpen Manage Cores to download them?")
+                                .arg(QDir::toNativeSeparators(AppPaths::coresDir())),
+                        QMessageBox::NoButton, this);
+        QPushButton* manage = box.addButton("Manage Cores...", QMessageBox::AcceptRole);
+        box.addButton("Later", QMessageBox::RejectRole);
+        box.exec();
+        if (box.clickedButton() == manage)
+            CoresDialog(this).exec();
+    });
+}
+
 // Chooses the core for the game (CoreRules) and loads it when it is not the one already loaded.
 bool MainWindow::selectCore(System system, const QString& gameCoreChoice)
 {
@@ -777,9 +796,7 @@ bool MainWindow::selectCore(System system, const QString& gameCoreChoice)
         return true;
     const CoreDecision decision = chooseCore(system, m_settings.coreChoices, [](const QString& id) { return AppPaths::coreInstalled(id); }, gameCoreChoice);
     if (decision.id.isEmpty()) {
-        QMessageBox::critical(this, "Xfusion",
-                              QString("No installed core can play %1 games. Cores go in %2.")
-                                  .arg(systemDef(system).folder, QDir::toNativeSeparators(AppPaths::coresDir())));
+        offerCores(QString("No installed core can play %1 games.").arg(systemDef(system).folder));
         return false;
     }
     QString error;

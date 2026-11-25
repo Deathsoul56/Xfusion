@@ -67,6 +67,12 @@ private:
     bool closeGame();
     bool prepareDisc(const DiscInfo& disc);
     bool selectCore(System system, const QString& gameCoreChoice);
+
+public:
+    // Says that no core is installed and offers to open the dialog that downloads them. Shown once the window is up.
+    void offerCores(const QString& reason = QString());
+
+private:
     void warnAboutAudio(const DiscInfo& disc);
     // The file to play: the game itself, or a patched copy when the game has a patch (Patch.h). Empty when the user
     // cancels. Discs are not patched.

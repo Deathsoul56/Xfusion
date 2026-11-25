@@ -214,9 +214,11 @@ add_executable(xfusion
     src/CoresDialog.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
+target_compile_definitions(xfusion PRIVATE XFUSION_VERSION="${PROJECT_VERSION}")
 if(WIN32)
     target_link_libraries(xfusion PRIVATE winmm) # the chime of an unlocked achievement
-    target_sources(xfusion PRIVATE src/resources/xfusion.rc)
+    configure_file(src/resources/xfusion.rc.in "${CMAKE_CURRENT_BINARY_DIR}/xfusion.rc" @ONLY)
+    target_sources(xfusion PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/xfusion.rc")
     set_target_properties(xfusion PROPERTIES WIN32_EXECUTABLE ON) # no console window
 endif()
 target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets Qt6::Svg Qt6::Network ${XFUSION_SDL3} Threads::Threads)

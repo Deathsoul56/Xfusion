@@ -35,6 +35,7 @@ int main(int argc, char* argv[])
     QApplication app(argc, argv);
     QApplication::setOrganizationName("Xfusion");
     QApplication::setApplicationName("Xfusion");
+    QApplication::setApplicationVersion(XFUSION_VERSION);
     // Without this the taskbar button and the title bars fall back to a generic icon.
     QApplication::setWindowIcon(QIcon(":/app/icon.png"));
 
@@ -64,15 +65,9 @@ int main(int argc, char* argv[])
             if (AppPaths::coreInstalled(info.id) && core.useCore(coreProfileById(info.id), AppPaths::corePath(info.id), &error))
                 break;
         }
-        if (!core.isLoaded()) {
-            QMessageBox::critical(nullptr, "Xfusion",
-                                  error.isEmpty() ? QString("No libretro core was found in %1.\n\nExpected %2 and %3 there (see scripts/setup-genesis-plus-gx.ps1 and "
-                                                            "scripts/setup-picodrive.ps1).")
-                                                        .arg(QDir::toNativeSeparators(AppPaths::coresDir()), coreProfileById(CoreId::GenesisPlusGx).libraryFileName(),
-                                                             coreProfileById(CoreId::PicoDrive).libraryFileName())
-                                                  : error);
-            return 1;
-        }
+        // Without a core the window still opens: the cores are downloaded from Options > Emulation > Manage Cores.
+        if (!core.isLoaded() && !error.isEmpty())
+            QMessageBox::warning(nullptr, "Xfusion", "A core could not be loaded:\n\n" + error);
     }
 
     MainWindow window(core);
@@ -80,6 +75,8 @@ int main(int argc, char* argv[])
     window.show();
     if (parser.isSet(statsOption))
         window.enableStats();
+    if (!forced && !core.isLoaded() && parser.positionalArguments().isEmpty())
+        window.offerCores();
     if (!parser.positionalArguments().isEmpty())
         window.openGame(QFileInfo(parser.positionalArguments().first()).absoluteFilePath());
 

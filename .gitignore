@@ -19,3 +19,5 @@ BIOS/
 *.zip
 *.7z
 *.psd
+build-release/
+dist/

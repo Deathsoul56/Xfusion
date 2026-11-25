@@ -2,7 +2,9 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 
 #include "CoreManifest.h"
 #include "CoreProfile.h"
@@ -15,13 +17,31 @@ static QString ensured(const QString& path)
     return path;
 }
 
+static bool canWriteIn(const QString& folder)
+{
+    QFile probe(QDir(folder).filePath(".xfusion-write-test"));
+    if (!probe.open(QIODevice::WriteOnly))
+        return false;
+    probe.close();
+    probe.remove();
+    return true;
+}
+
 QString dataRoot()
 {
-    // Everything lives next to the executable so the folder can be moved or deleted as a unit.
+    // Everything lives next to the executable so the folder can be moved or deleted as a unit (portable). When that
+    // folder cannot be written to (Program Files, a read-only drive) the user profile takes its place.
     const QString overridePath = qEnvironmentVariable("XFUSION_DATA_DIR");
     if (!overridePath.isEmpty())
         return ensured(QDir(overridePath).absolutePath());
-    return ensured(QCoreApplication::applicationDirPath());
+    static const QString root = [] {
+        const QString beside = QCoreApplication::applicationDirPath();
+        if (canWriteIn(beside))
+            return beside;
+        const QString profile = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation); // %LOCALAPPDATA% on Windows
+        return profile.isEmpty() ? beside : profile + "/Xfusion";
+    }();
+    return ensured(root);
 }
 
 namespace {
