@@ -29,4 +29,5 @@ Los `.chd` eran una caja negra para Xfusion: solo se comprobaba que empezaran po
 
 - Positivas: probado con los tres `.chd` locales: Dracula Unleashed (discos 1 y 2: título, producto `MK-4420 -00`, USA, 1 pista de datos y 1 de audio) y Final Fight CD (USA, 1 de datos y 25 de audio) se leen bien, y con la cuenta de pruebas RetroAchievements los identifica: Final Fight CD 33 logros (343 puntos) y Dracula Unleashed 35 (200 puntos). Una prueba que lee un CHD real si `XFUSION_TEST_CHD` apunta a uno (no se puede construir un CHD sin `chdman` ni hay discos en el repositorio).
 - Negativas: unos 1,2 MB más de fuente de terceros y unos 300 KB más en el ejecutable; la lectura de pistas con pregap virtual o de varias sesiones solo se supuso (no hay discos locales así); un CHD de otro sistema deja de aparecer como Sega CD.
-- Sin hacer: leer el audio de las pistas, y usar `ChdDisc` para comprobar el BIOS que pide un `.chd` antes de cargar (ya hay región, falta enlazarlo en `prepareDisc`).
+- El aviso de BIOS ausente de `prepareDisc` ya funciona con los `.chd`, porque usa la región del encabezado que ahora se lee (comprobado con Final Fight CD sin BIOS).
+- Sin hacer: leer el audio de las pistas.

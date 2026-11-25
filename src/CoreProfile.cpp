@@ -48,6 +48,10 @@ const CoreProfile& picoDriveProfile()
         p.padTypeValues[static_cast<std::size_t>(PadType::ThreeButton)] = "3 button pad";
         p.padTypeValues[static_cast<std::size_t>(PadType::SixButton)] = "6 button pad";
         p.noPadValue = "None";
+        p.regionKey = "picodrive_region";
+        p.regionValues[0] = "Japan NTSC";
+        p.regionValues[1] = "US";
+        p.regionValues[2] = "Europe";
         p.userOptions = {
             {"picodrive_region", "System Region", "Which console the game runs on. PAL is 50 Hz and NTSC 60 Hz; the wrong one makes a game run too fast or too slow.",
              {{"Auto", "Auto"}, {"Japan NTSC", "Japan (NTSC)"}, {"Japan PAL", "Japan (PAL)"}, {"US", "US (NTSC)"}, {"Europe", "Europe (PAL)"}}, "Auto"},
@@ -87,6 +91,10 @@ const CoreProfile& genesisPlusGxProfile()
         // 3 button pad and (..., 1) the 6 button one.
         p.padDevices[static_cast<std::size_t>(PadType::ThreeButton)] = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 0);
         p.padDevices[static_cast<std::size_t>(PadType::SixButton)] = RETRO_DEVICE_SUBCLASS(RETRO_DEVICE_JOYPAD, 1);
+        p.regionKey = "genesis_plus_gx_region_detect";
+        p.regionValues[0] = "ntsc-j";
+        p.regionValues[1] = "ntsc-u";
+        p.regionValues[2] = "pal";
         p.userOptions = {
             {"genesis_plus_gx_region_detect", "System Region", "Which console the game runs on. PAL is 50 Hz and NTSC 60 Hz; the wrong one makes a game run too fast or too slow.",
              {{"auto", "Auto"}, {"ntsc-u", "NTSC-U"}, {"pal", "PAL"}, {"ntsc-j", "NTSC-J"}}, "auto"},

@@ -119,7 +119,7 @@ SRAM, estados, capturas, BIOS y parches se pueden mover a otra carpeta, o junto 
 - **Parches:** los discos de Sega CD no se parchean.
 - **Estados guardados:** no se comparten entre cores ni entre los discos de un mismo juego.
 - **Opciones de core:** llegan al core cuando abres un juego, no en caliente.
-- **Región:** se fuerza para todo un core, no por juego; el aviso de un BIOS ausente antes de cargar todavía no mira la región de los `.chd` (la biblioteca sí la muestra).
+- **Región:** se fuerza para todo un core (Options > Emulation > Core Options) o para un juego (clic derecho en la biblioteca > Region, que manda sobre lo anterior); la región que se lee del disco (también de los `.chd`) solo sirve para avisar de un BIOS ausente y para la biblioteca.
 - **Mensaje de inicio:** la suma de comprobación solo se calcula para Mega Drive y 32X.
 - **Gestión de cores:** el buildbot de libretro solo ofrece el último build, así que solo se pueden tener las versiones que instalaste antes; la búsqueda de actualizaciones es manual, no hay firmas que comprobar (solo HTTPS y el SHA-256 que se guarda) y la descarga solo está probada en Windows.
 - **RetroAchievements:** solo modo casual (el hardcore exige que RetroAchievements apruebe el emulador y queda para el futuro); los juegos parcheados no tienen logros; el progreso parcial de un logro se pierde al reiniciar (al cargar un estado se recupera). El análisis está en la Fase 7 de `frontend_sega_multiemulador.md`.

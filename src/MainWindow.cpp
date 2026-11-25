@@ -601,6 +601,10 @@ void MainWindow::openGame(const QString& path)
     const auto userOptions = m_settings.coreOptions.value(m_core.profile().id);
     for (auto it = userOptions.begin(); it != userOptions.end(); ++it)
         coreOptions[it.key().toStdString()] = it.value().toStdString();
+    // A region set for this game wins over the one of Options > Emulation > Core Options.
+    const CoreProfile& profile = m_core.profile();
+    if (const auto region = m_library->regionChoice(libraryId); region && !profile.regionKey.empty())
+        coreOptions[profile.regionKey] = profile.regionValues[static_cast<int>(*region)];
     m_core.setUserOptions(coreOptions);
     m_core.setPads(config.padType(), config.portMode() == InputConfig::PortMode::TwoControllers,
                    systemDef(*system).inputGroup == InputGroup::Genesis);
@@ -698,7 +702,7 @@ bool MainWindow::prepareDisc(const DiscInfo& disc)
 
     const unsigned regions = disc.header.regions;
     if (regions == 0)
-        return true; // a .chd, or a header that does not say: the core decides
+        return true; // a CHD that libchdr cannot read, or a header that does not say: the core decides
     const auto offered = [&](const BiosStatus& status) {
         return ((regions & GameHeader::Japan) && status.japan) || ((regions & GameHeader::Americas) && status.usa) || ((regions & GameHeader::Europe) && status.europe);
     };

@@ -406,14 +406,14 @@ sin duplicados innecesarios.
   *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
   audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
   reconoce por su contenido y se instala desde una carpeta con "Find BIOS
-  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Las regiones de los `.chd` se leen con libchdr (ADR-0029); pendiente avisar de un BIOS ausente antes de cargarlos.)*
+  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Las regiones de los `.chd` se leen con libchdr (ADR-0029); el aviso de BIOS ausente ya los cubre.)*
 - [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [x] Implementar selección manual de core y reglas de compatibilidad por juego.
   *(ADR-0023 y ADR-0024: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System); el core se elige por sistema en Options > Emulation > Cores y por juego con clic derecho > Core; ambas elecciones se recuerdan por huella y solo valen si el core sabe jugar el sistema.)*
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
-  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); pendiente la corrección por juego; la región de los `.chd` ya se lee, ADR-0029.)*
+  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); la corrección por juego esté en la biblioteca (clic derecho > Region, 2026-11-25); la región de los `.chd` ya se lee, ADR-0029.)*
 
 **Salida:** matriz de compatibilidad por sistema/core documentada y probada con
 juegos de referencia obtenidos legalmente. No declarar un sistema soportado
@@ -441,12 +441,12 @@ compatibilidad verificadas.
 - [x] Identificación de cartuchos (también dentro de un zip) y de discos `.cue`/`.iso`; resumen al empezar (`0 of 35 achievements, 0 of 300 points`) y avisos de desbloqueo, marcadores, progreso y reto por el OSD.
 - [x] Probado con la cuenta de pruebas: Sonic the Hedgehog (Genesis, 35 logros), After Burner Complete (32X, 22), Sonic CD `.iso` (100) y Dune `.cue` (44), a 60 fps durante 40 s; una prueba de ajustes y otra del cifrado del token.
 - [x] Desbloqueo real comprobado (ver el punto 1 de la lista de pendientes).
-- [ ] No comprobado: Master System propiamente dicho (los dos juegos probados dieron «Unknown game» y «Unsupported Game Version», que es lo que contesta el servidor para esos archivos, no un fallo del cliente), ni SG-1000.
+- [x] Master System propiamente dicho comprobado (Sonic the Hedgehog, 2026-11-25, imagen y sonido bien); antes los dos juegos probados dieron «Unknown game» y «Unsupported Game Version», que es lo que contesta el servidor para esos archivos, no un fallo del cliente); SG-1000 con Bomb Jack ya estaba comprobado.
 - [ ] **Pendiente para tener RetroAchievements completo en casual** (de más a menos valor; tamaño: P pequeño, M medio, G grande):
   1. ~~Comprobar un desbloqueo real de extremo a extremo~~ **Hecho (2026-11-22):** con la cuenta de pruebas se jugó el primer acto de Green Hill Zone de Sonic the Hedgehog (Genesis) con teclas automáticas y el servidor registró «That Was Easy» (3 puntos) y «Newbie Collector» (2 puntos); la cuenta pasó a 5 puntos en casual. Game Gear (Sonic Chaos, 34 logros) y SG-1000 (Bomb Jack, 24) se comprobaron después con la cuenta de pruebas; un Master System propiamente dicho no (el Alex Kidd local es una copia que RetroAchievements no conoce).
   2. ~~Guardar el progreso parcial de los logros dentro de los estados~~ **Hecho (2026-11-22):** el progreso (`rc_client_serialize_progress_sized`, unos 7 KB en Sonic 1) va en el encabezado del archivo de estado, tomado en el mismo instante que el estado, y se restaura al cargarlo (también en el estado de deshacer y el de reanudar). Un estado sin progreso (anterior, o con los logros apagados) reinicia el cálculo como antes.
   3. ~~Discos `.chd`: libchdr, lector propio y `rc_hash_cdreader`~~ **Hecho (2026-11-22, ADR-0029):** Final Fight CD (33 logros) y Dracula Unleashed (35) se identifican; además la región y el título de los `.chd` ya se leen.
-  4. ~~Cambio de disco en caliente~~ **Hecho:** se avisa a rcheevos con `rc_client_begin_identify_and_change_media` (los `.chd` no, por el punto 3).
+  4. ~~Cambio de disco en caliente~~ **Hecho:** se avisa a rcheevos con `rc_client_begin_identify_and_change_media` (también los `.chd`).
   5. ~~Activar los logros con un juego ya abierto~~ **Hecho:** al activarlos (o iniciar sesión) con un juego abierto, se ofrece en ese momento.
   6. ~~Avisos de error al arrancar~~ **Hecho:** si el inicio de sesión automático falla sale `RetroAchievements: could not sign in (...)`.
   7. ~~Iconos de los logros en los avisos~~ **Hecho (2026-11-22), como en `snes9xrd`:** el aviso de un logro desbloqueado lleva la insignia del logro y el resumen al empezar lleva la del juego, a la izquierda del texto (se descargan una vez y se guardan en memoria; si no llegan a tiempo el aviso sale sin imagen). **También hecho:** insignias en la lista de logros (en color los ganados y en gris los pendientes), un sonido de desbloqueo propio (`scripts/make-achievement-sound.ps1`, ajuste *Play a Sound When an Achievement Unlocks*) y el aviso de subconjunto completado. La presencia enriquecida no se muestra en pantalla (`snes9xrd` tampoco): `rc_client` la envía al servidor solo.
