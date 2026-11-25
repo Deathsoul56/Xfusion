@@ -1,0 +1,28 @@
+#include <winver.h>
+
+IDI_XFUSION ICON "@CMAKE_CURRENT_SOURCE_DIR@/src/resources/Xfusion.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "ProductName", "Xfusion"
+            VALUE "FileDescription", "Xfusion - frontend for SEGA systems"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "xfusion"
+            VALUE "OriginalFilename", "xfusion.exe"
+            VALUE "LegalCopyright", "GPL-3.0-or-later"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

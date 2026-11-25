@@ -2,6 +2,8 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "CoreProfile.h"
+#include "CoreRules.h"
 #include "Library.h"
 
 namespace {
@@ -229,8 +231,10 @@ private slots:
         LibraryData data;
         data.systemChoices["game-a"] = static_cast<int>(System::Sega32X);
         data.coreChoices["game-a"] = "picodrive";
+        data.regionChoices["game-a"] = static_cast<int>(GameRegionChoice::Europe);
         QVERIFY(data.save(file));
         const LibraryData loaded = LibraryData::load(file);
+        QCOMPARE(loaded.regionChoices.value("game-a"), static_cast<int>(GameRegionChoice::Europe));
         QCOMPARE(loaded.coreChoices.value("game-a"), QString("picodrive"));
         QCOMPARE(loaded.systemChoices.value("game-a"), static_cast<int>(System::Sega32X));
         // A value that is no system is dropped.
@@ -239,6 +243,22 @@ private slots:
         bad.write("{\"version\":1,\"scan_version\":3,\"system_choices\":{\"x\":99,\"y\":2},\"stats\":{},\"files\":[]}");
         bad.close();
         QCOMPARE(LibraryData::load(file).systemChoices.size(), 1);
+        bad.open(QIODevice::WriteOnly);
+        bad.write("{\"version\":1,\"scan_version\":5,\"region_choices\":{\"x\":7,\"y\":1},\"files\":[]}");
+        bad.close();
+        QCOMPARE(LibraryData::load(file).regionChoices.size(), 1);
+    }
+
+    // What a game forced to a region puts in the core option has to be a value the core takes.
+    void theRegionsOfAGameAreValuesTheCoresTake()
+    {
+        for (const CoreInfo& core : allCores()) {
+            const CoreProfile& profile = coreProfileById(core.id);
+            const CoreOption* option = profile.userOption(profile.regionKey);
+            QVERIFY2(option, qPrintable(core.id));
+            for (const std::string& value : profile.regionValues)
+                QVERIFY2(isValidCoreOption(*option, value), qPrintable(core.id + " " + QString::fromStdString(value)));
+        }
     }
 
     void anUnreadableFileIsKeptBeforeItIsReplaced()

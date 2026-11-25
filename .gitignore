@@ -19,3 +19,7 @@ BIOS/
 *.zip
 *.7z
 *.psd
+build-release/
+dist/
+build-lint/
+build-dbg/

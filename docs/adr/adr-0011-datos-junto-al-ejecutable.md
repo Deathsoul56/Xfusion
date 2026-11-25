@@ -16,6 +16,8 @@ Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
 Aprobado el 2026-11-19 por pedido del propietario: "la carpeta de las saves debe ser la misma del .exe, no tiremos nada a roaming".
 
+**Ajustado por el ADR-0030 (2026-11-25):** si la carpeta del ejecutable no se puede escribir (por ejemplo `Program Files`), se usa `%LOCALAPPDATA%\Xfusion`; `XFUSION_DATA_DIR` sigue mandando sobre las dos.
+
 ## Context
 
 Hasta ahora `AppPaths::dataRoot()` usaba `%APPDATA%\Xfusion\Xfusion\` (`QStandardPaths::AppDataLocation`). Las saves, los BIOS, los cores y la configuración quedaban fuera de la carpeta del programa y no viajaban con ella.

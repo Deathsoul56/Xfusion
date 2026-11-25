@@ -173,16 +173,16 @@ La página Library (ADR-0021) lista los discos con su sistema (`Sega CD`), su **
   - **Atajos de teclado:** *Switch to Next/Previous Disc* existen en Options > Shortcuts pero sin tecla asignada; el menú solo existe si el core ofrece el control de disco.
   - **Probado a medias:** con Dracula Unleashed se comprobó el cambio del disco 2 al 1 pedido por el juego (arranca de nuevo desde el disco 1). No se ha jugado una partida entera pasando del disco 1 al 2 ni se ha probado ningún otro juego multidisco.
   - **Otros discos no emparejados:** Ecco the Dolphin CD japonés son dos juegos distintos en dos discos, y Fahrenheit trae un disco de Sega CD y otro de 32X; no son una partida de dos discos.
-- **`.chd`:** se leen con libchdr (ADR-0029): región, título, producto y pistas se ven en la biblioteca y los logros funcionan. Falta usar esa región para avisar de un BIOS ausente antes de cargar. Los tres `.chd` locales (Final Fight CD y Dracula Unleashed) arrancan y suenan con Genesis Plus GX.
+- **`.chd`:** se leen con libchdr (ADR-0029): región, título, producto y pistas se ven en la biblioteca y los logros funcionan. Esa región se usa también para avisar de un BIOS ausente antes de cargar (probado con Final Fight CD sin BIOS). Los tres `.chd` locales (Final Fight CD y Dracula Unleashed) arrancan y suenan con Genesis Plus GX.
 - **Un `.bin` suelto de disco sin `.cue`:** se reconoce como Sega CD, pero el core no lo carga; hace falta el `.cue`.
 - **Elección del BIOS:** la hace el core (Genesis Plus GX o PicoDrive) según la región del disco. Xfusion solo comprueba que exista alguno de las regiones que el disco declara; no permite forzar otro.
 - **El BIOS no se valida más allá de su cabecera** (no hay comprobación de suma ni de versiones conocidas).
 
 **Pendiente de la Fase 5**
 
-1. Avisar de un BIOS ausente antes de cargar un `.chd` (la región ya se lee).
+1. (Hecho) Avisar de un BIOS ausente antes de cargar un `.chd`.
 2. Una tabla de compatibilidad con la jugabilidad verificada por cada disco local (hoy solo se comprobó que arrancan).
-3. Selección de región y de BIOS por juego (el core elige el BIOS; la región solo se fuerza para todo un core).
+3. Elegir el BIOS por juego (el core lo elige por la región; la región sí se puede forzar por juego desde la biblioteca, ADR-0024).
 4. Compartir los estados entre los discos de un juego.
 
 ## 9. Cómo probarlo

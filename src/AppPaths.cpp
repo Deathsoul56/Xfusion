@@ -2,7 +2,9 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QStandardPaths>
 
 #include "CoreManifest.h"
 #include "CoreProfile.h"
@@ -15,13 +17,31 @@ static QString ensured(const QString& path)
     return path;
 }
 
+static bool canWriteIn(const QString& folder)
+{
+    QFile probe(QDir(folder).filePath(".xfusion-write-test"));
+    if (!probe.open(QIODevice::WriteOnly))
+        return false;
+    probe.close();
+    probe.remove();
+    return true;
+}
+
 QString dataRoot()
 {
-    // Everything lives next to the executable so the folder can be moved or deleted as a unit.
+    // Everything lives next to the executable so the folder can be moved or deleted as a unit (portable). When that
+    // folder cannot be written to (Program Files, a read-only drive) the user profile takes its place.
     const QString overridePath = qEnvironmentVariable("XFUSION_DATA_DIR");
     if (!overridePath.isEmpty())
         return ensured(QDir(overridePath).absolutePath());
-    return ensured(QCoreApplication::applicationDirPath());
+    static const QString root = [] {
+        QString beside = QCoreApplication::applicationDirPath();
+        if (canWriteIn(beside))
+            return beside;
+        const QString profile = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation); // %LOCALAPPDATA% on Windows
+        return profile.isEmpty() ? beside : profile + "/Xfusion";
+    }();
+    return ensured(root);
 }
 
 namespace {
@@ -70,6 +90,16 @@ QStringList patchFolders(System system, const QString& romDir)
     return {root + "/" + systemDef(system).folder, root};
 }
 
+QString shadersDir()
+{
+    return ensured(dataRoot() + "/shaders");
+}
+
+QString shaderCacheDir()
+{
+    return ensured(dataRoot() + "/cache/shaders");
+}
+
 QString systemDir()
 {
     if (g_files.biosFolder.location == FileLocation::Custom && !g_files.biosFolder.custom.isEmpty())
@@ -105,7 +135,7 @@ QString libraryPath()
 // The active version installed through the Cores dialog, else the library that sits in the cores folder.
 QString corePath(const QString& coreId)
 {
-    const QString installed = CoreManifest::load(coresDir()).activePath(coreId);
+    QString installed = CoreManifest::load(coresDir()).activePath(coreId);
     if (!installed.isEmpty() && QFileInfo::exists(installed))
         return installed;
     return coresDir() + "/" + coreProfileById(coreId).libraryFileName();

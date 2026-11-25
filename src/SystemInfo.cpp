@@ -4,7 +4,6 @@
 #include "GameHeader.h"
 #include "ZipRead.h"
 
-#include <QFile>
 #include <QFileInfo>
 
 namespace {

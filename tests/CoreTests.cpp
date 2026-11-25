@@ -3,6 +3,7 @@
 #include <QtTest>
 
 #include <QCryptographicHash>
+#include <QPasswordDigestor>
 
 #include "AchievementsConsole.h"
 #include "CoreManifest.h"
@@ -12,6 +13,21 @@ class CoreTests : public QObject {
     Q_OBJECT
 
 private slots:
+    // The password digestor Xfusion defines itself (so that OpenSSL is not linked in): the test vectors of RFC 6070 for
+    // PBKDF2 with HMAC-SHA1, and one of RFC 7914 for HMAC-SHA256.
+    void theKeyDerivationOfThePasswordDigestorMatchesTheStandard()
+    {
+        const auto hex = [](const QByteArray& bytes) { return QString::fromLatin1(bytes.toHex()); };
+        QCOMPARE(hex(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha1, "password", "salt", 1, 20)), QString("0c60c80f961f0e71f3a9b524af6012062fe037a6"));
+        QCOMPARE(hex(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha1, "password", "salt", 2, 20)), QString("ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957"));
+        QCOMPARE(hex(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha1, "password", "salt", 4096, 20)), QString("4b007901b765489abead49d926f721d065a429c1"));
+        QCOMPARE(hex(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha1, "passwordPASSWORDpassword", "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 25)),
+                 QString("3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038"));
+        QCOMPARE(hex(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha256, "passwd", "salt", 1, 64)),
+                 QString("55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"));
+        QVERIFY(QPasswordDigestor::deriveKeyPbkdf2(QCryptographicHash::Sha1, "p", "s", 0, 20).isEmpty());
+    }
+
     void aMissingManifestIsEmpty()
     {
         QTemporaryDir dir;

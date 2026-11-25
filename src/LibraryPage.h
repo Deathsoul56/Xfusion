@@ -1,12 +1,15 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QPointer>
 #include <QSortFilterProxyModel>
+#include <QThread>
 #include <QWidget>
 #include <atomic>
 #include <optional>
 #include <vector>
 
+#include "CoreProfile.h"
 #include "Library.h"
 
 class QComboBox;
@@ -15,7 +18,6 @@ class QLineEdit;
 class QStackedWidget;
 class QTableView;
 class QShowEvent;
-class QThread;
 
 // One row per game; the statistics are looked up by game id so that they follow a game around.
 class LibraryModel : public QAbstractTableModel {
@@ -66,6 +68,12 @@ public:
     // The system the user chose for a game, if any: it wins over what the files say.
     std::optional<System> systemChoice(const QString& gameId) const;
     QString coreChoice(const QString& gameId) const { return m_data.coreChoices.value(gameId); }
+    // The region forced for a game, if any.
+    std::optional<GameRegionChoice> regionChoice(const QString& gameId) const
+    {
+        const auto it = m_data.regionChoices.constFind(gameId);
+        return it == m_data.regionChoices.constEnd() ? std::nullopt : std::optional<GameRegionChoice>(static_cast<GameRegionChoice>(it.value()));
+    }
     // Scans again when the list changed (or `force`).
     void setFolders(const QStringList& folders, bool force = false);
     // Adds the time of a play session to the game and saves it, whether or not the game is in the library.
@@ -93,6 +101,7 @@ private:
     void applyChoices(std::vector<LibraryEntry>& entries) const;
     void chooseSystem(const QString& gameId, std::optional<System> system);
     void setCoreChoice(const QString& gameId, const QString& coreId);
+    void setRegionChoice(const QString& gameId, std::optional<GameRegionChoice> region);
     void showEvent(QShowEvent* event) override;
 
     LibraryModel* m_model;
@@ -108,7 +117,7 @@ private:
     std::vector<LibraryEntry> m_lastEntries; // as the scan found them, before the user's system choices
     QStringList m_folders;
     QString m_loadError; // reported with the first scan, when something can listen
-    QThread* m_thread = nullptr;
+    QPointer<QThread> m_thread; // deletes itself when it finishes, so a plain pointer would dangle
     std::atomic<bool> m_cancel{false};
     int m_generation = 0;
     bool m_scanning = false;

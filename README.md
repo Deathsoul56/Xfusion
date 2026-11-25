@@ -25,7 +25,10 @@ Los juegos también pueden estar en `.zip`. Saturn, Dreamcast y los sistemas pos
   turbo, auto-asignar.
 - **Estados guardados** con 1000 espacios, deshacer, vista previa con miniaturas; **rewind**, avance rápido (`Tab` mientras
   lo mantienes), cámara lenta, avance de un fotograma, capturas de pantalla.
-- **22 filtros gráficos** de software (xBRZ, HQx, 2xSaI, EPX, NTSC, scanlines...) y 22 temas de color.
+- **Imagen ajustada a la ventana** manteniendo la proporción (4:3 o la que elijas); *Stretch image* la estira para llenar toda el área y *Use integer scaling* la escala en múltiplos enteros.
+- **Imagen por GPU** (Direct3D 11 por defecto, o D3D12, Vulkan, OpenGL; con respaldo por software) con shaders propios (scanlines, CRT, bilineal nítido, rejilla LCD) y **presets de RetroArch** (`.slangp`: multipasada, texturas, parámetros en vivo en *Options > Shader Parameters*). *Options > Display > Driver* y *GPU Shaders*. Xfusion no trae shaders: pónlos en `shaders\` (por ejemplo la colección libretro/slang-shaders). Para compilarlos, `xfusion-shaderc.exe` tiene que estar junto a `xfusion.exe` (la primera vez que usas un preset tarda unos segundos; después queda en caché).
+- **22 filtros gráficos** (xBRZ, HQx, 2xSaI, EPX, NTSC, scanlines...) y 22 temas de color. Con la GPU, HQx, xBRZ, EPX y los escaladores simples se hacen en la tarjeta gráfica y casi no gastan procesador (HQ4x: de 86 % a 17 % de un núcleo); NTSC, 2xSaI y Super Eagle usan la CPU.
+- **Ajustes de imagen y sonido por sistema**: en *Options > Display* y *Options > Sound*, *Settings for:* elige Global o un sistema; en un sistema cada ajuste tiene una casilla *Global* (la desmarcas para darle un valor propio).
 - **Parches IPS, BPS y UPS** aplicados al abrir el juego, sin tocar el original.
 - **RetroAchievements** (modo casual): inicia sesión con tu cuenta en *Options > Achievements*, con avisos de logros en pantalla y la lista de logros del juego. Los seis sistemas tienen logros en RetroAchievements.
 - **Saves por sistema**: la SRAM y los estados de cada juego viven en carpetas separadas, y no se pisan aunque dos
@@ -43,7 +46,7 @@ Xfusion usa dos cores y elige uno al abrir cada juego:
 
 **Es una decisión del usuario.** En *Options > Emulation > Cores* puedes elegir, sistema por sistema, qué core juega
 cada uno entre los que lo soportan, y en la biblioteca, con clic derecho > *Core*, el de un juego concreto (que manda
-sobre el del sistema); el cambio vale la próxima vez que abras un juego. Las opciones propias de cada core (región, pantalla extendida de\nGame Gear, bordes, FM del Master System, filtros...) están en *Options > Emulation > Core Options*. Si el core elegido no está
+sobre el del sistema); el cambio vale la próxima vez que abras un juego. Las opciones propias de cada core (región, pantalla extendida de Game Gear, bordes, FM del Master System, filtros...) están en *Options > Emulation > Core Options*. Si el core elegido no está
 instalado, Xfusion usa otro que sirva y te lo dice. `--core ruta\al\core.dll` fuerza un solo core para todo (útil
 para pruebas).
 
@@ -66,7 +69,9 @@ intentas cargarlo con otro.
 
 ## Empezar
 
-1. **Cores.** Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
+Descomprime el `.zip` en una carpeta cualquiera y abre `xfusion.exe`: no hay instalador ni hace falta ser administrador. Windows 10 u 11 de 64 bits. El ejecutable no está firmado, así que SmartScreen puede avisar la primera vez (*Más información > Ejecutar de todos modos*). El `.zip` ya trae los dos cores en `cores\` (con sus licencias en `licenses\`); solo faltan tus juegos. Si un core falta, Xfusion lo dice y ofrece abrir *Manage Cores*. El resumen de qué soporta cada sistema, el firmware y lo comprobado está en [`docs/compatibilidad.md`](docs/compatibilidad.md).
+
+1. **Cores.** Vienen incluidos (Genesis Plus GX y PicoDrive, sin cambios, ver `cores\SOURCES.txt`). Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
    libretro; se guardan por versión en `cores\<core>\<versión>\` y puedes volver a una anterior o borrarla. También sirve
    colocar `genesis_plus_gx_libretro.dll` y `picodrive_libretro.dll` en `cores\` junto al ejecutable: los scripts `scripts\setup-genesis-plus-gx.ps1` y `scripts\setup-picodrive.ps1` los clonan, compilan e
    instalan (ver *Compilar*).
@@ -92,7 +97,7 @@ que también permite buscar el parche junto a cada juego. Los discos de Sega CD 
 
 ## Carpetas
 
-Por defecto todo vive junto al ejecutable (o en la carpeta de la variable de entorno `XFUSION_DATA_DIR`):
+Por defecto todo vive junto al ejecutable (o en la carpeta de la variable de entorno `XFUSION_DATA_DIR`); si esa carpeta no se puede escribir (por ejemplo `Program Files`), en `%LOCALAPPDATA%\Xfusion`:
 
 ```text
 xfusion.exe
@@ -119,7 +124,7 @@ SRAM, estados, capturas, BIOS y parches se pueden mover a otra carpeta, o junto 
 - **Parches:** los discos de Sega CD no se parchean.
 - **Estados guardados:** no se comparten entre cores ni entre los discos de un mismo juego.
 - **Opciones de core:** llegan al core cuando abres un juego, no en caliente.
-- **Región:** se fuerza para todo un core, no por juego; el aviso de un BIOS ausente antes de cargar todavía no mira la región de los `.chd` (la biblioteca sí la muestra).
+- **Región:** se fuerza para todo un core (Options > Emulation > Core Options) o para un juego (clic derecho en la biblioteca > Region, que manda sobre lo anterior); la región que se lee del disco (también de los `.chd`) solo sirve para avisar de un BIOS ausente y para la biblioteca.
 - **Mensaje de inicio:** la suma de comprobación solo se calcula para Mega Drive y 32X.
 - **Gestión de cores:** el buildbot de libretro solo ofrece el último build, así que solo se pueden tener las versiones que instalaste antes; la búsqueda de actualizaciones es manual, no hay firmas que comprobar (solo HTTPS y el SHA-256 que se guarda) y la descarga solo está probada en Windows.
 - **RetroAchievements:** solo modo casual (el hardcore exige que RetroAchievements apruebe el emulador y queda para el futuro); los juegos parcheados no tienen logros; el progreso parcial de un logro se pierde al reiniciar (al cargar un estado se recupera). El análisis está en la Fase 7 de `frontend_sega_multiemulador.md`.
@@ -145,6 +150,8 @@ El ejecutable es **uno solo**: Qt, SDL3 y la runtime de C++ van enlazados de for
 sistema. Con `-DXFUSION_STATIC=OFF` se usan las DLL compartidas y `cmake --install build --prefix <carpeta>` las reúne
 junto al ejecutable. Los cores siguen siendo DLL externas.
 
+Para hacer el paquete (compila desde cero, pasa las pruebas y deja `dist\Xfusion-<versión>-win64.zip` con su SHA-256): `scripts\package.ps1`.
+
 Pruebas (no necesitan juegos ni cores):
 
 ```powershell
@@ -158,6 +165,9 @@ $env:QT_QPA_PLATFORM = 'offscreen'
 ## Documentación
 
 - [`frontend_sega_multiemulador.md`](frontend_sega_multiemulador.md): plan del proyecto, fases y estado.
+- [`docs/revision-de-codigo.md`](docs/revision-de-codigo.md): la revisión de código (avisos, código muerto, rendimiento, estructura).
+- [`docs/pendientes.md`](docs/pendientes.md): ideas y detalles aplazados, para decidirlos más adelante.
+- [`docs/compatibilidad.md`](docs/compatibilidad.md): sistemas, formatos, firmware y qué está comprobado.
 - [`docs/sega-cd.md`](docs/sega-cd.md): Sega CD en detalle (formatos, BIOS, audio, saves, limitaciones).
 - [`docs/adr/`](docs/adr): las decisiones de diseño, una por archivo.
 - [`docs/porting-ledger.md`](docs/porting-ledger.md): qué se tomó de snes9xrd y cómo.

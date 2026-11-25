@@ -34,6 +34,10 @@ struct Names {
 };
 
 const Names<AspectMode> kAspect{{{AspectMode::Core, "core"}, {AspectMode::FourThree, "4:3"}, {AspectMode::Square, "square"}}};
+const Names<VideoShader> kShader{{{VideoShader::None, "none"}, {VideoShader::Scanlines, "scanlines"}, {VideoShader::Crt, "crt"},
+                                 {VideoShader::SharpBilinear, "sharp_bilinear"}, {VideoShader::Lcd, "lcd"}, {VideoShader::Preset, "preset"}}};
+const Names<VideoDriver> kDriver{{{VideoDriver::Auto, "auto"}, {VideoDriver::Software, "software"}, {VideoDriver::Direct3D11, "d3d11"},
+                                  {VideoDriver::Direct3D12, "d3d12"}, {VideoDriver::Vulkan, "vulkan"}, {VideoDriver::OpenGL, "opengl"}}};
 const Names<MessageMode> kMessages{{{MessageMode::Onscreen, "onscreen"}, {MessageMode::None, "none"}}};
 const Names<OsdCorner> kCorner{{{OsdCorner::BottomLeft, "bottom_left"}, {OsdCorner::BottomRight, "bottom_right"},
                                 {OsdCorner::TopLeft, "top_left"}, {OsdCorner::TopRight, "top_right"}}};
@@ -62,6 +66,28 @@ QJsonObject folderToJson(const FolderSetting& folder)
     return {{"location", kLocation.name(folder.location)}, {"custom", folder.custom}};
 }
 
+QJsonObject shaderParametersToJson(const QMap<QString, QMap<QString, double>>& parameters)
+{
+    QJsonObject object;
+    for (auto preset = parameters.begin(); preset != parameters.end(); ++preset) {
+        QJsonObject values;
+        for (auto it = preset.value().begin(); it != preset.value().end(); ++it)
+            values[it.key()] = it.value();
+        if (!values.isEmpty())
+            object[preset.key()] = values;
+    }
+    return object;
+}
+
+QJsonObject systemOverridesToJson(const QMap<QString, QJsonObject>& overrides)
+{
+    QJsonObject object;
+    for (auto it = overrides.begin(); it != overrides.end(); ++it)
+        if (!it.value().isEmpty())
+            object[it.key()] = it.value();
+    return object;
+}
+
 FolderSetting folderFromJson(const QJsonObject& object)
 {
     FolderSetting folder;
@@ -70,6 +96,55 @@ FolderSetting folderFromJson(const QJsonObject& object)
     return folder;
 }
 
+}
+
+const QStringList& AppSettings::overridableKeys(const QString& section)
+{
+    static const QStringList display{"aspect", "maintain_aspect", "stretch", "integer_scale", "smooth", "filter", "gpu_filters", "shader", "shader_preset", "messages", "osd_size", "osd_corner"};
+    static const QStringList sound{"volume", "volume_fast_forward", "muted", "mute_during_fast_forward", "mute_during_frame_advance", "device", "playback_rate", "buffer_ms"};
+    static const QStringList none;
+    return section == "display" ? display : section == "sound" ? sound : none;
+}
+
+AppSettings AppSettings::forSystem(System system) const
+{
+    const auto found = systemOverrides.constFind(systemKey(system));
+    if (found == systemOverrides.constEnd() || found->isEmpty())
+        return *this;
+    // The overrides are laid over the file form of the global settings and read back, so that they get the same
+    // validation (clamping, unknown values) as any other value.
+    QJsonObject json = toJson();
+    for (const QString& section : {QString("display"), QString("sound")}) {
+        QJsonObject merged = json.value(section).toObject();
+        const QJsonObject over = found->value(section).toObject();
+        for (const QString& key : overridableKeys(section))
+            if (over.contains(key))
+                merged[key] = over.value(key);
+        json[section] = merged;
+    }
+    AppSettings result = fromJson(json);
+    result.systemOverrides = systemOverrides;
+    return result;
+}
+
+bool AppSettings::overrides(System system, const QString& section, const QString& key) const
+{
+    return systemOverrides.value(systemKey(system)).value(section).toObject().contains(key);
+}
+
+void AppSettings::setSoundValue(std::optional<System> system, const QString& key, const QJsonValue& value)
+{
+    if (system && overrides(*system, "sound", key)) {
+        QJsonObject entry = systemOverrides.value(systemKey(*system));
+        QJsonObject sound = entry.value("sound").toObject();
+        sound[key] = value;
+        entry["sound"] = sound;
+        systemOverrides[systemKey(*system)] = entry;
+    } else if (key == "volume") {
+        volume = std::clamp(value.toInt(volume), 0, kMaxVolume);
+    } else if (key == "muted") {
+        muted = value.toBool(muted);
+    }
 }
 
 QJsonObject AppSettings::toJson() const
@@ -96,6 +171,11 @@ QJsonObject AppSettings::toJson() const
                      {"integer_scale", integerScale},
                      {"smooth", smooth},
                      {"filter", videoFilterKey(filter)},
+                     {"gpu_filters", gpuFilters},
+                     {"shader", kShader.name(shader)},
+                     {"shader_preset", shaderPreset},
+                     {"shader_parameters", shaderParametersToJson(shaderParameters)},
+                     {"driver", kDriver.name(videoDriver)},
                      {"messages", kMessages.name(messages)},
                      {"osd_size", osdSize},
                      {"osd_corner", kCorner.name(osdCorner)}}},
@@ -140,6 +220,7 @@ QJsonObject AppSettings::toJson() const
                      {"duration_seconds", achievements.durationSeconds},
                      {"unlock_sound", achievements.unlockSound}}},
         {"shortcuts", shortcuts.toJson()},
+        {"systems", systemOverridesToJson(systemOverrides)},
     };
 }
 
@@ -157,6 +238,7 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
         // Version 1 kept a few video and sound values at the top level; "stretch" was an aspect mode.
         const QString aspectName = object.value("aspect").toString();
         s.maintainAspect = aspectName != "stretch";
+        s.stretch = aspectName == "stretch";
         s.aspect = kAspect.value(aspectName, AspectMode::Core);
         s.smooth = object.value("smooth").toBool(false);
         s.integerScale = object.value("integer_scale").toBool(s.integerScale);
@@ -188,9 +270,25 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     s.aspect = kAspect.value(display.value("aspect").toString(), s.aspect);
     s.maintainAspect = display.value("maintain_aspect").toBool(s.maintainAspect);
     s.stretch = display.value("stretch").toBool(s.stretch);
+    if (version <= 3) {
+        // Until version 3, "stretch" off drew the picture at its own size and on fitted it; filling the whole area was
+        // "maintain aspect" off. Now "stretch" is the one that fills, and nothing draws the picture at its own size.
+        s.stretch = display.value("stretch").toBool(true) && !s.maintainAspect;
+    }
     s.integerScale = display.value("integer_scale").toBool(s.integerScale);
     s.smooth = display.value("smooth").toBool(s.smooth);
     s.filter = videoFilterFromKey(display.value("filter").toString(), s.filter);
+    s.gpuFilters = display.value("gpu_filters").toBool(s.gpuFilters);
+    s.shader = kShader.value(display.value("shader").toString(), s.shader);
+    s.shaderPreset = display.value("shader_preset").toString();
+    const QJsonObject parameters = display.value("shader_parameters").toObject();
+    for (auto preset = parameters.begin(); preset != parameters.end(); ++preset) {
+        const QJsonObject values = preset.value().toObject();
+        for (auto it = values.begin(); it != values.end(); ++it)
+            if (it.value().isDouble())
+                s.shaderParameters[preset.key()][it.key()] = it.value().toDouble();
+    }
+    s.videoDriver = kDriver.value(display.value("driver").toString(), s.videoDriver);
     s.messages = kMessages.value(display.value("messages").toString(), s.messages);
     s.osdSize = std::clamp(display.value("osd_size").toInt(s.osdSize), 8, 256);
     s.osdCorner = kCorner.value(display.value("osd_corner").toString(), s.osdCorner);
@@ -259,6 +357,24 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     // A saved account needs both halves.
     if (a.username.isEmpty() || a.token.isEmpty())
         a.username.clear(), a.token.clear();
+
+    // Only the systems that exist and, in their display and sound sections, only the keys that can be overridden.
+    const QJsonObject systems = object.value("systems").toObject();
+    for (const SystemDef& def : allSystems()) {
+        const QJsonObject entry = systems.value(systemKey(def.id)).toObject();
+        QJsonObject kept;
+        for (const QString& section : {QString("display"), QString("sound")}) {
+            const QJsonObject source = entry.value(section).toObject();
+            QJsonObject values;
+            for (const QString& key : overridableKeys(section))
+                if (source.contains(key) && !source.value(key).isNull())
+                    values[key] = source.value(key);
+            if (!values.isEmpty())
+                kept[section] = values;
+        }
+        if (!kept.isEmpty())
+            s.systemOverrides[systemKey(def.id)] = kept;
+    }
 
     s.shortcuts = ShortcutMap::fromJson(object.value("shortcuts").toObject());
     return s;

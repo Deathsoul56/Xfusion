@@ -99,7 +99,7 @@ PatchResult applyIps(const QByteArray& game, const QByteArray& patch)
     const int offsetBytes = wide ? 4 : 3;
     const QByteArray eof = wide ? "EEOF" : "EOF";
     QByteArray out = game;
-    Reader reader(patch, wide ? 5 : 5, patch.size());
+    Reader reader(patch, 5, patch.size()); // after "PATCH" or "IPS32"
     const auto damaged = [&] { return failure(PatchFormat::Ips, "The patch is damaged (it ends in the middle of a change)"); };
 
     while (!reader.atEnd()) {

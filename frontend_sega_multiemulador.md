@@ -214,9 +214,8 @@ del core y definir cómo se presentan en la interfaz.
 
 - [x] Confirmar el alcance de la primera versión y priorizar Windows como
   plataforma inicial.
-- [ ] Seleccionar versiones candidatas de Qt, SDL3 y los cores; registrar sus
-  licencias y condiciones de redistribución. *(Parcial: Qt 6.11, SDL 3.4 y
-  PicoDrive 2.04 fijado al commit `26ecb2b`; licencias por revisar, ver 10.3.)*
+- [x] Seleccionar versiones candidatas de Qt, SDL3 y los cores; registrar sus
+  licencias y condiciones de redistribución. *(Qt 6.11 y SDL 3.4 de MSYS2; PicoDrive 2.04 fijado al commit `26ecb2b`; Genesis Plus GX 1.7.4 (`099c962`); licencias en `THIRD_PARTY_NOTICES.md` y ADR-0006.)*
 - [x] Probar la carga dinámica de un core en un proceso host mínimo.
 - [x] Probar video, audio, entrada, pausa y cierre con una ROM de prueba
   obtenida legalmente. *(Verificado con una ROM propia generada para la prueba;
@@ -227,8 +226,8 @@ del core y definir cómo se presentan en la interfaz.
   implementa renderizado por hardware.)*
 - [x] Acordar estructura de datos del usuario y estrategia de logs y errores.
   *(Ver 10.2; los logs del core van a stderr.)*
-- [ ] Validar la fuente de actualización de cores (buildbot de libretro): URL,
-  formato, hashes disponibles y licencias de redistribución.
+- [x] Validar la fuente de actualización de cores (buildbot de libretro): URL,
+  formato, hashes disponibles y licencias de redistribución. *(ADR-0027: solo ofrece el último build, sin hashes; se guarda el SHA-256 al descargar.)*
 
 **Salida:** una decisión de arquitectura respaldada por un prototipo ejecutable,
 con dependencias y límites documentados. No iniciar la biblioteca ni funciones
@@ -279,7 +278,7 @@ de la ventana.
   bloqueada sin foco; mando desenchufado con un botón apretado y reconectado).
   El cambio entre ventanas se comprobó a mano con el diálogo de ajustes.
 - [x] Establecer qué opciones de video/audio son globales y cuáles dependen del
-  core (ADR-0013: hoy todas son globales; las del core irán con su perfil).
+  core (ADR-0013: las del frontend son globales y las del core van con su perfil; desde el ADR-0031 Display y Sound también se pueden fijar por sistema).
 
 **Salida:** configurar y usar teclado y mando durante sesiones normales, con
 ajustes conservados después de reiniciar la aplicación.
@@ -316,8 +315,11 @@ que Xfusion y `snes9xrd` sean gemelos:
 - [x] Velocidad: avance rápido (10×), Speed Up/Down, frame skip, Frame Advance y
   métodos de sincronización.
 - [x] Pausa al perder el foco, al minimizar y mientras hay diálogos de archivo.
-- [ ] Pendiente: Achievements (posterior), renderizado por GPU y shaders, ajustes
-  por sistema, y probar con dos mandos físicos.
+- [x] Ajustes de Display y Sound por sistema (ADR-0031, 2026-11-25): *Settings for:* global o un sistema, con la casilla *Global* en cada ajuste.
+- [x] Mandos físicos: probados por el propietario sin problemas.
+- [x] Renderizado por GPU (Fase A del ADR-0032, 2026-11-25): `QRhiWidget` con cinco shaders propios, driver elegible y respaldo por software.
+- [x] Shaders de usuario (presets `.slangp` de RetroArch con `QShaderBaker` en `xfusion-shaderc`, Fase B del ADR-0032, 2026-11-25): 460 presets de `slang-shaders` compilan; multipasada, texturas, retroalimentación y parámetros en vivo.
+- [x] Filtros grandes en la GPU (2026-11-25): HQx, xBRZ, EPX y los escaladores simples; HQ4x pasa de 86 % a 17 % de un núcleo y xBRZ 6x de 48 % a 14 %. NTSC, 2xSaI, Super 2xSaI y Super Eagle siguen en la CPU (sin licencia clara para sus shaders).
 
 ### Fase 3 — Persistencia y estados
 
@@ -378,10 +380,10 @@ real de Game Gear:
 ### Fase 4 - Biblioteca y metadatos
 
 - [x] Escanear rutas configuradas sin bloquear la interfaz.
-- [ ] Identificar sistema y core sugerido, permitiendo corregir la selección.
+- [x] Identificar sistema y core sugerido, permitiendo corregir la selección.
   *(Parcial: el sistema se identifica por la extensión o por el contenido del
   zip y se muestra en la lista; el core es uno solo (ADR-0007), así que la
-  corrección manual de sistema/core llega con la Fase 5.)*
+  corrección manual de sistema/core llega con la Fase 5; hecha, ADR-0023/0024.)*
 - [x] Añadir búsqueda, filtros, orden, último acceso y tiempo de juego.
 - [x] Guardar los datos de biblioteca sin modificar ni mover ROMs del usuario.
 - [x] Tratar archivos repetidos, rutas inválidas y juegos retirados del escaneo.
@@ -406,14 +408,14 @@ sin duplicados innecesarios.
   *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
   audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
   reconoce por su contenido y se instala desde una carpeta con "Find BIOS
-  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Las regiones de los `.chd` se leen con libchdr (ADR-0029); pendiente avisar de un BIOS ausente antes de cargarlos.)*
+  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Las regiones de los `.chd` se leen con libchdr (ADR-0029); el aviso de BIOS ausente ya los cubre.)*
 - [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [x] Implementar selección manual de core y reglas de compatibilidad por juego.
   *(ADR-0023 y ADR-0024: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System); el core se elige por sistema en Options > Emulation > Cores y por juego con clic derecho > Core; ambas elecciones se recuerdan por huella y solo valen si el core sabe jugar el sistema.)*
-- [ ] Revisar regiones y detección automática; permitir corrección manual cuando
+- [x] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
-  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); pendiente la corrección por juego; la región de los `.chd` ya se lee, ADR-0029.)*
+  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); la corrección por juego esté en la biblioteca (clic derecho > Region, 2026-11-25); la región de los `.chd` ya se lee, ADR-0029.)*
 
 **Salida:** matriz de compatibilidad por sistema/core documentada y probada con
 juegos de referencia obtenidos legalmente. No declarar un sistema soportado
@@ -421,13 +423,18 @@ solo porque el core lo anuncie.
 
 ### Fase 6 — Estabilización y primera distribución
 
-- [ ] Probar instalación limpia, actualización, rutas con caracteres no ASCII y
-  ejecución sin permisos de administrador.
-- [ ] Verificar guardado de configuración, SRAM y estados en rutas de usuario.
-- [ ] Comprobar empaquetado, dependencias, avisos de licencia y configuración
+- [x] Probar instalación limpia, rutas con caracteres no ASCII y ejecución sin permisos de administrador.
+  *(ADR-0030, 2026-11-25: copia limpia en una carpeta con `í`, `á` y japonés: arranca sin cores, descarga ambos, juega y guarda; con la carpeta sin escritura usa `%LOCALAPPDATA%\Xfusion`. La actualización del propio frontend no existe todavía: se reemplaza el `.exe`; los datos no se tocan.)*
+- [x] Verificar guardado de configuración, SRAM y estados en rutas de usuario.
+  *(Comprobado en la carpeta de datos junto al ejecutable y en el perfil del usuario; ver el punto anterior.)*
+- [x] Comprobar empaquetado, dependencias, avisos de licencia y configuración
   inicial.
-- [ ] Publicar lista de cores/funciones soportados, limitaciones conocidas y
+  *(`scripts/package.ps1`: dos construcciones desde cero dan el mismo zip y el mismo `.exe`; el ejecutable solo importa DLL del sistema; el paquete lleva `LICENSE` y `THIRD_PARTY_NOTICES.md`; desde el ADR-0033 (v0.1.0) el zip lleva también los dos cores sin cambios, con sus licencias en `licenses\` y sus fuentes en `cores\SOURCES.txt`.)*
+- [x] Publicar lista de cores/funciones soportados, limitaciones conocidas y
   guía para firmware.
+  *(`docs/compatibilidad.md` y la sección *Limitaciones conocidas* del README.)*
+
+- [x] Publicar la primera versión (v0.1.0, ADR-0033): paquete portátil con los cores, etiqueta y release de GitHub.
 
 **Salida:** paquete reproducible, instrucciones de instalación y lista de
 compatibilidad verificadas.
@@ -441,12 +448,12 @@ compatibilidad verificadas.
 - [x] Identificación de cartuchos (también dentro de un zip) y de discos `.cue`/`.iso`; resumen al empezar (`0 of 35 achievements, 0 of 300 points`) y avisos de desbloqueo, marcadores, progreso y reto por el OSD.
 - [x] Probado con la cuenta de pruebas: Sonic the Hedgehog (Genesis, 35 logros), After Burner Complete (32X, 22), Sonic CD `.iso` (100) y Dune `.cue` (44), a 60 fps durante 40 s; una prueba de ajustes y otra del cifrado del token.
 - [x] Desbloqueo real comprobado (ver el punto 1 de la lista de pendientes).
-- [ ] No comprobado: Master System propiamente dicho (los dos juegos probados dieron «Unknown game» y «Unsupported Game Version», que es lo que contesta el servidor para esos archivos, no un fallo del cliente), ni SG-1000.
+- [x] Master System propiamente dicho comprobado (Sonic the Hedgehog, 2026-11-25, imagen y sonido bien); antes los dos juegos probados dieron «Unknown game» y «Unsupported Game Version», que es lo que contesta el servidor para esos archivos, no un fallo del cliente); SG-1000 con Bomb Jack ya estaba comprobado.
 - [ ] **Pendiente para tener RetroAchievements completo en casual** (de más a menos valor; tamaño: P pequeño, M medio, G grande):
   1. ~~Comprobar un desbloqueo real de extremo a extremo~~ **Hecho (2026-11-22):** con la cuenta de pruebas se jugó el primer acto de Green Hill Zone de Sonic the Hedgehog (Genesis) con teclas automáticas y el servidor registró «That Was Easy» (3 puntos) y «Newbie Collector» (2 puntos); la cuenta pasó a 5 puntos en casual. Game Gear (Sonic Chaos, 34 logros) y SG-1000 (Bomb Jack, 24) se comprobaron después con la cuenta de pruebas; un Master System propiamente dicho no (el Alex Kidd local es una copia que RetroAchievements no conoce).
   2. ~~Guardar el progreso parcial de los logros dentro de los estados~~ **Hecho (2026-11-22):** el progreso (`rc_client_serialize_progress_sized`, unos 7 KB en Sonic 1) va en el encabezado del archivo de estado, tomado en el mismo instante que el estado, y se restaura al cargarlo (también en el estado de deshacer y el de reanudar). Un estado sin progreso (anterior, o con los logros apagados) reinicia el cálculo como antes.
   3. ~~Discos `.chd`: libchdr, lector propio y `rc_hash_cdreader`~~ **Hecho (2026-11-22, ADR-0029):** Final Fight CD (33 logros) y Dracula Unleashed (35) se identifican; además la región y el título de los `.chd` ya se leen.
-  4. ~~Cambio de disco en caliente~~ **Hecho:** se avisa a rcheevos con `rc_client_begin_identify_and_change_media` (los `.chd` no, por el punto 3).
+  4. ~~Cambio de disco en caliente~~ **Hecho:** se avisa a rcheevos con `rc_client_begin_identify_and_change_media` (también los `.chd`).
   5. ~~Activar los logros con un juego ya abierto~~ **Hecho:** al activarlos (o iniciar sesión) con un juego abierto, se ofrece en ese momento.
   6. ~~Avisos de error al arrancar~~ **Hecho:** si el inicio de sesión automático falla sale `RetroAchievements: could not sign in (...)`.
   7. ~~Iconos de los logros en los avisos~~ **Hecho (2026-11-22), como en `snes9xrd`:** el aviso de un logro desbloqueado lleva la insignia del logro y el resumen al empezar lleva la del juego, a la izquierda del texto (se descargan una vez y se guardan en memoria; si no llegan a tiempo el aviso sale sin imagen). **También hecho:** insignias en la lista de logros (en color los ganados y en gris los pendientes), un sonido de desbloqueo propio (`scripts/make-achievement-sound.ps1`, ajuste *Play a Sound When an Achievement Unlocks*) y el aviso de subconjunto completado. La presencia enriquecida no se muestra en pantalla (`snes9xrd` tampoco): `rc_client` la envía al servidor solo.
@@ -528,6 +535,8 @@ cliente; (2) integrar rcheevos en `third_party/` con su aviso; (3) cliente en el
 (4) inicio de sesión con el token cifrado en disco (nunca la contraseña); (5) identificación de cartuchos, zips y discos
 `.cue`/`.iso`; (6) avisos en pantalla con el mismo estilo que el resto de mensajes y lista de logros; (7) estados, reinicios
 y cambio de disco; (8) CHD con libchdr.
+**Ideas y detalles aplazados:** ver [`docs/pendientes.md`](docs/pendientes.md) (filtros solo de CPU, límites del lector de presets, ajustes por sistema, hardcore, distribución...).
+
 ### Después de la primera versión
 
 Evaluar shaders avanzados, rewind, cheats, RetroAchievements y periféricos
@@ -625,9 +634,9 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   (alternar), `Y` rewind (mantener), `=` / `-` velocidad, `Ctrl+6` cambiar mandos
   1 y 2, `Ctrl+RePág` / `Ctrl+AvPág` volumen. Los avisos salen apilados sobre la
   imagen, porque la barra de estado se oculta en pantalla completa.
-- Ajustes globales (ADR-0013, `config\settings.json`): en `Settings > Display`,
-  relación de aspecto (núcleo, 4:3 o estirar), filtro suave y escalado entero;
-  en `Sound`, volumen y silencio. Se aplican al pulsar OK.
+- Ajustes (ADR-0013 y ADR-0031, `config\settings.json`): en `Settings > Display` el driver (GPU o software), el aspecto,
+  el escalado, los filtros, los shaders de GPU y los mensajes; en `Sound`, volúmenes, silencios y dispositivo. Globales, o de un sistema
+  concreto con *Settings for:*. Se aplican al pulsar OK.
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
 - Datos junto al ejecutable (`<carpeta del .exe>\`; configurable con `XFUSION_DATA_DIR`):

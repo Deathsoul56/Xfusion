@@ -2,7 +2,6 @@
 
 #include <QElapsedTimer>
 #include <QTemporaryDir>
-#include <QHash>
 #include <QMainWindow>
 #include <QTimer>
 #include <array>
@@ -10,7 +9,6 @@
 #include <map>
 #include <memory>
 #include <optional>
-#include <set>
 
 #include "AppSettings.h"
 #include "AudioOutput.h"
@@ -67,6 +65,12 @@ private:
     bool closeGame();
     bool prepareDisc(const DiscInfo& disc);
     bool selectCore(System system, const QString& gameCoreChoice);
+
+public:
+    // Says that no core is installed and offers to open the dialog that downloads them. Shown once the window is up.
+    void offerCores(const QString& reason = QString());
+
+private:
     void warnAboutAudio(const DiscInfo& disc);
     // The file to play: the game itself, or a patched copy when the game has a patch (Patch.h). Empty when the user
     // cancels. Discs are not patched.
@@ -107,6 +111,11 @@ private:
     // Settings and state of the session
     void openSettings(int page);
     void applySettings();
+    // The settings of the system of the open game (or the global ones with no game): display, messages and sound.
+    void applyView();
+    // The preset at `path`, read and compiled the first time (a message says if it cannot be); null if it cannot be used.
+    std::shared_ptr<const PresetProgram> presetFor(const QString& path);
+    void openShaderParameters();
     void commitSettings(const QString& message);
     void adjustVolume(int delta);
     void toggleMute();
@@ -156,6 +165,7 @@ private:
     QTimer m_joystickTimer;
     InputManager m_input;
     AppSettings m_settings;
+    AppSettings m_view; // m_settings as they are for the open game: the overrides of its system on top (ADR-0031)
 
     // The game
     QString m_gamePath;
@@ -206,6 +216,9 @@ private:
     std::map<ShortcutAction, QAction*> m_actions;
     std::map<ShortcutAction, QString> m_actionTexts;
     QAction* m_closeAction = nullptr;
+    QAction* m_shaderParametersAction = nullptr;
+    std::map<QString, std::shared_ptr<PresetProgram>> m_presets;
+    std::shared_ptr<const PresetProgram> m_activePreset;
     QAction* m_pauseAction = nullptr;
     QAction* m_pauseUnfocusedAction = nullptr;
     QAction* m_romInfoAction = nullptr;

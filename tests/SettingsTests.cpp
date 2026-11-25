@@ -1,9 +1,9 @@
-#include <QJsonDocument>
 #include <QTemporaryDir>
 #include <QtTest>
 
 #include "AchievementsToken.h"
 #include "AppSettings.h"
+#include "CoreRules.h"
 #include "DisplayLayout.h"
 #include "RewindBuffer.h"
 #include "Shortcuts.h"
@@ -17,18 +17,99 @@ private slots:
     {
         const AppSettings s;
         QCOMPARE(s.aspect, AspectMode::Core);
-        QVERIFY(s.maintainAspect && s.stretch && s.smooth && !s.integerScale && !s.muted);
+        QVERIFY(s.maintainAspect && !s.stretch && s.smooth && !s.integerScale && !s.muted); // not stretched: fitted inside the window
         QCOMPARE(s.volume, AppSettings::kMaxVolume);
         QCOMPARE(s.gain(), 1.0f);
         QVERIFY(s.pauseWhenUnfocused && !s.backgroundGamepad && !s.confirmSaveLoad && !s.saveStateOnClose);
         QVERIFY(s.showIndicators && s.showRomInfo && !s.showFps && !s.showTime && !s.showPressedKeys);
         QCOMPARE(s.sramInterval, 30);
         QCOMPARE(s.osdSize, 24);
+        QCOMPARE(s.shader, VideoShader::None);
+        QVERIFY(s.gpuFilters);
+        QCOMPARE(s.videoDriver, VideoDriver::Auto); // the GPU, with software as the way out
         QCOMPARE(s.fastForwardSkip, 9);
         QCOMPARE(s.rewindMegabytes, 10);
         QCOMPARE(s.rewindInterval, 5);
         QCOMPARE(s.speedMethod, SpeedMethod::SoundSync);
         QCOMPARE(s.stateFolder.location, FileLocation::DataFolder);
+    }
+
+    void aSystemFollowsTheGlobalValuesUnlessItOverridesThem()
+    {
+        AppSettings s;
+        s.volume = 80;
+        s.filter = VideoFilter::None;
+        s.systemOverrides["genesis"] = QJsonObject{{"sound", QJsonObject{{"volume", 30}}}, {"display", QJsonObject{{"smooth", false}, {"osd_size", 40}, {"shader", "lcd"}, {"driver", "software"}}}};
+        const AppSettings genesis = s.forSystem(System::Genesis);
+        QCOMPARE(genesis.shader, VideoShader::Lcd);
+        QCOMPARE(genesis.videoDriver, s.videoDriver); // the driver is not something a system can set
+        QCOMPARE(genesis.volume, 30);
+        QVERIFY(!genesis.smooth);
+        QCOMPARE(genesis.osdSize, 40);
+        QCOMPARE(genesis.volumeFastForward, s.volumeFastForward); // not overridden: the global one
+        const AppSettings gameGear = s.forSystem(System::GameGear);
+        QCOMPARE(gameGear.volume, 80);
+        QVERIFY(gameGear.smooth);
+        s.volume = 60; // the global value moves, the override does not
+        QCOMPARE(s.forSystem(System::Genesis).volume, 30);
+        QCOMPARE(s.forSystem(System::SG1000).volume, 60);
+    }
+
+    void overridesSurviveTheFileAndBadOnesAreDropped()
+    {
+        AppSettings s;
+        s.systemOverrides[systemKey(System::Sega32X)] = QJsonObject{{"display", QJsonObject{{"filter", "none"}, {"aspect", "4:3"}}}, {"sound", QJsonObject{{"muted", true}}}};
+        QCOMPARE(AppSettings::fromJson(s.toJson()).systemOverrides, s.systemOverrides);
+        QJsonObject file = s.toJson();
+        file["systems"] = QJsonObject{{systemKey(System::Sega32X), QJsonObject{{"sound", QJsonObject{{"muted", true}, {"theme", 3}}}, {"general", QJsonObject{{"show_fps", true}}}}},
+                                      {"atari2600", QJsonObject{{"sound", QJsonObject{{"muted", true}}}}}};
+        const AppSettings loaded = AppSettings::fromJson(file);
+        QCOMPARE(loaded.systemOverrides.size(), 1);
+        QCOMPARE(loaded.systemOverrides.value(systemKey(System::Sega32X)).value("sound").toObject().keys(), QStringList{"muted"});
+        QVERIFY(!loaded.systemOverrides.value(systemKey(System::Sega32X)).contains("general"));
+        QVERIFY(loaded.forSystem(System::Sega32X).muted);
+        // A value out of range is clamped as in any other setting.
+        QJsonObject wild = s.toJson();
+        wild["systems"] = QJsonObject{{"genesis", QJsonObject{{"sound", QJsonObject{{"volume", 500}}}}}};
+        QCOMPARE(AppSettings::fromJson(wild).forSystem(System::Genesis).volume, AppSettings::kMaxVolume);
+    }
+
+    void aShaderPresetAndItsParametersSurviveTheFile()
+    {
+        AppSettings s;
+        s.shader = VideoShader::Preset;
+        s.shaderPreset = "C:/shaders/crt/crt-easymode.slangp";
+        s.shaderParameters["C:/shaders/crt/crt-easymode.slangp"] = {{"MASK_STRENGTH", 0.75}, {"SCANLINE_STRENGTH", 0.0}};
+        const AppSettings loaded = AppSettings::fromJson(s.toJson());
+        QCOMPARE(loaded.shader, VideoShader::Preset);
+        QCOMPARE(loaded.shaderPreset, s.shaderPreset);
+        QCOMPARE(loaded.shaderParameters, s.shaderParameters);
+        // A value that is no number is dropped, and the parameters are the same for every system.
+        QJsonObject file = s.toJson();
+        QJsonObject display = file["display"].toObject();
+        display["shader_parameters"] = QJsonObject{{"x.slangp", QJsonObject{{"A", "text"}, {"B", 2.5}}}};
+        file["display"] = display;
+        const AppSettings odd = AppSettings::fromJson(file);
+        QCOMPARE(odd.shaderParameters.value("x.slangp").size(), 1);
+        QCOMPARE(odd.shaderParameters.value("x.slangp").value("B"), 2.5);
+        // Each system can have its own preset.
+        s.systemOverrides["gamegear"] = QJsonObject{{"display", QJsonObject{{"shader", "preset"}, {"shader_preset", "C:/shaders/handheld/lcd3x.slangp"}}}};
+        QCOMPARE(s.forSystem(System::GameGear).shaderPreset, QString("C:/shaders/handheld/lcd3x.slangp"));
+        QCOMPARE(s.forSystem(System::Genesis).shaderPreset, s.shaderPreset);
+    }
+
+    void theVolumeKeysChangeTheOverrideWhereThereIsOne()
+    {
+        AppSettings s;
+        s.volume = 70;
+        s.systemOverrides["genesis"] = QJsonObject{{"sound", QJsonObject{{"volume", 30}}}};
+        s.setSoundValue(System::Genesis, "volume", 45);
+        QCOMPARE(s.volume, 70);
+        QCOMPARE(s.forSystem(System::Genesis).volume, 45);
+        s.setSoundValue(System::Genesis, "muted", true); // no override of its own: the global one changes
+        QVERIFY(s.muted);
+        s.setSoundValue(std::nullopt, "volume", 55);
+        QCOMPARE(s.volume, 55);
     }
 
     void gainFollowsVolumeMuteAndFastForward()
@@ -53,9 +134,12 @@ private slots:
         s.showIndicators = s.showRomInfo = false;
         s.sramInterval = 0;
         s.aspect = AspectMode::Square;
-        s.maintainAspect = s.stretch = s.smooth = false;
+        s.maintainAspect = s.smooth = false;
+        s.stretch = true;
         s.integerScale = true;
         s.filter = VideoFilter::Scanlines;
+        s.shader = VideoShader::Crt;
+        s.videoDriver = VideoDriver::OpenGL;
         s.messages = MessageMode::None;
         s.osdSize = 40;
         s.osdCorner = OsdCorner::TopRight;
@@ -333,10 +417,32 @@ private slots:
         QCOMPARE(displayRect({960, 720}, frame, 2.0, options), QRect(0, 0, 960, 720));
         options.aspect = AspectMode::Square; // 320:224 is 10:7
         QCOMPARE(displayRect({1000, 1000}, frame, 4.0 / 3.0, options), QRect(0, 150, 1000, 700));
-        options.maintainAspect = false;
+        options.maintainAspect = false; // fills the area
         QCOMPARE(displayRect({1600, 720}, frame, 2.0, options), QRect(0, 0, 1600, 720));
-        options.stretch = false; // its own size, centred
-        QCOMPARE(displayRect({1000, 700}, frame, 4.0 / 3.0, options), QRect(340, 238, 320, 224));
+        options.maintainAspect = true;
+        options.stretch = true; // fills the area too, whatever the aspect and the integer scale say
+        options.integerScale = true;
+        QCOMPARE(displayRect({1600, 720}, frame, 2.0, options), QRect(0, 0, 1600, 720));
+        options.stretch = false; // fitted: as large as the window allows, never at the size of the frame
+        options.aspect = AspectMode::FourThree;
+        options.integerScale = false;
+        QCOMPARE(displayRect({1000, 700}, frame, 4.0 / 3.0, options), QRect(33, 0, 933, 700));
+    }
+
+    void settingsOfOlderFilesKeepWhatTheyDrew()
+    {
+        // Version 3: stretch on and maintain aspect on fitted the picture, which is now the default (stretch off).
+        QJsonObject fitted{{"version", 3}, {"display", QJsonObject{{"stretch", true}, {"maintain_aspect", true}}}};
+        QVERIFY(!AppSettings::fromJson(fitted).stretch);
+        // Maintain aspect off filled the area, which is what stretch does now.
+        QJsonObject filled{{"version", 3}, {"display", QJsonObject{{"stretch", true}, {"maintain_aspect", false}}}};
+        QVERIFY(AppSettings::fromJson(filled).stretch);
+        // The picture at its own size is gone: it is fitted.
+        QJsonObject own{{"version", 3}, {"display", QJsonObject{{"stretch", false}, {"maintain_aspect", true}}}};
+        QVERIFY(!AppSettings::fromJson(own).stretch);
+        // A file of the current version says what it means.
+        QJsonObject current{{"version", AppSettings::kFileVersion}, {"display", QJsonObject{{"stretch", true}}}};
+        QVERIFY(AppSettings::fromJson(current).stretch);
     }
 
     void integerScalingUsesWholeMultiplesOfTheFrameHeight()

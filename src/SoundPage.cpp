@@ -34,7 +34,7 @@ QWidget* sliderRow(QSlider* slider, QLabel* text, QWidget* parent)
 }
 
 SoundPage::SoundPage(const AppSettings& settings, QWidget* parent)
-    : QWidget(parent)
+    : ScopedPage("sound", settings, parent)
     , m_volume(new QSlider(Qt::Horizontal, this))
     , m_volumeText(new QLabel(this))
     , m_volumeFast(new QSlider(Qt::Horizontal, this))
@@ -61,32 +61,34 @@ SoundPage::SoundPage(const AppSettings& settings, QWidget* parent)
 
     auto* volume = new QGroupBox("Volume", this);
     auto* volumeLayout = new QFormLayout(volume);
-    volumeLayout->addRow("Regular:", sliderRow(m_volume, m_volumeText, volume));
-    volumeLayout->addRow("Fast-Forward:", sliderRow(m_volumeFast, m_volumeFastText, volume));
+    volumeLayout->addRow("Regular:", row(sliderRow(m_volume, m_volumeText, volume), "volume"));
+    volumeLayout->addRow("Fast-Forward:", row(sliderRow(m_volumeFast, m_volumeFastText, volume), "volume_fast_forward"));
 
     auto* output = new QGroupBox("Sound Output", this);
     auto* outputLayout = new QFormLayout(output);
     outputLayout->addRow("Driver:", new QLabel("SDL", output));
-    outputLayout->addRow("Device:", m_device);
-    outputLayout->addRow("Playback rate:", m_rate);
-    outputLayout->addRow("Buffer size:", m_buffer);
+    outputLayout->addRow("Device:", row(m_device, "device"));
+    outputLayout->addRow("Playback rate:", row(m_rate, "playback_rate"));
+    outputLayout->addRow("Buffer size:", row(m_buffer, "buffer_ms"));
 
     auto* mute = new QGroupBox("Mute", this);
     auto* muteLayout = new QVBoxLayout(mute);
-    for (QCheckBox* box : {m_muted, m_muteFast, m_muteStep})
-        muteLayout->addWidget(box);
+    muteLayout->addWidget(row(m_muted, "muted"));
+    muteLayout->addWidget(row(m_muteFast, "mute_during_fast_forward"));
+    muteLayout->addWidget(row(m_muteStep, "mute_during_frame_advance"));
 
     auto* layout = new QVBoxLayout(this);
+    layout->addWidget(scopeSelector());
     layout->addWidget(volume);
     layout->addWidget(output);
     layout->addWidget(mute);
     layout->addStretch(1);
     alignFormLabels(this);
 
-    setValues(settings);
+    start();
 }
 
-void SoundPage::setValues(const AppSettings& s)
+void SoundPage::loadControls(const AppSettings& s)
 {
     m_volume->setValue(s.volume);
     m_volumeText->setText(QString("%1%").arg(s.volume));
@@ -110,7 +112,7 @@ void SoundPage::setValues(const AppSettings& s)
     m_muteStep->setChecked(s.muteDuringFrameAdvance);
 }
 
-void SoundPage::applyTo(AppSettings& s) const
+void SoundPage::readControls(AppSettings& s) const
 {
     s.volume = m_volume->value();
     s.volumeFastForward = m_volumeFast->value();

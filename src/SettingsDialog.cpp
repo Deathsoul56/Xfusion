@@ -1,14 +1,12 @@
 #include "SettingsDialog.h"
 
-#include <QDateTime>
-#include <cstdio>
 #include <QDialogButtonBox>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QListWidget>
 #include <QMessageBox>
-#include <QPushButton>
 #include <QScreen>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QVBoxLayout>

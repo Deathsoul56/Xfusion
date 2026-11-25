@@ -108,7 +108,7 @@ public:
             const int base = m_defaults.value(column, 100);
             int width = base;
             if (extra >= 0)
-                width += extra / visible.size() + (i == visible.size() - 1 ? extra % visible.size() : 0);
+                width += extra / int(visible.size()) + (i == visible.size() - 1 ? extra % int(visible.size()) : 0);
             else if (isName(column))
                 width = base - (nameRoom > 0 ? int(qint64(namesGive) * std::max(base - kNamesFloor, 0) / nameRoom) : 0);
             else
@@ -400,7 +400,7 @@ void LibraryPage::stopScan()
         return;
     m_cancel = true;
     m_thread->wait();
-    m_thread = nullptr; // deletes itself once finished() is delivered
+    m_thread.clear(); // deletes itself once finished() is delivered
     m_scanning = false;
 }
 
@@ -479,6 +479,15 @@ void LibraryPage::setCoreChoice(const QString& gameId, const QString& coreId)
         m_data.coreChoices.remove(gameId);
     else
         m_data.coreChoices[gameId] = coreId;
+    saveData();
+}
+
+void LibraryPage::setRegionChoice(const QString& gameId, std::optional<GameRegionChoice> region)
+{
+    if (region)
+        m_data.regionChoices[gameId] = static_cast<int>(*region);
+    else
+        m_data.regionChoices.remove(gameId);
     saveData();
 }
 
@@ -582,6 +591,23 @@ void LibraryPage::showContextMenu(const QPoint& position)
             action->setCheckable(true);
             action->setChecked(chosenCore == core.id);
             coreGroup->addAction(action);
+        }
+
+        QMenu* regions = menu.addMenu("Region");
+        regions->setToolTip("The console this game runs on. PAL is 50 Hz and NTSC 60 Hz; the wrong one makes a game run too fast or too slow. By default the one in Options > Emulation > Core Options.");
+        auto* regionGroup = new QActionGroup(regions);
+        const std::optional<GameRegionChoice> chosenRegion = regionChoice(id);
+        QAction* regionDefault = regions->addAction("Use the core setting", this, [this, id] { setRegionChoice(id, std::nullopt); });
+        regionDefault->setCheckable(true);
+        regionDefault->setChecked(!chosenRegion);
+        regionGroup->addAction(regionDefault);
+        regions->addSeparator();
+        const std::pair<GameRegionChoice, const char*> offered[] = {{GameRegionChoice::Japan, "Japan (NTSC)"}, {GameRegionChoice::USA, "USA (NTSC)"}, {GameRegionChoice::Europe, "Europe (PAL)"}};
+        for (const auto& [region, text] : offered) {
+            QAction* action = regions->addAction(text, this, [this, id, region = region] { setRegionChoice(id, region); });
+            action->setCheckable(true);
+            action->setChecked(chosenRegion && *chosenRegion == region);
+            regionGroup->addAction(action);
         }
     }
     menu.addAction("Show in Folder", this, [path] { QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(path).absolutePath())); });

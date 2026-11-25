@@ -24,6 +24,10 @@ QString screenshotsDir(System system, const QString& romDir);
 QStringList patchFolders(System system, const QString& romDir);
 // The BIOS folder: next to the executable unless a custom folder was chosen.
 QString systemDir();
+// Where the user keeps shader presets (.slangp) and their shaders; created empty. Nothing is shipped there.
+QString shadersDir();
+// The compiled shaders, kept so that a preset is compiled once.
+QString shaderCacheDir();
 QString coresDir();
 QString configDir();
 QString inputConfigPath();

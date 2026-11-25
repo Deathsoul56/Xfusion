@@ -11,6 +11,9 @@
 
 #include "PadButton.h"
 
+// The region a single game can be forced to, from its entry in the library.
+enum class GameRegionChoice { Japan, USA, Europe };
+
 // A core option the user may change (Options > Emulation > Core Options). The values are what the core takes, with the
 // text shown for each; the first one listed is not necessarily the default.
 struct CoreOption {
@@ -31,6 +34,10 @@ struct CoreProfile {
     // The options the user can change; the rest stay at the core's default or at `options`.
     std::vector<CoreOption> userOptions;
     const CoreOption* userOption(const std::string& key) const;
+    // The option that says which console a game runs on, and what it takes for each region a game can be set to
+    // (the order of GameRegionChoice); empty when the core has none. A game set to a region overrides the user option.
+    std::string regionKey;
+    std::string regionValues[3];
     // Options that select the Genesis-family pad and the value each PadType takes. Empty when the core has none.
     std::vector<std::string> padTypeKeys;
     std::string padTypeValues[2];

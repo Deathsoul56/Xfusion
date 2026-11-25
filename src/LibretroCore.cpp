@@ -2,7 +2,6 @@
 
 #include <QFile>
 #include <QFileInfo>
-#include <QSaveFile>
 #include <algorithm>
 #include <cstdarg>
 #include <cstdio>
@@ -249,11 +248,6 @@ int LibretroCore::discCount() const
     return m_hasGame && m_hasDiskControl ? int(m_disk.get_num_images()) : 0;
 }
 
-int LibretroCore::discIndex() const
-{
-    return m_hasGame && m_hasDiskControl ? int(m_disk.get_image_index()) : -1;
-}
-
 bool LibretroCore::swapDisc(int index)
 {
     if (!m_hasGame || !m_hasDiskControl || index < 0 || index >= discCount())
@@ -328,7 +322,7 @@ void LibretroCore::updateAvInfo()
     m_av.fps = av.timing.fps > 0 ? av.timing.fps : 60.0;
     m_av.sampleRate = av.timing.sample_rate > 0 ? av.timing.sample_rate : 44100.0;
     m_av.aspectRatio = av.geometry.aspect_ratio > 0
-        ? av.geometry.aspect_ratio
+        ? double(av.geometry.aspect_ratio)
         : double(av.geometry.base_width) / std::max(1u, av.geometry.base_height);
 }
 

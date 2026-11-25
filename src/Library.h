@@ -59,6 +59,8 @@ public:
     QMap<QString, int> systemChoices;
     // The core the user chose for one game, by game id (a CoreId); it wins over the choice for the whole system.
     QMap<QString, QString> coreChoices;
+    // The region the user forced for one game, by game id: 0 Japan, 1 USA, 2 Europe (a GameRegionChoice).
+    QMap<QString, int> regionChoices;
     QMap<QString, LibraryCachedFile> files; // by canonical path
 
     // A missing file is an empty library. An unreadable one is too, with `error` set; it is then kept as

@@ -7,7 +7,6 @@
 #include <QObject>
 #include <QString>
 #include <functional>
-#include <memory>
 #include <mutex>
 
 #include "AppSettings.h"
@@ -72,7 +71,6 @@ public:
     void loadGame(System system, const QString& path, const QByteArray& data, const LibretroCore& core);
     void unloadGame();
     // A game with its achievements is loaded now.
-    bool gameLoaded() const;
     // Another disc of the same game was put in the drive: rcheevos is told, which identifies it by its image.
     void changeDisc(const QString& path);
     // Casual mode lets a state load or a reset happen at any time; the achievements start counting again from it.

@@ -28,7 +28,7 @@ bool isChd(const char* path)
 bool ours(void* handle)
 {
     std::lock_guard<std::mutex> lock(g_mutex);
-    return g_ours.count(handle) != 0;
+    return g_ours.contains(handle);
 }
 
 const ChdDisc::Track* pickTrack(const ChdDisc& disc, uint32_t wanted)
