@@ -429,10 +429,12 @@ solo porque el core lo anuncie.
   *(Comprobado en la carpeta de datos junto al ejecutable y en el perfil del usuario; ver el punto anterior.)*
 - [x] Comprobar empaquetado, dependencias, avisos de licencia y configuración
   inicial.
-  *(`scripts/package.ps1`: dos construcciones desde cero dan el mismo zip y el mismo `.exe`; el ejecutable solo importa DLL del sistema; el paquete lleva `LICENSE` y `THIRD_PARTY_NOTICES.md`; los cores no van dentro, ADR-0006.)*
+  *(`scripts/package.ps1`: dos construcciones desde cero dan el mismo zip y el mismo `.exe`; el ejecutable solo importa DLL del sistema; el paquete lleva `LICENSE` y `THIRD_PARTY_NOTICES.md`; desde el ADR-0033 (v0.1.0) el zip lleva también los dos cores sin cambios, con sus licencias en `licenses\` y sus fuentes en `cores\SOURCES.txt`.)*
 - [x] Publicar lista de cores/funciones soportados, limitaciones conocidas y
   guía para firmware.
   *(`docs/compatibilidad.md` y la sección *Limitaciones conocidas* del README.)*
+
+- [x] Publicar la primera versión (v0.1.0, ADR-0033): paquete portátil con los cores, etiqueta y release de GitHub.
 
 **Salida:** paquete reproducible, instrucciones de instalación y lista de
 compatibilidad verificadas.

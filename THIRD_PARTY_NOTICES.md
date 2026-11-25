@@ -33,7 +33,7 @@ sección 10.3). Esto es una nota técnica, no asesoría legal.
 | libchdr | `third_party/libchdr/` | BSD-3 (`LICENSE.txt`), c Romain Tisserand | Copia de `rtissera/libchdr` (commit `47d7941`), sin el respaldo micro-flac ni los directorios `deps/miniz` y `deps/zstd` (se usan zlib y zstd del sistema). Incluye `include/dr_libs/dr_flac.h` (dr_flac, de David Reid: dominio público o MIT-0 a elegir). |
 | LZMA SDK (solo el decodificador) | `third_party/libchdr/deps/lzma-26.02/` | Dominio público (`LICENSE`), Igor Pavlov | Copia del árbol de libchdr. |
 
-## Cores (no están en el repositorio)
+## Cores (no están en el repositorio, pero sí en el paquete)
 
 | Core | Licencia | Origen |
 |---|---|---|

@@ -46,7 +46,7 @@ Xfusion usa dos cores y elige uno al abrir cada juego:
 
 **Es una decisión del usuario.** En *Options > Emulation > Cores* puedes elegir, sistema por sistema, qué core juega
 cada uno entre los que lo soportan, y en la biblioteca, con clic derecho > *Core*, el de un juego concreto (que manda
-sobre el del sistema); el cambio vale la próxima vez que abras un juego. Las opciones propias de cada core (región, pantalla extendida de\nGame Gear, bordes, FM del Master System, filtros...) están en *Options > Emulation > Core Options*. Si el core elegido no está
+sobre el del sistema); el cambio vale la próxima vez que abras un juego. Las opciones propias de cada core (región, pantalla extendida de Game Gear, bordes, FM del Master System, filtros...) están en *Options > Emulation > Core Options*. Si el core elegido no está
 instalado, Xfusion usa otro que sirva y te lo dice. `--core ruta\al\core.dll` fuerza un solo core para todo (útil
 para pruebas).
 
@@ -69,9 +69,9 @@ intentas cargarlo con otro.
 
 ## Empezar
 
-Descomprime el `.zip` en una carpeta cualquiera y abre `xfusion.exe`: no hay instalador ni hace falta ser administrador. Windows 10 u 11 de 64 bits. El ejecutable no está firmado, así que SmartScreen puede avisar la primera vez (*Más información > Ejecutar de todos modos*). Sin cores instalados, la primera vez Xfusion lo dice y ofrece abrir *Manage Cores*. El resumen de qué soporta cada sistema, el firmware y lo comprobado está en [`docs/compatibilidad.md`](docs/compatibilidad.md).
+Descomprime el `.zip` en una carpeta cualquiera y abre `xfusion.exe`: no hay instalador ni hace falta ser administrador. Windows 10 u 11 de 64 bits. El ejecutable no está firmado, así que SmartScreen puede avisar la primera vez (*Más información > Ejecutar de todos modos*). El `.zip` ya trae los dos cores en `cores\` (con sus licencias en `licenses\`); solo faltan tus juegos. Si un core falta, Xfusion lo dice y ofrece abrir *Manage Cores*. El resumen de qué soporta cada sistema, el firmware y lo comprobado está en [`docs/compatibilidad.md`](docs/compatibilidad.md).
 
-1. **Cores.** Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
+1. **Cores.** Vienen incluidos (Genesis Plus GX y PicoDrive, sin cambios, ver `cores\SOURCES.txt`). Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
    libretro; se guardan por versión en `cores\<core>\<versión>\` y puedes volver a una anterior o borrarla. También sirve
    colocar `genesis_plus_gx_libretro.dll` y `picodrive_libretro.dll` en `cores\` junto al ejecutable: los scripts `scripts\setup-genesis-plus-gx.ps1` y `scripts\setup-picodrive.ps1` los clonan, compilan e
    instalan (ver *Compilar*).

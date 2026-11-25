@@ -21,7 +21,7 @@ La Fase 6 pide una primera distribución: instalación limpia, rutas con caracte
 ## Decision
 
 1. **Portátil por defecto.** Todo va junto al ejecutable. Si esa carpeta no admite escritura (se prueba creando un archivo), se usa %LOCALAPPDATA%\Xfusion. XFUSION_DATA_DIR sigue mandando sobre ambas. No hay instalador: el paquete es un .zip.
-2. **Sin cores no es un error.** La ventana abre igualmente y ofrece *Manage Cores* (también al abrir un juego para el que no hay core). Los cores no se incluyen en el paquete por su licencia (ADR-0006).
+2. **Sin cores no es un error.** La ventana abre igualmente y ofrece *Manage Cores* (también al abrir un juego para el que no hay core). Los cores no se incluyen en el paquete por su licencia (ADR-0006). **Cambiado por el ADR-0033 (2026-11-25):** el paquete sí lleva los dos cores, con sus licencias.
 3. **Una sola versión.** Sale de project(Xfusion VERSION ...) en CMakeLists.txt: la define XFUSION_VERSION, la usa QApplication::setApplicationVersion y el recurso VERSIONINFO del .exe (generado desde xfusion.rc.in).
 4. **Paquete reproducible** con scripts/package.ps1: compila desde cero en uild-release\, pasa las pruebas y crea dist\Xfusion-<versión>-win64.zip (ejecutable, LICENSE, THIRD_PARTY_NOTICES.md, README, docs\ y un LEEME.txt) con su SHA-256. SOURCE_DATE_EPOCH toma la fecha del commit y el zip se escribe con orden y marcas de tiempo fijos.
 
