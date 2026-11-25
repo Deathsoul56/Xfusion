@@ -23,6 +23,9 @@ struct GameHeader {
     QString title() const { return overseasTitle.isEmpty() ? domesticTitle : overseasTitle; }
     // "Japan", "USA", "Europe", "Japan / USA" ... or "World" when all three are there.
     QString regionText() const;
+    // Who made it, as the copyright field says it ("(C)SEGA 1991.APR" gives "Sega"; another maker gives the code the header
+    // has, such as "T-81"); empty when the header has none.
+    QString company() const;
 };
 
 // `block` is the 256 bytes starting at 0x100. Valid when it starts with "SEGA".

@@ -90,6 +90,8 @@ const std::vector<ShortcutDef>& allShortcuts()
         list.push_back({ShortcutAction::Mute, "ToggleMute", "Mute Audio", false});
         list.push_back({ShortcutAction::VolumeDown, "VolumeDown", "Volume Down", false});
         list.push_back({ShortcutAction::VolumeUp, "VolumeUp", "Volume Up", false});
+        list.push_back({ShortcutAction::NextDisc, "NextDisc", "Switch to Next Disc", false});
+        list.push_back({ShortcutAction::PreviousDisc, "PreviousDisc", "Switch to Previous Disc", false});
         return list;
     }();
     return shortcuts;

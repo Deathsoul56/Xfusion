@@ -6,6 +6,8 @@
 #include "InputConfig.h"
 #include "InputManager.h"
 
+class Achievements;
+class AchievementsPage;
 class ControllersPage;
 class DisplayPage;
 class EmulationPage;
@@ -21,10 +23,10 @@ class SoundPage;
 class SettingsDialog : public QDialog {
     Q_OBJECT
 public:
-    enum Page { General, Display, Sound, Emulation, Controllers, Shortcuts, Files };
+    enum Page { General, Display, Sound, Emulation, Controllers, Shortcuts, Files, RetroAchievements };
 
     SettingsDialog(InputManager& input, const InputConfig& config, const AppSettings& settings, InputGroup initialGroup,
-                   Page initialPage, QWidget* parent = nullptr);
+                   Page initialPage, Achievements* achievements, QWidget* parent = nullptr);
 
     InputConfig inputConfig() const;
     AppSettings appSettings() const;
@@ -43,4 +45,5 @@ private:
     ControllersPage* m_controllers;
     ShortcutsPage* m_shortcuts;
     FilesPage* m_files;
+    AchievementsPage* m_achievementsPage;
 };

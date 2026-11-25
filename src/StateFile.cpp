@@ -16,7 +16,7 @@ namespace {
 constexpr char kMagic[4] = {'X', 'F', 'S', 'T'};
 constexpr quint32 kFormatVersion = 2;
 constexpr quint32 kMaxThumbnailBytes = 4 * 1024 * 1024;
-constexpr quint32 kMaxHeaderBytes = 64 * 1024;
+constexpr quint32 kMaxHeaderBytes = 1024 * 1024; // the achievement progress travels in it
 constexpr qint64 kMaxStateBytes = 512LL * 1024 * 1024;
 
 void appendU32(QByteArray& out, quint32 value)
@@ -47,7 +47,8 @@ QJsonObject toJson(const StateHeader& header, const QByteArray& raw)
             {"system", header.system},
             {"created", header.created.toUTC().toString(Qt::ISODate)},
             {"raw_size", static_cast<double>(raw.size())},
-            {"raw_sha1", sha1Hex(raw)}};
+            {"raw_sha1", sha1Hex(raw)},
+            {"achievements", QString::fromLatin1(header.achievements.toBase64())}};
 }
 
 StateHeader headerFromJson(const QJsonObject& object)
@@ -60,6 +61,7 @@ StateHeader headerFromJson(const QJsonObject& object)
     header.system = object.value("system").toString();
     header.created = QDateTime::fromString(object.value("created").toString(), Qt::ISODate);
     header.rawSize = static_cast<qint64>(object.value("raw_size").toDouble());
+    header.achievements = QByteArray::fromBase64(object.value("achievements").toString().toLatin1());
     return header;
 }
 

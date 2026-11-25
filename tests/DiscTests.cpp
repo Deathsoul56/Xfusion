@@ -333,6 +333,21 @@ private slots:
         QCOMPARE(discSetOf(dir.filePath("Solo (USA).chd")), QStringList{dir.filePath("Solo (USA).chd")});
     }
 
+    // A CHD is binary and cannot be made here without chdman: when XFUSION_TEST_CHD points to the CHD of a Sega CD disc
+    // (the files of a collection are not in the repository) it is read like any other disc.
+    void aRealChdIsReadLikeAnyOtherDisc()
+    {
+        const QString path = qEnvironmentVariable("XFUSION_TEST_CHD");
+        if (path.isEmpty() || !QFileInfo::exists(path))
+            QSKIP("set XFUSION_TEST_CHD to the CHD of a Sega CD disc");
+        const DiscInfo disc = readDisc(path);
+        qInfo() << "CHD:" << disc.format << disc.volume << disc.header.title() << disc.header.product << disc.header.regionText() << disc.dataTracks << disc.audioTracks;
+        QVERIFY(disc.isSegaCd);
+        QCOMPARE(disc.format, QString("CHD"));
+        QVERIFY(!disc.header.title().isEmpty());
+        QVERIFY(disc.dataTracks >= 1);
+    }
+
     void theStartMessageHasTheThreeLinesOfSnes9xrd()
     {
         StartInfo info;

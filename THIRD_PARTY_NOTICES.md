@@ -12,6 +12,19 @@ sección 10.3). Esto es una nota técnica, no asesoría legal.
 | snes_ntsc 0.2.2 (filtros NTSC) | `third_party/snes_ntsc/` | LGPL-2.1 (`LICENSE.txt`), © Shay Green (Blargg) | Copia del árbol `filter/` de `snes9xrd`. Solo se cambió `snes_ntsc_config.h`: entrada y salida RGB565. |
 | hqx (HQ2x, HQ3x, HQ4x) | `third_party/hqx/` | ISC, según la cabecera del archivo (© Clément Bosch, de FFmpeg; diseño original de Maxim Stepin) | Copia de `filter/hq2x.cpp` de `snes9xrd`, que ya trae una adaptación a RGB565 hecha para Snes9x. Cambios aquí: sin `port.h`, tabla YUV con el orden de canales de Qt y un `hq2x.h` propio. **Pendiente de verificar:** quién escribió esa adaptación a RGB565; la cabecera declara ISC, pero la procedencia de ese cambio no está comprobada. |
 
+## RetroAchievements (`third_party/rcheevos/`)
+
+| Componente | Carpeta | Licencia | Origen |
+|---|---|---|---|
+| rcheevos (cliente, API, hash y mapa de memoria de libretro) | `third_party/rcheevos/` | MIT (`LICENSE`), c RetroAchievements.org | Copia, sin cambios, del submódulo `external/rcheevos` de `snes9xrd` (commit `2ad0b86`). Se dejaron fuera la integración con RAIntegration y el cliente externo, que un jugador no necesita. Incluye `src/rhash/aes.c`, tiny-AES-c (Unlicense, dominio público), que Xfusion usa para cifrar el token de la sesión. |
+
+## Discos CHD (`third_party/libchdr/`)
+
+| Componente | Carpeta | Licencia | Origen |
+|---|---|---|---|
+| libchdr | `third_party/libchdr/` | BSD-3 (`LICENSE.txt`), c Romain Tisserand | Copia de `rtissera/libchdr` (commit `47d7941`), sin el respaldo micro-flac ni los directorios `deps/miniz` y `deps/zstd` (se usan zlib y zstd del sistema). Incluye `include/dr_libs/dr_flac.h` (dr_flac, de David Reid: dominio público o MIT-0 a elegir). |
+| LZMA SDK (solo el decodificador) | `third_party/libchdr/deps/lzma-26.02/` | Dominio público (`LICENSE`), Igor Pavlov | Copia del árbol de libchdr. |
+
 ## Cores (no están en el repositorio)
 
 | Core | Licencia | Origen |

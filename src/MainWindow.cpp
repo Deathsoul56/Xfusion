@@ -27,6 +27,8 @@
 #include <algorithm>
 #include <cstdio>
 
+#include "Achievements.h"
+#include "AchievementsToken.h"
 #include "AppPaths.h"
 #include "Bios.h"
 #include "CoreRules.h"
@@ -64,6 +66,22 @@ MainWindow::MainWindow(LibretroCore& core, QWidget* parent)
     , m_central(new QStackedWidget(this))
 {
     setWindowTitle("Xfusion");
+    m_achievements = new Achievements(this);
+    connect(m_achievements, &Achievements::message, this, [this](const QString& text, const QImage& icon) { m_video->osd()->post(text, m_settings.achievements.durationSeconds * 1000, icon); });
+    // A new session token is kept, so the next start signs in by itself.
+    connect(m_achievements, &Achievements::accountChanged, this, [this] {
+        const Achievements::User user = m_achievements->user();
+        if (!user.loggedIn)
+            return;
+        const QString token = encryptToken(user.username, user.token);
+        if (m_settings.achievements.username == user.username && decryptToken(user.username, m_settings.achievements.token) == user.token)
+            return;
+        m_settings.achievements.username = user.username;
+        m_settings.achievements.token = token;
+        QString error;
+        if (!m_settings.save(AppPaths::settingsPath(), &error))
+            statusBar()->showMessage(error);
+    });
     // The library is what is shown while no game is open; the picture takes over when one starts.
     m_central->addWidget(m_library);
     m_central->addWidget(m_video);
@@ -287,9 +305,9 @@ void MainWindow::createViewMenu()
 void MainWindow::createOptionsMenu()
 {
     QMenu* menu = menuBar()->addMenu("&Options");
-    const char* const labels[] = {"&General...", "&Display...", "&Sound...", "&Emulation...", "&Controllers...", "Shortcu&ts...", "&Files..."};
-    const char* const icons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders"};
-    for (int page = 0; page < 7; ++page)
+    const char* const labels[] = {"&General...", "&Display...", "&Sound...", "&Emulation...", "&Controllers...", "Shortcu&ts...", "&Files...", "&Achievements..."};
+    const char* const icons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders", "achievements"};
+    for (int page = 0; page < 8; ++page)
         setThemedActionIcon(menu->addAction(labels[page], this, [this, page] { openSettings(page); }), icons[page]);
 }
 
@@ -486,6 +504,14 @@ void MainWindow::trigger(ShortcutAction action)
         if (m_emu)
             resetGame(true);
         break;
+    case ShortcutAction::NextDisc:
+        if (m_emu)
+            switchDisc(1);
+        break;
+    case ShortcutAction::PreviousDisc:
+        if (m_emu)
+            switchDisc(-1);
+        break;
     case ShortcutAction::Quit: close(); break;
     case ShortcutAction::ToggleFullscreen: toggleFullscreen(); break;
     case ShortcutAction::Screenshot: takeScreenshot(); break;
@@ -603,10 +629,12 @@ void MainWindow::openGame(const QString& path)
     m_discSet.clear();
     if (isDisc)
         setupDiscs(path);
+    loadAchievements(*system, path, isDisc);
 
     m_audio = std::make_unique<AudioOutput>(m_core.avInfo().sampleRate, m_settings.audioDevice, m_settings.playbackRate);
     m_inputGroup = systemDef(*system).inputGroup;
     m_emu = std::make_unique<EmuThread>(m_core, m_audio.get(), [this] { pollInput(); });
+    m_emu->setFrameHook([this] { m_achievements->frame(); });
     m_emu->setRewind(static_cast<std::size_t>(m_settings.rewindMegabytes) * 1024 * 1024, m_settings.rewindInterval);
     updateSpeed();
     updateAudioMode();
@@ -829,8 +857,9 @@ bool MainWindow::closeGame()
     if (m_settings.saveStateOnClose && m_statesSupported && m_emu) {
         QByteArray state;
         QString error;
-        if (captureState(&state, &error)) {
-            if (!m_saves->claim(&error) || !writeState(m_saves->resumeStatePath(), state))
+        QByteArray progress;
+        if (captureState(&state, &error, &progress)) {
+            if (!m_saves->claim(&error) || !writeState(m_saves->resumeStatePath(), state, progress))
                 QMessageBox::warning(this, "Xfusion", "Could not save the state for the next time: " + error);
         }
     }
@@ -840,6 +869,8 @@ bool MainWindow::closeGame()
     m_saveTimer.stop();
     m_emu.reset();
     flushSaveRam(true);
+    m_achievements->unloadGame();
+    m_achievementsTried = false;
     m_core.unloadGame();
     m_discSet.clear();
     m_patchedGame.reset();
@@ -871,7 +902,10 @@ void MainWindow::resetGame(bool powerCycle)
         showMessage("Power cycle");
         return;
     }
-    m_emu->withCore([this] { m_core.reset(); });
+    m_emu->withCore([this] {
+        m_core.reset();
+        m_achievements->reset();
+    });
     if (m_manualPause)
         setManualPause(false);
     showMessage("Reset");
@@ -1035,16 +1069,21 @@ void MainWindow::setCurrentSlot(int slot)
     showMessage(slotDescription(m_currentSlot));
 }
 
-bool MainWindow::captureState(QByteArray* state, QString* error)
+bool MainWindow::captureState(QByteArray* state, QString* error, QByteArray* achievements)
 {
     if (!m_emu)
         return false;
     bool ok = false;
-    m_emu->withCore([&] { ok = m_core.serialize(state, error); });
+    // The progress of the achievements is taken at the same moment as the state, between the same two frames.
+    m_emu->withCore([&] {
+        ok = m_core.serialize(state, error);
+        if (achievements)
+            *achievements = m_achievements->progress();
+    });
     return ok;
 }
 
-bool MainWindow::writeState(const QString& path, const QByteArray& state)
+bool MainWindow::writeState(const QString& path, const QByteArray& state, const QByteArray& achievements)
 {
     StateHeader header;
     header.coreId = m_core.profile().id;
@@ -1054,6 +1093,7 @@ bool MainWindow::writeState(const QString& path, const QByteArray& state)
     header.system = systemDef(*m_gameSystem).folder;
     header.created = QDateTime::currentDateTimeUtc();
     header.rawSize = state.size();
+    header.achievements = achievements;
     QImage thumbnail = m_video->currentFrame();
     if (!thumbnail.isNull())
         thumbnail = thumbnail.scaledToWidth(kThumbnailWidth, Qt::SmoothTransformation);
@@ -1092,13 +1132,13 @@ void MainWindow::saveStateToFile(const QString& path, int confirmSlot)
         && QMessageBox::question(this, "Confirm Save", QString("Overwrite existing game position in slot #%1?").arg(confirmSlot)) != QMessageBox::Yes)
         return;
 
-    QByteArray state;
-    if (!captureState(&state, &error)) {
+    QByteArray state, progress;
+    if (!captureState(&state, &error, &progress)) {
         QMessageBox::warning(this, "Xfusion", QString("Could not save the state: %1").arg(error));
         showMessage("Failed to save " + QFileInfo(path).fileName());
         return;
     }
-    if (!writeState(path, state)) {
+    if (!writeState(path, state, progress)) {
         showMessage("Failed to save " + QFileInfo(path).fileName());
         return;
     }
@@ -1150,16 +1190,16 @@ void MainWindow::loadUndoState()
         return;
     }
     // Undo goes back without making a new undo point, so it can be repeated.
-    applyState(state->raw, QString(), false);
+    applyState(state->raw, QString(), false, state->header.achievements);
 }
 
 void MainWindow::maybeSaveOops()
 {
     if (!stateOperationsAvailable() || QDateTime::currentMSecsSinceEpoch() - m_lastStateActivityMs < kOopsAfterMs)
         return;
-    QByteArray state;
+    QByteArray state, progress;
     QString error;
-    if (captureState(&state, &error) && m_saves->claim(&error) && writeState(m_saves->oopsStatePath(), state))
+    if (captureState(&state, &error, &progress) && m_saves->claim(&error) && writeState(m_saves->oopsStatePath(), state, progress))
         m_lastStateActivityMs = QDateTime::currentMSecsSinceEpoch();
 }
 
@@ -1194,14 +1234,14 @@ void MainWindow::loadStateFromFile(const QString& path)
             return;
     }
     maybeSaveOops();
-    applyState(state->raw, QFileInfo(path).fileName() + " loaded", true);
+    applyState(state->raw, QFileInfo(path).fileName() + " loaded", true, state->header.achievements);
 }
 
 // Puts a state into the core. A load first writes the current game to the undo file; if the core rejects the state
 // it is put back as it was.
-bool MainWindow::applyState(const QByteArray& state, const QString& what, bool makeUndo)
+bool MainWindow::applyState(const QByteArray& state, const QString& what, bool makeUndo, const QByteArray& achievements)
 {
-    QByteArray before;
+    QByteArray before, beforeProgress;
     QString error;
     QString restoreError;
     bool loaded = false;
@@ -1210,6 +1250,7 @@ bool MainWindow::applyState(const QByteArray& state, const QString& what, bool m
     const bool paused = m_manualPause || m_focusPause || m_minimizedPause || m_dialogPause > 0;
     m_emu->withCore([&] {
         haveBefore = m_core.serialize(&before, &error);
+        beforeProgress = m_achievements->progress();
         loaded = m_core.unserialize(state, &error);
         if (!loaded && haveBefore)
             restored = m_core.unserialize(before, &restoreError);
@@ -1228,9 +1269,13 @@ bool MainWindow::applyState(const QByteArray& state, const QString& what, bool m
     if (makeUndo && haveBefore) {
         QString claimError;
         if (m_saves->claim(&claimError))
-            writeState(m_saves->undoStatePath(), before);
+            writeState(m_saves->undoStatePath(), before, beforeProgress);
     }
     m_lastStateActivityMs = QDateTime::currentMSecsSinceEpoch();
+    // The achievements go back to where they were when the state was saved; a state from before this was kept (or
+    // from a game without achievements) has no progress, and then they count again from here.
+    if (achievements.isEmpty() || !m_achievements->restoreProgress(achievements))
+        m_achievements->reset();
     if (!what.isEmpty())
         showMessage(what);
     return true;
@@ -1261,7 +1306,7 @@ void MainWindow::openSettings(int page)
     ++m_dialogPause;
     updatePause();
 
-    SettingsDialog dialog(m_input, m_input.config(), m_settings, m_inputGroup, static_cast<SettingsDialog::Page>(page), this);
+    SettingsDialog dialog(m_input, m_input.config(), m_settings, m_inputGroup, static_cast<SettingsDialog::Page>(page), m_achievements, this);
     const int dialogResult = dialog.exec();
     if (dialogResult == QDialog::Accepted) {
         const InputConfig config = dialog.inputConfig();
@@ -1322,6 +1367,7 @@ void MainWindow::applySettings()
     }
     updateAudioMode();
     updatePause();
+    updateAchievementsAccount();
 }
 
 // Volume, mute, speed and frame skip are changed from the keyboard, so they are saved right away and shown over the
@@ -1466,18 +1512,60 @@ void MainWindow::updateActions()
         action->setEnabled(playing && m_statesSupported);
     m_saveMenu->setEnabled(playing && m_statesSupported);
     m_loadMenu->setEnabled(playing && m_statesSupported);
-    m_discMenu->menuAction()->setVisible(playing && m_discSet.size() > 1);
+    m_discMenu->menuAction()->setVisible(playing && !m_discSet.isEmpty());
 }
 
 // A game on several discs: the core has the disc that was opened and the others are added behind it, so that the
 // Disc menu can swap them while the game runs.
+// RetroAchievements identifies a game by the hash of its contents: a cartridge by the file (read from a zip when it is
+// there), a disc by its image (.cue, .iso or .chd). A game with a patch applied is not the game they know.
+void MainWindow::loadAchievements(System system, const QString& path, bool isDisc)
+{
+    if (!m_settings.achievements.enabled)
+        return;
+    m_achievementsTried = true;
+    if (!m_patchKind.isEmpty()) {
+        showMessage("Achievements are off: the game has a patch applied");
+        return;
+    }
+    QByteArray data;
+    if (!isDisc) {
+        QString extension, error;
+        if (!readGameBytes(path, &data, &extension, &error))
+            return;
+    }
+    m_achievements->loadGame(system, path, data, m_core);
+}
+
+// Signs in with the saved account when achievements are on and nobody is signed in.
+void MainWindow::updateAchievementsAccount()
+{
+    m_achievements->configure(m_settings.achievements);
+    const AchievementsSettings& a = m_settings.achievements;
+    if (!a.enabled) {
+        m_achievements->unloadGame(); // the session ends with the program; the game stops being tracked
+        m_achievementsTried = false;
+        return;
+    }
+    if (!m_achievements->user().loggedIn && !m_achievements->loginPending() && !a.username.isEmpty()) {
+        const QString token = decryptToken(a.username, a.token);
+        if (!token.isEmpty())
+            m_achievements->loginWithToken(a.username, token);
+    }
+    // Turned on (or signed in) with a game already open: it is offered now, once, instead of at the next game.
+    if (m_emu && m_gameSystem && !m_achievementsTried)
+        loadAchievements(*m_gameSystem, m_gamePath, *m_gameSystem == System::SegaCD);
+}
+
 void MainWindow::setupDiscs(const QString& path)
 {
-    m_discSet = {path};
-    m_discCoreIndex = {0};
+    m_discSet.clear();
+    m_discCoreIndex.clear();
     m_currentDisc = 0;
     if (m_core.discCount() == 0) // the core has no disk control
         return;
+    m_discSet = {path};
+    m_discCoreIndex = {0};
     const QStringList set = discSetOf(path);
     if (set.size() < 2)
         return;
@@ -1506,6 +1594,57 @@ void MainWindow::populateDiscMenu()
         action->setChecked(i == m_currentDisc);
         group->addAction(action);
     }
+    // Like the Change Disc menu of DuckStation: the discs of the game, next and previous, and any disc from a file.
+    m_discMenu->addSeparator();
+    QAction* next = m_discMenu->addAction("Switch to &Next Disc", this, [this] { switchDisc(1); });
+    QAction* previous = m_discMenu->addAction("Switch to &Previous Disc", this, [this] { switchDisc(-1); });
+    next->setEnabled(m_currentDisc + 1 < m_discSet.size());
+    previous->setEnabled(m_currentDisc > 0);
+    m_discMenu->addAction("Insert Disc From &File...", this, [this] { insertDiscFile(); });
+}
+
+void MainWindow::switchDisc(int direction)
+{
+    if (m_discSet.size() < 2) {
+        showMessage("Current game does not have multiple discs.");
+        return;
+    }
+    const int target = m_currentDisc + direction;
+    if (target < 0 || target >= m_discSet.size()) {
+        showMessage(direction < 0 ? "There is no previous disc to switch to." : "There is no next disc to switch to.");
+        return;
+    }
+    swapToDisc(target);
+}
+
+// Any disc image can be put in the drive, whatever its name: it is added behind the ones the core has and inserted.
+void MainWindow::insertDiscFile()
+{
+    if (!m_emu || m_discSet.isEmpty())
+        return;
+    ++m_dialogPause;
+    updatePause();
+    const QString chosen = QFileDialog::getOpenFileName(this, "Insert a disc", m_lastDir, "Discs (*.cue *.chd *.iso);;All files (*)");
+    --m_dialogPause;
+    updatePause();
+    if (chosen.isEmpty())
+        return;
+    const QString path = QFileInfo(chosen).absoluteFilePath();
+    for (int i = 0; i < m_discSet.size(); ++i) {
+        if (QFileInfo(m_discSet[i]).absoluteFilePath() == path) {
+            swapToDisc(i);
+            return;
+        }
+    }
+    bool added = false;
+    m_emu->withCore([&] { added = m_core.addDisc(path); });
+    if (!added) {
+        showMessage("The core cannot hold another disc");
+        return;
+    }
+    m_discSet << path;
+    m_discCoreIndex.push_back(m_core.discCount() - 1);
+    swapToDisc(int(m_discSet.size()) - 1);
 }
 
 void MainWindow::swapToDisc(int setIndex)
@@ -1516,6 +1655,7 @@ void MainWindow::swapToDisc(int setIndex)
     m_emu->withCore([&] { swapped = m_core.swapDisc(m_discCoreIndex[size_t(setIndex)]); });
     if (swapped) {
         m_currentDisc = setIndex;
+        m_achievements->changeDisc(m_discSet[setIndex]);
         setWindowTitle(QString("Xfusion - %1").arg(QFileInfo(m_discSet[setIndex]).completeBaseName()));
         showMessage(QString("Disc %1: %2").arg(setIndex + 1).arg(QFileInfo(m_discSet[setIndex]).completeBaseName()));
     } else {

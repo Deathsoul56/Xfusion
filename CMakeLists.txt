@@ -61,6 +61,56 @@ add_library(xfusion_input STATIC
     third_party/xbrz/xbrz.cpp
     third_party/hqx/hq2x.cpp
     third_party/snes_ntsc/snes_ntsc.c
+    # rcheevos, the RetroAchievements runtime (MIT, ADR-0028): without the editor toolkit (raintegration) and the
+    # external client, which a player does not need
+    third_party/rcheevos/src/rc_client.c
+    third_party/rcheevos/src/rc_compat.c
+    third_party/rcheevos/src/rc_util.c
+    third_party/rcheevos/src/rc_version.c
+    third_party/rcheevos/src/rc_libretro.c
+    third_party/rcheevos/src/rapi/rc_api_common.c
+    third_party/rcheevos/src/rapi/rc_api_info.c
+    third_party/rcheevos/src/rapi/rc_api_runtime.c
+    third_party/rcheevos/src/rapi/rc_api_user.c
+    third_party/rcheevos/src/rcheevos/alloc.c
+    third_party/rcheevos/src/rcheevos/condition.c
+    third_party/rcheevos/src/rcheevos/condset.c
+    third_party/rcheevos/src/rcheevos/consoleinfo.c
+    third_party/rcheevos/src/rcheevos/format.c
+    third_party/rcheevos/src/rcheevos/lboard.c
+    third_party/rcheevos/src/rcheevos/memref.c
+    third_party/rcheevos/src/rcheevos/operand.c
+    third_party/rcheevos/src/rcheevos/richpresence.c
+    third_party/rcheevos/src/rcheevos/runtime.c
+    third_party/rcheevos/src/rcheevos/runtime_progress.c
+    third_party/rcheevos/src/rcheevos/trigger.c
+    third_party/rcheevos/src/rcheevos/value.c
+    third_party/rcheevos/src/rhash/aes.c
+    third_party/rcheevos/src/rhash/cdreader.c
+    third_party/rcheevos/src/rhash/hash.c
+    third_party/rcheevos/src/rhash/hash_disc.c
+    third_party/rcheevos/src/rhash/hash_encrypted.c
+    third_party/rcheevos/src/rhash/hash_rom.c
+    third_party/rcheevos/src/rhash/hash_zip.c
+    third_party/rcheevos/src/rhash/md5.c
+    # libchdr (BSD-3), to read the CHD disc images: the same files as upstream, without the micro-flac backend and with
+    # the system zlib and zstd (ADR-0029)
+    third_party/libchdr/src/libchdr_bitstream.c
+    third_party/libchdr/src/libchdr_cdrom.c
+    third_party/libchdr/src/libchdr_chd.c
+    third_party/libchdr/src/libchdr_codec_avhuff.c
+    third_party/libchdr/src/libchdr_codec_cdfl.c
+    third_party/libchdr/src/libchdr_codec_cdlz.c
+    third_party/libchdr/src/libchdr_codec_cdzl.c
+    third_party/libchdr/src/libchdr_codec_cdzs.c
+    third_party/libchdr/src/libchdr_codec_flac.c
+    third_party/libchdr/src/libchdr_codec_huff.c
+    third_party/libchdr/src/libchdr_codec_lzma.c
+    third_party/libchdr/src/libchdr_codec_zlib.c
+    third_party/libchdr/src/libchdr_codec_zstd.c
+    third_party/libchdr/src/libchdr_flac.c
+    third_party/libchdr/src/libchdr_huffman.c
+    third_party/libchdr/deps/lzma-26.02/src/LzmaDec.c
     src/GameSaves.cpp
     src/Library.cpp
     src/Library.h
@@ -72,6 +122,14 @@ add_library(xfusion_input STATIC
     src/CoreManifest.h
     src/CoreProbe.cpp
     src/CoreProbe.h
+    src/AchievementsToken.cpp
+    src/AchievementsToken.h
+    src/AchievementsConsole.cpp
+    src/AchievementsConsole.h
+    src/ChdDisc.cpp
+    src/ChdDisc.h
+    src/AchievementsDisc.cpp
+    src/AchievementsDisc.h
     src/Patch.cpp
     src/Patch.h
     src/RomInfo.cpp
@@ -90,8 +148,13 @@ add_library(xfusion_input STATIC
     src/DisplayLayout.cpp
     src/DisplayLayout.h
 )
-target_include_directories(xfusion_input PUBLIC src third_party)
+target_include_directories(xfusion_input PUBLIC src third_party third_party/rcheevos/include third_party/rcheevos/src third_party/libchdr/include)
+find_library(XFUSION_ZSTD_LIB zstd REQUIRED)
+target_link_libraries(xfusion_input PUBLIC ${XFUSION_ZSTD_LIB})
+file(GLOB XFUSION_CHDR_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/third_party/libchdr/src/*.c)
+set_source_files_properties(${XFUSION_CHDR_SOURCES} PROPERTIES COMPILE_DEFINITIONS "CHDR_SYSTEM_ZLIB;CHDR_SYSTEM_ZSTD")
 target_include_directories(xfusion_input PRIVATE "${LIBRETRO_INCLUDE_DIR}")
+target_compile_definitions(xfusion_input PUBLIC RC_CLIENT_SUPPORTS_HASH)
 target_link_libraries(xfusion_input PUBLIC Qt6::Gui ${XFUSION_SDL3} ${XFUSION_STATIC_LIBS})
 
 add_executable(xfusion
@@ -141,11 +204,18 @@ add_executable(xfusion
     src/EmuThread.h
     src/CoreInstaller.cpp
     src/CoreInstaller.h
+    src/Achievements.cpp
+    src/Achievements.h
+    src/AchievementsPage.cpp
+    src/AchievementsPage.h
+    src/AchievementsDialogs.cpp
+    src/AchievementsDialogs.h
     src/CoresDialog.cpp
     src/CoresDialog.h
 )
 target_include_directories(xfusion PRIVATE "${LIBRETRO_INCLUDE_DIR}")
 if(WIN32)
+    target_link_libraries(xfusion PRIVATE winmm) # the chime of an unlocked achievement
     target_sources(xfusion PRIVATE src/resources/xfusion.rc)
     set_target_properties(xfusion PROPERTIES WIN32_EXECUTABLE ON) # no console window
 endif()

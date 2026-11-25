@@ -35,11 +35,11 @@ void OsdOverlay::setOptions(const Options& options)
     update();
 }
 
-void OsdOverlay::post(const QString& text)
+void OsdOverlay::post(const QString& text, int durationMs, const QImage& icon)
 {
     if (m_options.messages == MessageMode::None)
         return;
-    Message message{text, {}};
+    Message message{text, {}, durationMs > 0 ? durationMs : kMessageMs, icon};
     message.age.start();
     m_messages.push_back(std::move(message));
     while (static_cast<int>(m_messages.size()) > kMaxMessages)
@@ -50,8 +50,7 @@ void OsdOverlay::post(const QString& text)
 
 void OsdOverlay::expire()
 {
-    while (!m_messages.empty() && m_messages.front().age.elapsed() >= kMessageMs)
-        m_messages.pop_front();
+    std::erase_if(m_messages, [](const Message& message) { return message.age.elapsed() >= message.lifeMs; });
     if (m_messages.empty() && !m_options.showTime)
         m_timer.stop();
 }
@@ -83,21 +82,26 @@ void OsdOverlay::setPressedText(const QString& text)
 }
 
 // Draws one box against the edge of `area` and moves `offset` past it, so the next box stacks behind it.
-void OsdOverlay::drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom)
+void OsdOverlay::drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom, const QImage& icon)
 {
     const QFontMetrics metrics(painter.font());
-    const int maxWidth = int(area.width()) - 2 * kPadding;
+    // The picture of a message (an achievement badge) is as tall as its text, with the text beside it.
+    const int iconSide = icon.isNull() ? 0 : std::max(metrics.height() * 2, 48);
+    const int iconSpace = iconSide > 0 ? iconSide + kPadding : 0;
+    const int maxWidth = int(area.width()) - 2 * kPadding - iconSpace;
     const QRect textRect = metrics.boundingRect(QRect(0, 0, maxWidth, 0), Qt::TextWordWrap, text);
-    const int width = textRect.width() + 2 * kPadding;
-    const int height = textRect.height() + kPadding;
+    const int width = textRect.width() + 2 * kPadding + iconSpace;
+    const int height = std::max(textRect.height() + kPadding, iconSide > 0 ? iconSide + kPadding : 0);
     const qreal x = alignment & Qt::AlignRight ? area.right() - width : alignment & Qt::AlignHCenter ? area.center().x() - width / 2.0 : area.left();
     const qreal y = fromBottom ? area.bottom() - offset - height : area.top() + offset;
     const QRectF box(x, y, width, height);
     painter.setPen(Qt::NoPen);
     painter.setBrush(QColor(0, 0, 0, 170));
     painter.drawRoundedRect(box, 5, 5);
+    if (iconSide > 0)
+        painter.drawImage(QRectF(box.left() + kPadding, box.top() + (height - iconSide) / 2.0, iconSide, iconSide), icon);
     painter.setPen(Qt::white);
-    painter.drawText(box.adjusted(kPadding, kPadding / 2.0, -kPadding, 0), Qt::TextWordWrap | Qt::AlignLeft, text);
+    painter.drawText(box.adjusted(kPadding + iconSpace, kPadding / 2.0 + (height - textRect.height() - kPadding) / 2.0, -kPadding, 0), Qt::TextWordWrap | Qt::AlignLeft, text);
     offset += height + kGap;
 }
 
@@ -115,7 +119,7 @@ void OsdOverlay::paintEvent(QPaintEvent*)
         const bool bottom = m_options.corner == OsdCorner::BottomLeft || m_options.corner == OsdCorner::BottomRight;
         int offset = 0;
         for (auto it = m_messages.rbegin(); it != m_messages.rend(); ++it)
-            drawBox(painter, it->text, area, right ? Qt::AlignRight : Qt::AlignLeft, offset, bottom);
+            drawBox(painter, it->text, area, right ? Qt::AlignRight : Qt::AlignLeft, offset, bottom, it->icon);
     }
 
     // The status overlays use a smaller size than the messages.

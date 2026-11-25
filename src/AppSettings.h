@@ -54,6 +54,25 @@ struct FolderSetting {
     bool operator==(const FolderSetting& other) const = default;
 };
 
+// RetroAchievements (ADR-0028): the account and what is shown. Hardcore mode does not exist here: only casual play is
+// offered until the frontend is approved by RetroAchievements.
+struct AchievementsSettings {
+    bool enabled = false;
+    QString username;
+    QString token; // the session token of the account, encrypted for this machine (AchievementsToken.h); never the password
+    bool spectator = false; // unlocks are tracked but never sent
+    bool encore = false; // an achievement can be earned again
+    bool unofficial = false; // also the achievements still being made
+    bool notifications = true; // an unlock or a completed game
+    bool leaderboardNotifications = true;
+    bool leaderboardTrackers = true;
+    bool progressIndicators = true;
+    bool challengeIndicators = true;
+    int durationSeconds = 5; // how long the notices stay on screen
+    bool unlockSound = true; // a chime when an achievement unlocks
+    bool operator==(const AchievementsSettings& other) const = default;
+};
+
 // Frontend settings that apply to every system and core (ADR-0013, ADR-0018). Video, audio and pacing are global
 // because the frontend, not the core, draws, plays and times them; options that belong to one core live with its
 // profile (ADR-0007).
@@ -116,6 +135,8 @@ struct AppSettings {
     FolderSetting biosFolder;
     FolderSetting patchFolder; // IPS, BPS and UPS patches for the games (Patch.h)
     QStringList libraryFolders; // searched for games, with their subfolders (the Library page)
+
+    AchievementsSettings achievements;
 
     ShortcutMap shortcuts = ShortcutMap::defaults();
 

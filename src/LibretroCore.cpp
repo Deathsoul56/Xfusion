@@ -123,6 +123,8 @@ bool LibretroCore::load(const QString& corePath, QString* error)
     retro_system_info info{};
     m_getSystemInfo(&info);
     m_name = QString("%1 %2").arg(info.library_name, info.library_version);
+    m_libraryName = QString::fromUtf8(info.library_name);
+    m_libraryVersion = QString::fromUtf8(info.library_version);
     m_loaded = true;
     return true;
 }
@@ -215,9 +217,20 @@ void LibretroCore::unloadGame()
         return;
     m_unloadGame();
     m_hasGame = false;
+    m_hasMemoryMap = false;
+    m_memoryDescriptors.clear();
     m_hasDiskControl = false;
     m_extraDiscs.clear();
     m_unpacked.reset();
+}
+
+bool LibretroCore::memoryRegion(unsigned id, uint8_t** data, std::size_t* size) const
+{
+    if (!m_hasGame)
+        return false;
+    *data = static_cast<uint8_t*>(m_getMemoryData(id));
+    *size = m_getMemorySize(id);
+    return *data != nullptr && *size > 0;
 }
 
 bool LibretroCore::addDisc(const QString& path)
@@ -440,6 +453,18 @@ bool LibretroCore::handleEnvironment(unsigned cmd, void* data)
         m_disk = *static_cast<const retro_disk_control_callback*>(data);
         m_hasDiskControl = m_disk.set_eject_state && m_disk.get_eject_state && m_disk.get_image_index && m_disk.set_image_index && m_disk.get_num_images;
         return true;
+    case RETRO_ENVIRONMENT_SET_MEMORY_MAPS: {
+        const auto* map = static_cast<const retro_memory_map*>(data);
+        if (!map || !map->descriptors || map->num_descriptors == 0) {
+            m_hasMemoryMap = false;
+            return true;
+        }
+        m_memoryDescriptors.assign(map->descriptors, map->descriptors + map->num_descriptors);
+        m_memoryMap.descriptors = m_memoryDescriptors.data();
+        m_memoryMap.num_descriptors = unsigned(m_memoryDescriptors.size());
+        m_hasMemoryMap = true;
+        return true;
+    }
     case RETRO_ENVIRONMENT_SET_PERFORMANCE_LEVEL:
     case RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS:
     case RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY:

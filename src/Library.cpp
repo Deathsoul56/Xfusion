@@ -20,7 +20,7 @@ namespace {
 
 constexpr int kFileVersion = 1;
 // Bumped when the scan learns something new about a file, so that the cache from before is not trusted.
-constexpr int kScanVersion = 3;
+constexpr int kScanVersion = 5;
 
 QStringList namePatterns()
 {
@@ -92,6 +92,8 @@ LibraryData LibraryData::load(const QString& path, QString* error)
         cached.system = entry.value("system").toInt(-1);
         cached.title = entry.value("title").toString();
         cached.region = entry.value("region").toString();
+        cached.company = entry.value("company").toString();
+        cached.serial = entry.value("serial").toString();
         cached.problem = entry.value("problem").toString();
         cached.contentSize = qint64(entry.value("content_size").toDouble());
         if (!cached.path.isEmpty())
@@ -119,7 +121,7 @@ bool LibraryData::save(const QString& path, QString* error)
     QJsonArray filesJson;
     for (const LibraryCachedFile& cached : files)
         filesJson.append(QJsonObject{{"path", cached.path}, {"size", double(cached.size)}, {"mtime_ms", double(cached.mtimeMs)},
-                                 {"id", cached.id}, {"system", cached.system}, {"title", cached.title}, {"region", cached.region},
+                                 {"id", cached.id}, {"system", cached.system}, {"title", cached.title}, {"region", cached.region}, {"company", cached.company}, {"serial", cached.serial},
                                  {"problem", cached.problem}, {"content_size", double(cached.contentSize)}});
 
     QDir().mkpath(QFileInfo(path).absolutePath());
@@ -267,14 +269,27 @@ LibraryScan scanLibrary(const QStringList& folders, const QMap<QString, LibraryC
                     }
                     cached.title = header.title();
                     cached.region = header.regionText();
+                    cached.company = header.company();
+                    cached.serial = header.product;
                 }
             }
         }
         scan.files.insert(it.key(), cached);
         if (cached.system < 0)
             continue;
-        found.push_back({it.key(), cached.id, info.completeBaseName(), cached.title, cached.region, cached.problem,
-                         static_cast<System>(cached.system), cached.contentSize > 0 ? cached.contentSize : cached.size, cached.mtimeMs, {}});
+        LibraryEntry entry;
+        entry.path = it.key();
+        entry.id = cached.id;
+        entry.name = info.completeBaseName();
+        entry.title = cached.title;
+        entry.region = cached.region;
+        entry.company = cached.company;
+        entry.serial = cached.serial;
+        entry.problem = cached.problem;
+        entry.system = static_cast<System>(cached.system);
+        entry.size = cached.contentSize > 0 ? cached.contentSize : cached.size;
+        entry.mtimeMs = cached.mtimeMs;
+        found.push_back(std::move(entry));
     }
     if (progress)
         progress(examined);

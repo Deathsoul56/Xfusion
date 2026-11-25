@@ -163,6 +163,8 @@ void EmuThread::loop()
                     m_rewind.push(state);
             }
             m_core.run();
+            if (m_frameHook && !rewinding)
+                m_frameHook();
         }
         ++frameIndex;
         ++m_frames;

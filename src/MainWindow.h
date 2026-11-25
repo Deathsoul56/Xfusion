@@ -22,6 +22,7 @@
 
 class QAction;
 class QActionGroup;
+class Achievements;
 class LibraryPage;
 struct DiscInfo;
 class QLabel;
@@ -71,8 +72,12 @@ private:
     // cancels. Discs are not patched.
     QString preparePatchedGame(const QString& path, System system);
     void setupDiscs(const QString& path);
+    void loadAchievements(System system, const QString& path, bool isDisc);
+    void updateAchievementsAccount();
     void populateDiscMenu();
     void swapToDisc(int setIndex);
+    void switchDisc(int direction);
+    void insertDiscFile();
     QString startText(const QString& path, const QString& playPath, System system, const DiscInfo& disc, qsizetype sramSize) const;
     void resetGame(bool powerCycle);
     void showRomInfo();
@@ -93,9 +98,10 @@ private:
     void loadUndoState();
     void loadOopsState();
     void maybeSaveOops();
-    bool captureState(QByteArray* state, QString* error);
-    bool writeState(const QString& path, const QByteArray& state);
-    bool applyState(const QByteArray& state, const QString& what, bool makeUndo);
+    bool captureState(QByteArray* state, QString* error, QByteArray* achievements = nullptr);
+    bool writeState(const QString& path, const QByteArray& state, const QByteArray& achievements = QByteArray());
+    // `achievements` is the progress saved with the state: it is restored, or the achievements start again when empty.
+    bool applyState(const QByteArray& state, const QString& what, bool makeUndo, const QByteArray& achievements = QByteArray());
     void showStatePreview(bool saving);
 
     // Settings and state of the session
@@ -129,6 +135,8 @@ private:
     LibretroCore& m_core;
     VideoWidget* m_video;
     LibraryPage* m_library;
+    Achievements* m_achievements = nullptr;
+    bool m_achievementsTried = false; // the game that is open was offered to RetroAchievements already
     bool m_coreForced = false;
     std::unique_ptr<QTemporaryDir> m_patchedGame; // the patched copy, while the game is open
     QStringList m_discSet; // the discs of the game that is open, in disc order (one entry when it has a single disc)

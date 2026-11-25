@@ -138,7 +138,7 @@ PicoDrive solo reproduce `.mp3` MPEG-1 Layer III a **44,1 kHz**. Si el primer fo
 
 ### 4.8 Juegos en varios discos
 
-Xfusion junta los discos de un juego por el nombre (`Juego (USA) (Disc 1).chd` y `Juego (USA) (Disc 2).chd` en la misma carpeta, con el mismo formato) y, al abrir cualquiera, deja los demás dentro del core. El menú **Emulation > Disc** (solo aparece con varios discos) cambia de disco mientras corre el juego: es lo que hace el jugador al abrir la bandeja. Probado con Dracula Unleashed (USA): abierto el disco 2, el juego pide el disco 1; se elige el disco 1 en el menú, se pulsa un botón y el juego continúa. ADR-0026.
+Xfusion junta los discos de un juego por el nombre (`Juego (USA) (Disc 1).chd` y `Juego (USA) (Disc 2).chd` en la misma carpeta, con el mismo formato) y, al abrir cualquiera, deja los demás dentro del core. El menú **Emulation > Disc** (aparece con cualquier disco) cambia de disco mientras corre el juego: es lo que hace el jugador al abrir la bandeja. Ofrece los discos del juego, *Switch to Next/Previous Disc* (también atajos de teclado, sin tecla por defecto: Options > Shortcuts) e *Insert Disc From File...* para meter cualquier otro disco, sea cual sea su nombre, así que los discos que no se emparejan por el nombre también se pueden usar. El diseño se adaptó de cómo lo hace DuckStation (ADR-0026). Probado con Dracula Unleashed (USA): abierto el disco 2, el juego pide el disco 1; se elige el disco 1 en el menú, se pulsa un botón y el juego continúa. ADR-0026.
 
 Juegos de Sega CD con varios discos (DAT de Redump): Dracula Unleashed (2), Sherlock Holmes - Consulting Detective Vol. II (2), Ground Zero Texas (2), Prize Fighter (2), Supreme Warrior (2), Night Trap (2), Slam City with Scottie Pippen (4), Fahrenheit (2: Sega CD y 32X) y Ecco the Dolphin CD japonés (2, son dos juegos).
 
@@ -170,17 +170,17 @@ La página Library (ADR-0021) lista los discos con su sistema (`Sega CD`), su **
   - **Biblioteca:** los discos de un juego salen como una sola entrada (`Juego (USA) [2 discs]`, la del disco 1, con el tamaño total y los demás discos en la ayuda emergente); si dos archivos llevan el mismo número de disco, el segundo queda aparte.
   - **Qué discos se encuentran:** solo los que están en la misma carpeta, con la misma extensión y con el nombre de Redump (`(Disc N)`, `(Disk N)`, `(CD N)`); si el disco 1 es `.chd` y el 2 es `.cue`, no se emparejan, ni los que están en carpetas hermanas o con otro estilo de nombre.
   - **Hasta 4 discos:** es el máximo de Genesis Plus GX (Slam City with Scottie Pippen llega justo). PicoDrive no se ha probado con varios discos.
-  - **Sin atajo de teclado** para cambiar de disco, solo el menú Emulation > Disc, que además solo existe si el core ofrece el control de disco.
+  - **Atajos de teclado:** *Switch to Next/Previous Disc* existen en Options > Shortcuts pero sin tecla asignada; el menú solo existe si el core ofrece el control de disco.
   - **Probado a medias:** con Dracula Unleashed se comprobó el cambio del disco 2 al 1 pedido por el juego (arranca de nuevo desde el disco 1). No se ha jugado una partida entera pasando del disco 1 al 2 ni se ha probado ningún otro juego multidisco.
   - **Otros discos no emparejados:** Ecco the Dolphin CD japonés son dos juegos distintos en dos discos, y Fahrenheit trae un disco de Sega CD y otro de 32X; no son una partida de dos discos.
-- **`.chd`:** no se lee la región ni el título, así que tampoco se avisa de un BIOS ausente; el `.chd` local (Final Fight CD) arranca y suena con Genesis Plus GX.
+- **`.chd`:** se leen con libchdr (ADR-0029): región, título, producto y pistas se ven en la biblioteca y los logros funcionan. Falta usar esa región para avisar de un BIOS ausente antes de cargar. Los tres `.chd` locales (Final Fight CD y Dracula Unleashed) arrancan y suenan con Genesis Plus GX.
 - **Un `.bin` suelto de disco sin `.cue`:** se reconoce como Sega CD, pero el core no lo carga; hace falta el `.cue`.
 - **Elección del BIOS:** la hace el core (Genesis Plus GX o PicoDrive) según la región del disco. Xfusion solo comprueba que exista alguno de las regiones que el disco declara; no permite forzar otro.
 - **El BIOS no se valida más allá de su cabecera** (no hay comprobación de suma ni de versiones conocidas).
 
 **Pendiente de la Fase 5**
 
-1. Leer la región y el título de los `.chd` (para avisar de un BIOS ausente).
+1. Avisar de un BIOS ausente antes de cargar un `.chd` (la región ya se lee).
 2. Una tabla de compatibilidad con la jugabilidad verificada por cada disco local (hoy solo se comprobó que arrancan).
 3. Selección de región y de BIOS por juego (el core elige el BIOS; la región solo se fuerza para todo un core).
 4. Compartir los estados entre los discos de un juego.

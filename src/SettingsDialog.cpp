@@ -13,6 +13,7 @@
 #include <QStackedWidget>
 #include <QVBoxLayout>
 
+#include "AchievementsPage.h"
 #include "ControllersPage.h"
 #include "DisplayPage.h"
 #include "EmulationPage.h"
@@ -37,7 +38,7 @@ QWidget* scrolled(QWidget* page, QWidget* parent)
 }
 
 SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, const AppSettings& settings, InputGroup initialGroup,
-                               Page initialPage, QWidget* parent)
+                               Page initialPage, Achievements* achievements, QWidget* parent)
     : QDialog(parent)
     , m_settings(settings)
     , m_pages(new QListWidget(this))
@@ -49,6 +50,7 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, c
     , m_controllers(new ControllersPage(input, config, initialGroup, this))
     , m_shortcuts(new ShortcutsPage(input, settings, this))
     , m_files(new FilesPage(settings, this))
+    , m_achievementsPage(new AchievementsPage(settings, achievements, this))
 {
     setWindowTitle("Settings");
     const QRect screen = QGuiApplication::primaryScreen()->availableGeometry();
@@ -60,9 +62,9 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, c
     m_pages->setFont(font);
     // Same order as the stack below and as the Page enum.
     m_pages->setObjectName("panelList");
-    const char* const pageNames[] = {"General", "Display", "Sound", "Emulation", "Controllers", "Shortcuts", "Files"};
-    const char* const pageIcons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders"};
-    for (int page = 0; page < 7; ++page)
+    const char* const pageNames[] = {"General", "Display", "Sound", "Emulation", "Controllers", "Shortcuts", "Files", "Achievements"};
+    const char* const pageIcons[] = {"settings", "display", "sound", "emulation", "joypad", "keyboard", "folders", "achievements"};
+    for (int page = 0; page < 8; ++page)
         m_pages->addItem(new QListWidgetItem(themedIcon(pageIcons[page]), pageNames[page]));
 
     m_stack->addWidget(scrolled(m_general, this));
@@ -72,6 +74,7 @@ SettingsDialog::SettingsDialog(InputManager& input, const InputConfig& config, c
     m_stack->addWidget(m_controllers);
     m_stack->addWidget(m_shortcuts);
     m_stack->addWidget(scrolled(m_files, this));
+    m_stack->addWidget(scrolled(m_achievementsPage, this));
     connect(m_pages, &QListWidget::currentRowChanged, m_stack, &QStackedWidget::setCurrentIndex);
     m_pages->setCurrentRow(initialPage);
 
@@ -106,6 +109,7 @@ AppSettings SettingsDialog::appSettings() const
     m_emulation->applyTo(settings);
     m_shortcuts->applyTo(settings);
     m_files->applyTo(settings);
+    m_achievementsPage->applyTo(settings);
     return settings;
 }
 
@@ -119,6 +123,7 @@ void SettingsDialog::restoreCurrentPageDefaults()
     case Controllers: m_controllers->restoreDefaults(); break;
     case Shortcuts: m_shortcuts->restoreDefaults(); break;
     case Files: m_files->restoreDefaults(); break;
+    case RetroAchievements: m_achievementsPage->restoreDefaults(); break;
     }
 }
 
@@ -138,6 +143,8 @@ void SettingsDialog::showCurrentPageHelp()
         ("Click a binding cell and press a key (with its modifiers) or a gamepad input. Esc clears the cell. A binding used by "
          "more than one shortcut is highlighted but still works. Reset to Default writes the defaults into one binding column."),
         "Where saves, states, screenshots and BIOS files are kept. Changes apply the next time a game opens.",
+        "Sign in with a RetroAchievements account to track the achievements of the game you play. Only casual mode is offered; "
+        "games with a patch applied have no achievements.",
     };
     const int index = m_stack->currentIndex();
     QMessageBox::information(this, m_pages->item(index)->text(), texts[index]);
