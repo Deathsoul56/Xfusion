@@ -411,7 +411,7 @@ sin duplicados innecesarios.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [x] Implementar selección manual de core y reglas de compatibilidad por juego.
   *(ADR-0023 y ADR-0024: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System); el core se elige por sistema en Options > Emulation > Cores y por juego con clic derecho > Core; ambas elecciones se recuerdan por huella y solo valen si el core sabe jugar el sistema.)*
-- [ ] Revisar regiones y detección automática; permitir corrección manual cuando
+- [x] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
   *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); la corrección por juego esté en la biblioteca (clic derecho > Region, 2026-11-25); la región de los `.chd` ya se lee, ADR-0029.)*
 

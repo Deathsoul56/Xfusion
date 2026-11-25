@@ -66,6 +66,8 @@ intentas cargarlo con otro.
 
 ## Empezar
 
+Descomprime el `.zip` en una carpeta cualquiera y abre `xfusion.exe`: no hay instalador ni hace falta ser administrador. Windows 10 u 11 de 64 bits. El ejecutable no está firmado, así que SmartScreen puede avisar la primera vez (*Más información > Ejecutar de todos modos*). Sin cores instalados, la primera vez Xfusion lo dice y ofrece abrir *Manage Cores*. El resumen de qué soporta cada sistema, el firmware y lo comprobado está en [`docs/compatibilidad.md`](docs/compatibilidad.md).
+
 1. **Cores.** Desde *Options > Emulation > Manage Cores...* puedes descargar la última versión de cada core del buildbot de
    libretro; se guardan por versión en `cores\<core>\<versión>\` y puedes volver a una anterior o borrarla. También sirve
    colocar `genesis_plus_gx_libretro.dll` y `picodrive_libretro.dll` en `cores\` junto al ejecutable: los scripts `scripts\setup-genesis-plus-gx.ps1` y `scripts\setup-picodrive.ps1` los clonan, compilan e
@@ -92,7 +94,7 @@ que también permite buscar el parche junto a cada juego. Los discos de Sega CD 
 
 ## Carpetas
 
-Por defecto todo vive junto al ejecutable (o en la carpeta de la variable de entorno `XFUSION_DATA_DIR`):
+Por defecto todo vive junto al ejecutable (o en la carpeta de la variable de entorno `XFUSION_DATA_DIR`); si esa carpeta no se puede escribir (por ejemplo `Program Files`), en `%LOCALAPPDATA%\Xfusion`:
 
 ```text
 xfusion.exe
@@ -145,6 +147,8 @@ El ejecutable es **uno solo**: Qt, SDL3 y la runtime de C++ van enlazados de for
 sistema. Con `-DXFUSION_STATIC=OFF` se usan las DLL compartidas y `cmake --install build --prefix <carpeta>` las reúne
 junto al ejecutable. Los cores siguen siendo DLL externas.
 
+Para hacer el paquete (compila desde cero, pasa las pruebas y deja `dist\Xfusion-<versión>-win64.zip` con su SHA-256): `scripts\package.ps1`.
+
 Pruebas (no necesitan juegos ni cores):
 
 ```powershell
@@ -158,6 +162,7 @@ $env:QT_QPA_PLATFORM = 'offscreen'
 ## Documentación
 
 - [`frontend_sega_multiemulador.md`](frontend_sega_multiemulador.md): plan del proyecto, fases y estado.
+- [`docs/compatibilidad.md`](docs/compatibilidad.md): sistemas, formatos, firmware y qué está comprobado.
 - [`docs/sega-cd.md`](docs/sega-cd.md): Sega CD en detalle (formatos, BIOS, audio, saves, limitaciones).
 - [`docs/adr/`](docs/adr): las decisiones de diseño, una por archivo.
 - [`docs/porting-ledger.md`](docs/porting-ledger.md): qué se tomó de snes9xrd y cómo.
