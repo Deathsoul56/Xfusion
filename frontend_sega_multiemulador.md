@@ -214,9 +214,8 @@ del core y definir cómo se presentan en la interfaz.
 
 - [x] Confirmar el alcance de la primera versión y priorizar Windows como
   plataforma inicial.
-- [ ] Seleccionar versiones candidatas de Qt, SDL3 y los cores; registrar sus
-  licencias y condiciones de redistribución. *(Parcial: Qt 6.11, SDL 3.4 y
-  PicoDrive 2.04 fijado al commit `26ecb2b`; licencias por revisar, ver 10.3.)*
+- [x] Seleccionar versiones candidatas de Qt, SDL3 y los cores; registrar sus
+  licencias y condiciones de redistribución. *(Qt 6.11 y SDL 3.4 de MSYS2; PicoDrive 2.04 fijado al commit `26ecb2b`; Genesis Plus GX 1.7.4 (`099c962`); licencias en `THIRD_PARTY_NOTICES.md` y ADR-0006.)*
 - [x] Probar la carga dinámica de un core en un proceso host mínimo.
 - [x] Probar video, audio, entrada, pausa y cierre con una ROM de prueba
   obtenida legalmente. *(Verificado con una ROM propia generada para la prueba;
@@ -227,8 +226,8 @@ del core y definir cómo se presentan en la interfaz.
   implementa renderizado por hardware.)*
 - [x] Acordar estructura de datos del usuario y estrategia de logs y errores.
   *(Ver 10.2; los logs del core van a stderr.)*
-- [ ] Validar la fuente de actualización de cores (buildbot de libretro): URL,
-  formato, hashes disponibles y licencias de redistribución.
+- [x] Validar la fuente de actualización de cores (buildbot de libretro): URL,
+  formato, hashes disponibles y licencias de redistribución. *(ADR-0027: solo ofrece el último build, sin hashes; se guarda el SHA-256 al descargar.)*
 
 **Salida:** una decisión de arquitectura respaldada por un prototipo ejecutable,
 con dependencias y límites documentados. No iniciar la biblioteca ni funciones
@@ -316,8 +315,7 @@ que Xfusion y `snes9xrd` sean gemelos:
 - [x] Velocidad: avance rápido (10×), Speed Up/Down, frame skip, Frame Advance y
   métodos de sincronización.
 - [x] Pausa al perder el foco, al minimizar y mientras hay diálogos de archivo.
-- [ ] Pendiente: Achievements (posterior), renderizado por GPU y shaders, ajustes
-  por sistema, y probar con dos mandos físicos.
+- [ ] Pendiente: renderizado por GPU y shaders, ajustes por sistema, y probar con dos mandos físicos (RetroAchievements ya está, Fase 7).
 
 ### Fase 3 — Persistencia y estados
 
@@ -378,10 +376,10 @@ real de Game Gear:
 ### Fase 4 - Biblioteca y metadatos
 
 - [x] Escanear rutas configuradas sin bloquear la interfaz.
-- [ ] Identificar sistema y core sugerido, permitiendo corregir la selección.
+- [x] Identificar sistema y core sugerido, permitiendo corregir la selección.
   *(Parcial: el sistema se identifica por la extensión o por el contenido del
   zip y se muestra en la lista; el core es uno solo (ADR-0007), así que la
-  corrección manual de sistema/core llega con la Fase 5.)*
+  corrección manual de sistema/core llega con la Fase 5; hecha, ADR-0023/0024.)*
 - [x] Añadir búsqueda, filtros, orden, último acceso y tiempo de juego.
 - [x] Guardar los datos de biblioteca sin modificar ni mover ROMs del usuario.
 - [x] Tratar archivos repetidos, rutas inválidas y juegos retirados del escaneo.
@@ -421,13 +419,16 @@ solo porque el core lo anuncie.
 
 ### Fase 6 — Estabilización y primera distribución
 
-- [ ] Probar instalación limpia, actualización, rutas con caracteres no ASCII y
-  ejecución sin permisos de administrador.
-- [ ] Verificar guardado de configuración, SRAM y estados en rutas de usuario.
-- [ ] Comprobar empaquetado, dependencias, avisos de licencia y configuración
+- [x] Probar instalación limpia, rutas con caracteres no ASCII y ejecución sin permisos de administrador.
+  *(ADR-0030, 2026-11-25: copia limpia en una carpeta con `í`, `á` y japonés: arranca sin cores, descarga ambos, juega y guarda; con la carpeta sin escritura usa `%LOCALAPPDATA%\Xfusion`. La actualización del propio frontend no existe todavía: se reemplaza el `.exe`; los datos no se tocan.)*
+- [x] Verificar guardado de configuración, SRAM y estados en rutas de usuario.
+  *(Comprobado en la carpeta de datos junto al ejecutable y en el perfil del usuario; ver el punto anterior.)*
+- [x] Comprobar empaquetado, dependencias, avisos de licencia y configuración
   inicial.
-- [ ] Publicar lista de cores/funciones soportados, limitaciones conocidas y
+  *(`scripts/package.ps1`: dos construcciones desde cero dan el mismo zip y el mismo `.exe`; el ejecutable solo importa DLL del sistema; el paquete lleva `LICENSE` y `THIRD_PARTY_NOTICES.md`; los cores no van dentro, ADR-0006.)*
+- [x] Publicar lista de cores/funciones soportados, limitaciones conocidas y
   guía para firmware.
+  *(`docs/compatibilidad.md` y la sección *Limitaciones conocidas* del README.)*
 
 **Salida:** paquete reproducible, instrucciones de instalación y lista de
 compatibilidad verificadas.
