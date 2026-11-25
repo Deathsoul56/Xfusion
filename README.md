@@ -16,6 +16,27 @@ atajos y los mismos ajustes, para un hardware distinto.
 
 Los juegos también pueden estar en `.zip`. Saturn, Dreamcast y los sistemas posteriores quedan fuera del proyecto.
 
+## Capturas
+
+<table>
+  <tr>
+    <td><img src="docs/screenshots/genesis.png" alt="Sonic the Hedgehog en Genesis" width="480"><br><sub>Genesis: imagen ajustada a la ventana</sub></td>
+    <td><img src="docs/screenshots/crt.png" alt="Streets of Rage 2 con el shader CRT" width="480"><br><sub>Shader CRT de la GPU</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/sega-cd.png" alt="Final Fight CD en Sega CD" width="480"><br><sub>Sega CD con una imagen <code>.chd</code></sub></td>
+    <td><img src="docs/screenshots/32x.png" alt="After Burner Complete en 32X" width="480"><br><sub>32X (PicoDrive)</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/game-gear-lcd.png" alt="Sonic Chaos en Game Gear con la rejilla LCD" width="480"><br><sub>Game Gear con la rejilla LCD</sub></td>
+    <td><img src="docs/screenshots/library.png" alt="La biblioteca de juegos" width="480"><br><sub>Biblioteca de juegos</sub></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/controllers.png" alt="Configuración de controles" width="480"><br><sub>Controles: mando de 3 o 6 botones, cuatro bindings por botón</sub></td>
+    <td><img src="docs/screenshots/settings.png" alt="Ajustes de imagen" width="480"><br><sub>Ajustes de imagen (globales o por sistema)</sub></td>
+  </tr>
+</table>
+
 ## Qué trae
 
 - **Biblioteca de juegos** con búsqueda (escribe directamente en la lista), filtro por sistema, región, tamaño, tiempo
