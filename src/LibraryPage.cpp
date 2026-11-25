@@ -32,47 +32,96 @@ namespace {
 
 QString sizeText(qint64 bytes)
 {
-    if (bytes >= 1024 * 1024)
-        return QString("%1 MB").arg(double(bytes) / 1048576.0, 0, 'f', 1);
-    return QString("%1 KB").arg((bytes + 1023) / 1024);
+    if (bytes < 1024)
+        return QString("%1 B").arg(bytes);
+    if (bytes < 1024 * 1024)
+        return QString("%1 KB").arg(double(bytes) / 1024.0, 0, 'f', 1);
+    return QString("%1 MB").arg(double(bytes) / 1048576.0, 0, 'f', 2);
 }
 
+// The words snes9xrd uses: "30 second(s)", "11 minute(s)", "2 hour(s) 5 minute(s)", and "Never" for a game not played.
 QString playtimeText(qint64 ms)
 {
     if (ms <= 0)
-        return {};
-    const qint64 minutes = ms / 60000;
-    if (minutes >= 60)
-        return QString("%1h %2m").arg(minutes / 60).arg(minutes % 60, 2, 10, QChar('0'));
-    return minutes > 0 ? QString("%1m").arg(minutes) : QString("<1m");
+        return QString("Never");
+    const qint64 seconds = ms / 1000;
+    if (seconds < 60)
+        return QString("%1 second(s)").arg(seconds);
+    const qint64 minutes = seconds / 60;
+    if (minutes < 60)
+        return QString("%1 minute(s)").arg(minutes);
+    return QString("%1 hour(s) %2 minute(s)").arg(minutes / 60).arg(minutes % 60);
 }
 
 QString lastPlayedText(qint64 ms)
 {
-    return ms > 0 ? QDateTime::fromMSecsSinceEpoch(ms).toString("yyyy-MM-dd hh:mm") : QString("Never");
+    return ms > 0 ? QDateTime::fromMSecsSinceEpoch(ms).toString("dd-MM-yyyy") : QString("Never");
 }
 
-// A table that Enter opens a game from, as a double-click does, and whose last column takes the width that is left.
+// What a file is called in the list: its name with the extension, as snes9xrd shows it; a game on several discs is
+// shown once, under the name of the whole game.
+QString fileTitle(const LibraryEntry& entry)
+{
+    return entry.otherDiscs.isEmpty() ? QFileInfo(entry.path).fileName() : entry.name;
+}
+
+// A table that Enter opens a game from, as a double-click does, and that shares the width of the window among its
+// visible columns, as the game list of snes9xrd does.
 class GameTable : public QTableView {
 public:
     std::function<void(const QModelIndex&)> activate;
 
-    void fitLastColumn()
+    void setDefaultWidths(const QMap<int, int>& widths) { m_defaults = widths; }
+
+    // Always from the default widths, never from the current ones: hiding a column and showing it again would
+    // otherwise pile its share on top of what the others already took.
+    void redistributeColumnSpace()
     {
-        if (isColumnHidden(LibraryModel::Location))
+        QVector<int> visible;
+        int total = 0;
+        for (int column = 0; column < LibraryModel::ColumnCount; ++column) {
+            if (isColumnHidden(column))
+                continue;
+            visible.append(column);
+            total += m_defaults.value(column, 100);
+        }
+        if (visible.isEmpty())
             return;
-        int used = 0;
-        for (int column = 0; column < LibraryModel::Location; ++column)
-            if (!isColumnHidden(column))
-                used += columnWidth(column);
-        setColumnWidth(LibraryModel::Location, std::max(160, viewport()->width() - used));
+        const int extra = viewport()->width() - total;
+        // Room to spare is shared equally. When the window is narrower than the defaults the two columns of names
+        // give way first (down to a floor), and if that is not enough the others shrink in proportion to their width.
+        constexpr int kNamesFloor = 150;
+        const auto isName = [](int column) { return column == LibraryModel::FileTitle || column == LibraryModel::TitleColumn; };
+        int othersBase = 0, nameRoom = 0;
+        for (const int column : visible) {
+            const int base = m_defaults.value(column, 100);
+            if (isName(column))
+                nameRoom += std::max(base - kNamesFloor, 0);
+            else
+                othersBase += base;
+        }
+        const int deficit = -extra;
+        const int namesGive = std::min(deficit, nameRoom);
+        const double othersScale = othersBase > 0 && deficit > nameRoom ? std::max(0.0, 1.0 - double(deficit - nameRoom) / othersBase) : 1.0;
+        for (int i = 0; i < visible.size(); ++i) {
+            const int column = visible[i];
+            const int base = m_defaults.value(column, 100);
+            int width = base;
+            if (extra >= 0)
+                width += extra / visible.size() + (i == visible.size() - 1 ? extra % visible.size() : 0);
+            else if (isName(column))
+                width = base - (nameRoom > 0 ? int(qint64(namesGive) * std::max(base - kNamesFloor, 0) / nameRoom) : 0);
+            else
+                width = int(base * othersScale);
+            setColumnWidth(column, std::max(width, std::max(horizontalHeader()->minimumSectionSize(), 60)));
+        }
     }
 
 protected:
     void resizeEvent(QResizeEvent* event) override
     {
         QTableView::resizeEvent(event);
-        fitLastColumn();
+        redistributeColumnSpace();
     }
 
     // Typing selects the game whose name starts with what was typed (the letters of the last second), whichever
@@ -94,7 +143,7 @@ protected:
         const int first = current < 0 ? 0 : (sameLetter ? current + 1 : current);
         for (int step = 0; step < rows; ++step) {
             const int row = (first + step) % rows;
-            const QModelIndex name = model()->index(row, LibraryModel::Name);
+            const QModelIndex name = model()->index(row, LibraryModel::FileTitle);
             if (model()->data(name).toString().startsWith(needle, Qt::CaseInsensitive)) {
                 setCurrentIndex(name);
                 scrollTo(name);
@@ -113,6 +162,7 @@ protected:
     }
 
 private:
+    QMap<int, int> m_defaults;
     QString m_typed;
     QElapsedTimer m_typedClock;
 };
@@ -131,13 +181,15 @@ QVariant LibraryModel::data(const QModelIndex& index, int role) const
         return static_cast<int>(entry->system);
     if (role == SortRole) {
         switch (index.column()) {
-        case Name: return entry->name.toLower();
+        case FileTitle: return fileTitle(*entry).toLower();
+        case TitleColumn: return entry->title.toLower();
         case SystemColumn: return systemDef(entry->system).folder;
         case RegionColumn: return entry->region;
         case Size: return entry->size;
+        case Company: return entry->company.toLower();
         case TimePlayed: return stats.playtimeMs;
         case LastPlayed: return stats.lastPlayedMs;
-        default: return QDir::toNativeSeparators(entry->path).toLower();
+        default: return entry->serial.toLower();
         }
     }
     if (role == Qt::ToolTipRole) {
@@ -152,20 +204,20 @@ QVariant LibraryModel::data(const QModelIndex& index, int role) const
             text += "\nAlso found at " + QDir::toNativeSeparators(other);
         return text;
     }
-    if (role == Qt::ForegroundRole && !entry->problem.isEmpty() && index.column() == Name)
+    if (role == Qt::ForegroundRole && !entry->problem.isEmpty() && index.column() == FileTitle)
         return QColor(Qt::darkYellow);
-    if (role == Qt::TextAlignmentRole && (index.column() == Size || index.column() == TimePlayed))
-        return int(Qt::AlignRight | Qt::AlignVCenter);
     if (role != Qt::DisplayRole)
         return {};
     switch (index.column()) {
-    case Name: return entry->name;
+    case FileTitle: return fileTitle(*entry);
+    case TitleColumn: return entry->title;
     case SystemColumn: return entry->systemSet ? systemDef(entry->system).folder + " (set)" : systemDef(entry->system).folder;
     case RegionColumn: return entry->region;
     case Size: return sizeText(entry->size);
+    case Company: return entry->company;
     case TimePlayed: return playtimeText(stats.playtimeMs);
     case LastPlayed: return lastPlayedText(stats.lastPlayedMs);
-    default: return QDir::toNativeSeparators(QFileInfo(entry->path).absolutePath());
+    default: return entry->serial;
     }
 }
 
@@ -173,7 +225,7 @@ QVariant LibraryModel::headerData(int section, Qt::Orientation orientation, int 
 {
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
         return {};
-    static const char* const titles[] = {"Name", "System", "Region", "Size", "Time Played", "Last Played", "Folder"};
+    static const char* const titles[] = {"File Title", "Title", "System", "Region", "Size", "Company", "Time Played", "Last Played", "Serial"};
     return section >= 0 && section < ColumnCount ? QVariant(titles[section]) : QVariant();
 }
 
@@ -208,7 +260,7 @@ void LibraryProxy::setFilter(const QString& text, int system)
 
 bool LibraryProxy::filterAcceptsRow(int row, const QModelIndex& parent) const
 {
-    const QModelIndex name = sourceModel()->index(row, LibraryModel::Name, parent);
+    const QModelIndex name = sourceModel()->index(row, LibraryModel::FileTitle, parent);
     if (m_system >= 0 && sourceModel()->data(name, LibraryModel::SystemRole).toInt() != m_system)
         return false;
     return m_text.isEmpty() || sourceModel()->data(name, Qt::DisplayRole).toString().contains(m_text, Qt::CaseInsensitive);
@@ -291,13 +343,14 @@ LibraryPage::LibraryPage(QWidget* parent)
     columns->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     columns->setSectionResizeMode(QHeaderView::Interactive);
     columns->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_table->setColumnWidth(LibraryModel::Name, 320);
-    m_table->setColumnWidth(LibraryModel::SystemColumn, 110);
-    m_table->setColumnWidth(LibraryModel::RegionColumn, 115);
-    m_table->setColumnWidth(LibraryModel::Size, 80);
-    m_table->setColumnWidth(LibraryModel::TimePlayed, 100);
-    m_table->setColumnWidth(LibraryModel::LastPlayed, 140);
-    m_table->sortByColumn(LibraryModel::Name, Qt::AscendingOrder);
+    // The widths of snes9xrd, with the system and a wider region (ours are longer); whatever the window has beyond them is shared out.
+    const QMap<int, int> widths{{LibraryModel::FileTitle, 500}, {LibraryModel::TitleColumn, 350}, {LibraryModel::SystemColumn, 130}, {LibraryModel::RegionColumn, 120},
+                                {LibraryModel::Size, 95}, {LibraryModel::Company, 140}, {LibraryModel::TimePlayed, 110}, {LibraryModel::LastPlayed, 110},
+                                {LibraryModel::Serial, 100}};
+    static_cast<GameTable*>(m_table)->setDefaultWidths(widths);
+    for (auto it = widths.begin(); it != widths.end(); ++it)
+        m_table->setColumnWidth(it.key(), it.value());
+    m_table->sortByColumn(LibraryModel::FileTitle, Qt::AscendingOrder);
 
     m_stack->addWidget(empty);
     m_stack->addWidget(m_table);
@@ -320,7 +373,7 @@ LibraryPage::LibraryPage(QWidget* parent)
             action->setChecked(!m_table->isColumnHidden(column));
             connect(action, &QAction::toggled, this, [this, column](bool shown) {
                 m_table->setColumnHidden(column, !shown);
-                static_cast<GameTable*>(m_table)->fitLastColumn();
+                static_cast<GameTable*>(m_table)->redistributeColumnSpace();
             });
         }
         menu.exec(columns->mapToGlobal(position));

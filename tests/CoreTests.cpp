@@ -2,7 +2,11 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include <QCryptographicHash>
+
+#include "AchievementsConsole.h"
 #include "CoreManifest.h"
+#include "rc_hash.h"
 
 class CoreTests : public QObject {
     Q_OBJECT
@@ -73,6 +77,37 @@ private slots:
         const CoreManifest odd = CoreManifest::load(dir.path());
         QVERIFY(odd.activeVersion("picodrive").isEmpty());
         QCOMPARE(odd.versions("picodrive").size(), 1);
+    }
+
+    void everySystemHasItsRetroAchievementsConsole()
+    {
+        QCOMPARE(achievementsConsoleId(System::Genesis), 1u);
+        QCOMPARE(achievementsConsoleId(System::SegaCD), 9u);
+        QCOMPARE(achievementsConsoleId(System::Sega32X), 10u);
+        QCOMPARE(achievementsConsoleId(System::MasterSystem), 11u);
+        QCOMPARE(achievementsConsoleId(System::GameGear), 15u);
+        QCOMPARE(achievementsConsoleId(System::SG1000), 33u);
+    }
+
+    // RetroAchievements knows a cartridge by the MD5 of the whole file; the hash rcheevos makes for it is that, so a
+    // game with a patch applied is a different game for them.
+    void aCartridgeIsIdentifiedByTheMd5OfItsBytes()
+    {
+        QByteArray rom(0x20000, 0);
+        for (int i = 0; i < rom.size(); ++i)
+            rom[i] = char((i * 31 + 7) & 0xFF);
+        rom.replace(0x100, 4, "SEGA");
+        for (System system : {System::Genesis, System::Sega32X, System::MasterSystem, System::GameGear, System::SG1000}) {
+            char hash[33] = {};
+            QVERIFY(rc_hash_generate_from_buffer(hash, achievementsConsoleId(system), reinterpret_cast<const uint8_t*>(rom.constData()), size_t(rom.size())));
+            QCOMPARE(QString(hash), QString::fromLatin1(QCryptographicHash::hash(rom, QCryptographicHash::Md5).toHex()));
+        }
+        QByteArray patched = rom;
+        patched[0x4000] = char(patched[0x4000] ^ 1);
+        char a[33] = {}, b[33] = {};
+        rc_hash_generate_from_buffer(a, RC_CONSOLE_MEGA_DRIVE, reinterpret_cast<const uint8_t*>(rom.constData()), size_t(rom.size()));
+        rc_hash_generate_from_buffer(b, RC_CONSOLE_MEGA_DRIVE, reinterpret_cast<const uint8_t*>(patched.constData()), size_t(patched.size()));
+        QVERIFY(QString(a) != QString(b));
     }
 
     void versionFoldersHaveSafeNames()

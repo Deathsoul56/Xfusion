@@ -21,7 +21,8 @@ class QThread;
 class LibraryModel : public QAbstractTableModel {
     Q_OBJECT
 public:
-    enum Column { Name, SystemColumn, RegionColumn, Size, TimePlayed, LastPlayed, Location, ColumnCount };
+    // The columns of the game list of snes9xrd, with the system added: this is a frontend for several.
+    enum Column { FileTitle, TitleColumn, SystemColumn, RegionColumn, Size, Company, TimePlayed, LastPlayed, Serial, ColumnCount };
     enum Role { PathRole = Qt::UserRole + 1, SortRole, SystemRole };
 
     using QAbstractTableModel::QAbstractTableModel;

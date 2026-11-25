@@ -52,6 +52,13 @@ public:
     bool hasGame() const { return m_hasGame; }
     const AvInfo& avInfo() const { return m_av; }
     const QString& name() const { return m_name; }
+    // What the core says it is, for the user agent the server sees: "Genesis Plus GX" and "v1.7.4 4fd32ef".
+    const QString& libraryName() const { return m_libraryName; }
+    const QString& libraryVersion() const { return m_libraryVersion; }
+    // The memory the core exposes to the frontend (RetroAchievements reads it): the map the core announced with
+    // SET_MEMORY_MAPS, or null when it did not, and a region of retro_get_memory_data (RETRO_MEMORY_*).
+    const retro_memory_map* memoryMap() const { return m_hasMemoryMap ? &m_memoryMap : nullptr; }
+    bool memoryRegion(unsigned id, uint8_t** data, std::size_t* size) const;
 
     void setDirectories(const QString& systemDir, const QString& saveDir);
     void setVideoCallback(VideoCallback cb) { m_video = std::move(cb); }
@@ -111,6 +118,11 @@ private:
     bool m_hasGame = false;
     bool m_usedOnce = false;
     QString m_name;
+    QString m_libraryName;
+    QString m_libraryVersion;
+    std::vector<retro_memory_descriptor> m_memoryDescriptors; // copied: the core may reuse the array it announced
+    retro_memory_map m_memoryMap{};
+    bool m_hasMemoryMap = false;
     AvInfo m_av;
     retro_pixel_format m_format = RETRO_PIXEL_FORMAT_0RGB1555;
     QByteArray m_systemDir;

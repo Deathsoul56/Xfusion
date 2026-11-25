@@ -25,6 +25,8 @@ struct LibraryEntry {
     // The other discs of a game on several discs (Sega CD), in disc order: the entry is the first disc found and the
     // rest are not listed separately. The Disc menu changes between them while the game runs.
     QStringList otherDiscs;
+    QString company; // from the copyright of the header, when it has one
+    QString serial; // the product code of the header
 };
 
 // What is remembered about a file between scans, so that a rescan does not open every game again. `system` is -1 for
@@ -37,6 +39,8 @@ struct LibraryCachedFile {
     int system = -1;
     QString title;
     QString region;
+    QString company;
+    QString serial;
     QString problem;
     qint64 contentSize = 0; // what the game takes on disk when that is more than this file (a disc with its tracks)
 };

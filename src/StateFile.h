@@ -20,6 +20,9 @@ struct StateHeader {
     QString system;
     QDateTime created;
     qint64 rawSize = 0;
+    // What RetroAchievements had counted for the game when the state was saved (rcheevos' serialized progress), so
+    // that loading the state brings the achievements back to that point. Empty when achievements were off.
+    QByteArray achievements;
 };
 
 struct StateData {

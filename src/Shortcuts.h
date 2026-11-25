@@ -54,9 +54,11 @@ enum class ShortcutAction {
     Mute,
     VolumeDown,
     VolumeUp,
+    NextDisc, // Sega CD games on several discs (ADR-0026); no key by default, as in DuckStation
+    PreviousDisc,
 };
 
-constexpr int kShortcutCount = static_cast<int>(ShortcutAction::VolumeUp) + 1;
+constexpr int kShortcutCount = static_cast<int>(ShortcutAction::PreviousDisc) + 1;
 constexpr int kQuickSlots = 10;
 
 constexpr ShortcutAction quickSaveAction(int slot) { return static_cast<ShortcutAction>(static_cast<int>(ShortcutAction::QuickSave0) + slot); }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QElapsedTimer>
+#include <QImage>
 #include <QStringList>
 #include <QTimer>
 #include <QWidget>
@@ -30,7 +31,9 @@ public:
 
     void setOptions(const Options& options);
     // The message list and its texts, newest last; for tests and the status bar.
-    void post(const QString& text);
+    // `durationMs` of 0 is the usual time a message stays.
+    // `icon`, when it is not null, is drawn at the left of the message (the badge of an achievement).
+    void post(const QString& text, int durationMs = 0, const QImage& icon = QImage());
 
     void setFps(double fps);
     void setIndicators(bool paused, bool fastForward, bool rewinding);
@@ -43,10 +46,12 @@ private:
     struct Message {
         QString text;
         QElapsedTimer age;
+        int lifeMs = 0;
+        QImage icon;
     };
 
     void expire();
-    void drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom);
+    void drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom, const QImage& icon = QImage());
 
     Options m_options;
     std::deque<Message> m_messages;

@@ -125,6 +125,20 @@ QJsonObject AppSettings::toJson() const
                      {"bios", folderToJson(biosFolder)},
                      {"patches", folderToJson(patchFolder)},
                      {"library_folders", QJsonArray::fromStringList(libraryFolders)}}},
+        {"achievements",
+         QJsonObject{{"enabled", achievements.enabled},
+                     {"username", achievements.username},
+                     {"token", achievements.token},
+                     {"spectator", achievements.spectator},
+                     {"encore", achievements.encore},
+                     {"unofficial", achievements.unofficial},
+                     {"notifications", achievements.notifications},
+                     {"leaderboard_notifications", achievements.leaderboardNotifications},
+                     {"leaderboard_trackers", achievements.leaderboardTrackers},
+                     {"progress_indicators", achievements.progressIndicators},
+                     {"challenge_indicators", achievements.challengeIndicators},
+                     {"duration_seconds", achievements.durationSeconds},
+                     {"unlock_sound", achievements.unlockSound}}},
         {"shortcuts", shortcuts.toJson()},
     };
 }
@@ -226,6 +240,25 @@ AppSettings AppSettings::fromJson(const QJsonObject& object, QString* error)
     for (const QJsonValue folder : files.value("library_folders").toArray())
         if (folder.isString() && !folder.toString().isEmpty() && !s.libraryFolders.contains(folder.toString()))
             s.libraryFolders << folder.toString();
+
+    const QJsonObject achievements = object.value("achievements").toObject();
+    AchievementsSettings& a = s.achievements;
+    a.enabled = achievements.value("enabled").toBool(a.enabled);
+    a.username = achievements.value("username").toString();
+    a.token = achievements.value("token").toString();
+    a.spectator = achievements.value("spectator").toBool(a.spectator);
+    a.encore = achievements.value("encore").toBool(a.encore);
+    a.unofficial = achievements.value("unofficial").toBool(a.unofficial);
+    a.notifications = achievements.value("notifications").toBool(a.notifications);
+    a.leaderboardNotifications = achievements.value("leaderboard_notifications").toBool(a.leaderboardNotifications);
+    a.leaderboardTrackers = achievements.value("leaderboard_trackers").toBool(a.leaderboardTrackers);
+    a.progressIndicators = achievements.value("progress_indicators").toBool(a.progressIndicators);
+    a.challengeIndicators = achievements.value("challenge_indicators").toBool(a.challengeIndicators);
+    a.durationSeconds = std::clamp(achievements.value("duration_seconds").toInt(a.durationSeconds), 1, 30);
+    a.unlockSound = achievements.value("unlock_sound").toBool(a.unlockSound);
+    // A saved account needs both halves.
+    if (a.username.isEmpty() || a.token.isEmpty())
+        a.username.clear(), a.token.clear();
 
     s.shortcuts = ShortcutMap::fromJson(object.value("shortcuts").toObject());
     return s;

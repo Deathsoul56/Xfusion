@@ -1,5 +1,9 @@
 #include "DiscInfo.h"
 
+#include <memory>
+
+#include "ChdDisc.h"
+
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -199,10 +203,29 @@ DiscInfo readDisc(const QString& path)
     DiscInfo info;
     if (ext == "chd") {
         QFile file(path);
-        if (file.open(QIODevice::ReadOnly) && file.read(8) == "MComprHD") {
+        if (!file.open(QIODevice::ReadOnly) || file.read(8) != "MComprHD")
+            return info;
+        info.dataFile = path;
+        info.totalSize = file.size();
+        file.close();
+        // libchdr reads the first sector of the first data track, like for any other disc.
+        QString error;
+        const std::unique_ptr<ChdDisc> disc = ChdDisc::open(path, &error);
+        const ChdDisc::Track* data = disc ? disc->firstDataTrack() : nullptr;
+        if (!data) {
+            // A CHD that libchdr cannot read (or one with no data track): taken as a Sega CD, as before, and left to the core.
             info.isSegaCd = true;
             info.format = "CHD (not inspected)";
-            info.dataFile = path;
+            return info;
+        }
+        for (const ChdDisc::Track& track : disc->tracks())
+            ++(track.audio ? info.audioTracks : info.dataTracks);
+        const QByteArray sector = disc->readTrack(*data, 0, 2048);
+        if (sector.startsWith(kSignature)) {
+            info.isSegaCd = true;
+            info.format = "CHD";
+            info.volume = QString::fromLatin1(sector.mid(0x10, 11)).simplified();
+            info.header = parseMegaDriveHeader(sector.mid(0x100, 0x100));
         }
         return info;
     }

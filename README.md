@@ -27,6 +27,7 @@ Los juegos también pueden estar en `.zip`. Saturn, Dreamcast y los sistemas pos
   lo mantienes), cámara lenta, avance de un fotograma, capturas de pantalla.
 - **22 filtros gráficos** de software (xBRZ, HQx, 2xSaI, EPX, NTSC, scanlines...) y 22 temas de color.
 - **Parches IPS, BPS y UPS** aplicados al abrir el juego, sin tocar el original.
+- **RetroAchievements** (modo casual): inicia sesión con tu cuenta en *Options > Achievements*, con avisos de logros en pantalla y la lista de logros del juego. Los seis sistemas tienen logros en RetroAchievements.
 - **Saves por sistema**: la SRAM y los estados de cada juego viven en carpetas separadas, y no se pisan aunque dos
   sistemas tengan juegos con el mismo nombre.
 - **Todo junto al ejecutable**: la carpeta del programa se puede mover o borrar como un solo bloque.
@@ -79,7 +80,7 @@ intentas cargarlo con otro.
 
 ### Juegos de Sega CD en varios discos
 
-Pon los discos en la misma carpeta con el nombre de Redump (`Juego (USA) (Disc 1).chd`, `Juego (USA) (Disc 2).chd`, también `.cue` o `.iso`). Al abrir uno, el menú *Emulation > Disc* cambia de disco mientras juegas, como abrir la bandeja de la consola. Los discos de un mismo juego deben tener el mismo formato (más en *Limitaciones conocidas*).
+Pon los discos en la misma carpeta con el nombre de Redump (`Juego (USA) (Disc 1).chd`, `Juego (USA) (Disc 2).chd`, también `.cue` o `.iso`). Al abrir uno, el menú *Emulation > Disc* cambia de disco mientras juegas, como abrir la bandeja de la consola (disco siguiente o anterior, también con atajos que puedes asignar en *Options > Shortcuts*, o un disco de cualquier archivo con *Insert Disc From File...*). Los discos de un mismo juego deben tener el mismo formato (más en *Limitaciones conocidas*).
 
 ## Parches
 
@@ -113,16 +114,15 @@ SRAM, estados, capturas, BIOS y parches se pueden mover a otra carpeta, o junto 
   - Los estados guardados son del disco con el que abriste el juego; no se comparten entre discos. La RAM de respaldo sí es común.
   - La biblioteca los junta en una entrada (`Juego [2 discs]`) que abre el disco 1.
   - Solo se emparejan discos de la misma carpeta, con la misma extensión y el nombre de Redump (`(Disc N)`); hasta 4 discos.
-  - No hay atajo de teclado para cambiar de disco.
   - Solo se ha probado con Dracula Unleashed (el cambio del disco 2 al 1); no se ha jugado una partida entera pasando de un disco a otro.
 - **Discos de Sega CD con pistas `.mp3`:** sin música con Genesis Plus GX (ver arriba).
 - **Parches:** los discos de Sega CD no se parchean.
 - **Estados guardados:** no se comparten entre cores ni entre los discos de un mismo juego.
 - **Opciones de core:** llegan al core cuando abres un juego, no en caliente.
-- **Región:** se fuerza para todo un core, no por juego; la región de los `.chd` no se lee (la biblioteca no la muestra y no se avisa de un BIOS ausente antes de cargar).
+- **Región:** se fuerza para todo un core, no por juego; el aviso de un BIOS ausente antes de cargar todavía no mira la región de los `.chd` (la biblioteca sí la muestra).
 - **Mensaje de inicio:** la suma de comprobación solo se calcula para Mega Drive y 32X.
 - **Gestión de cores:** el buildbot de libretro solo ofrece el último build, así que solo se pueden tener las versiones que instalaste antes; la búsqueda de actualizaciones es manual, no hay firmas que comprobar (solo HTTPS y el SHA-256 que se guarda) y la descarga solo está probada en Windows.
-- **RetroAchievements:** no está integrado. Es viable en modo casual, pero el hardcore exige la aprobación de RetroAchievements y la prueba completa necesita una cuenta; el análisis y las decisiones pendientes están en la Fase 7 de `frontend_sega_multiemulador.md`.
+- **RetroAchievements:** solo modo casual (el hardcore exige que RetroAchievements apruebe el emulador y queda para el futuro); los juegos parcheados no tienen logros; el progreso parcial de un logro se pierde al reiniciar (al cargar un estado se recupera). El análisis está en la Fase 7 de `frontend_sega_multiemulador.md`.
 - **Plataformas:** solo se ha probado en Windows.
 ## Compilar
 

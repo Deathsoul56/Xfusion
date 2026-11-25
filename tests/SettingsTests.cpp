@@ -2,6 +2,7 @@
 #include <QTemporaryDir>
 #include <QtTest>
 
+#include "AchievementsToken.h"
 #include "AppSettings.h"
 #include "DisplayLayout.h"
 #include "RewindBuffer.h"
@@ -160,6 +161,42 @@ private slots:
         const AppSettings loaded = AppSettings::fromJson(json);
         QCOMPARE(loaded.coreOptions.size(), 1);
         QCOMPARE(loaded.coreOptions.value("genesis_plus_gx"), (QMap<QString, QString>{{"genesis_plus_gx_lcd_filter", "enabled"}}));
+    }
+
+    void achievementsSettingsRoundTripAndAnAccountNeedsBothHalves()
+    {
+        AppSettings s;
+        s.achievements.enabled = true;
+        s.achievements.username = "someone";
+        s.achievements.token = "sealed";
+        s.achievements.encore = true;
+        s.achievements.durationSeconds = 9;
+        s.achievements.leaderboardTrackers = false;
+        QCOMPARE(AppSettings::fromJson(s.toJson()).achievements, s.achievements);
+
+        // A name without a token (or the other way round) is no account; the duration stays in range.
+        QJsonObject json = s.toJson();
+        QJsonObject a = json["achievements"].toObject();
+        a["token"] = "";
+        a["duration_seconds"] = 500;
+        json["achievements"] = a;
+        const AppSettings loaded = AppSettings::fromJson(json);
+        QVERIFY(loaded.achievements.username.isEmpty() && loaded.achievements.token.isEmpty());
+        QCOMPARE(loaded.achievements.durationSeconds, 30);
+        QVERIFY(!AppSettings().achievements.enabled); // off until the user turns it on
+    }
+
+    void aSavedTokenIsNotThePlainTextAndOnlyOpensForItsAccount()
+    {
+        const QString sealed = encryptToken("someone", "0123456789abcdef");
+        QVERIFY(!sealed.isEmpty());
+        QVERIFY(!sealed.contains("0123456789abcdef"));
+        QCOMPARE(decryptToken("someone", sealed), QString("0123456789abcdef"));
+        QVERIFY(decryptToken("another", sealed) != "0123456789abcdef"); // the key depends on the account
+        QVERIFY(decryptToken("someone", "not base64 at all !!").isEmpty());
+        QVERIFY(decryptToken("someone", QString()).isEmpty());
+        // A new random start each time: the same token never seals to the same text.
+        QVERIFY(encryptToken("someone", "0123456789abcdef") != sealed);
     }
 
     void aVersionTwoFileKeepsItsThemeByName()

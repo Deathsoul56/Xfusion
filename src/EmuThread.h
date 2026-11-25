@@ -37,6 +37,9 @@ public:
 
     // Rewind keeps a snapshot every `interval` frames within `bytes` of memory (0 turns it off). Call before start().
     void setRewind(std::size_t bytes, int interval);
+    // Called on this thread after every frame the core runs forward (not while rewinding), with the core idle. Set
+    // before start(). RetroAchievements reads the memory of the game here.
+    void setFrameHook(std::function<void()> hook) { m_frameHook = std::move(hook); }
     void start();
     void stop();
     void setPaused(bool paused);
@@ -76,6 +79,7 @@ private:
     LibretroCore& m_core;
     AudioOutput* m_audio;
     InputPoller m_pollInput;
+    std::function<void()> m_frameHook;
 
     std::thread m_thread;
     std::mutex m_coreMutex;

@@ -170,7 +170,7 @@ su cuenta.
 | Ajustes de pantalla y audio | Separar ajustes globales de opciones específicas del core |
 | Estados, selección de slot y deshacer carga | Usar la serialización de libretro solo cuando el core la soporte; validar incompatibilidades entre cores/versiones |
 | Rewind | Posponer hasta medir el coste de memoria, rendimiento y serialización por core |
-| RetroAchievements y cheats | Funciones posteriores; RetroAchievements tiene su análisis en la Fase 7 (viable solo en casual, pendiente de decisión); los cheats siguen sin analizar |
+| RetroAchievements y cheats | Funciones posteriores; RetroAchievements está implementado en modo casual (Fase 7, ADR-0028); los cheats siguen sin analizar |
 | Netplay y movies | Fuera del alcance inicial; no trasladar formatos ni asumir interoperabilidad con Snes9x |
 
 Las funciones específicas de SNES (canales SPC700, Super Scope y mouse SNES,
@@ -406,14 +406,14 @@ sin duplicados innecesarios.
   *(Parcial, ADR-0022: los discos se reconocen por su primer sector (`.iso` con
   audio suelto, `.cue` con sus `.bin`, `.chd`), con región y título; el BIOS se
   reconoce por su contenido y se instala desde una carpeta con "Find BIOS
-  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Pendiente: la región de los `.chd`.)*
+  Files..."; se avisa de pistas y BIOS que faltan antes de cargar. Los discos locales (15) arrancan sin errores con Genesis Plus GX; el multidisco se cambia con Emulation > Disc (ADR-0026, probado con Dracula Unleashed). Las regiones de los `.chd` se leen con libchdr (ADR-0029); pendiente avisar de un BIOS ausente antes de cargarlos.)*
 - [x] Añadir 32X mediante PicoDrive u otro core seleccionado.
   *(ADR-0023: las 37 ROMs de Roms\32X arrancan a 50 o 60 fotogramas por segundo; un .bin, .md o zip con cabecera `SEGA 32X` se identifica como 32X. No se jugó ninguna; PicoDrive avisa `wanted to map @02000000` al cargar, sin consecuencias visibles.)*
 - [x] Implementar selección manual de core y reglas de compatibilidad por juego.
   *(ADR-0023 y ADR-0024: el sistema de un juego se corrige a mano desde la biblioteca (clic derecho > System); el core se elige por sistema en Options > Emulation > Cores y por juego con clic derecho > Core; ambas elecciones se recuerdan por huella y solo valen si el core sabe jugar el sistema.)*
 - [ ] Revisar regiones y detección automática; permitir corrección manual cuando
   la detección no sea fiable.
-  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); pendiente la corrección por juego y la región de los `.chd`.)*
+  *(Parcial, ADR-0024: la región con la que corre el juego se fuerza para todo un core en Options > Emulation > Core Options (PAL = 50 fps, NTSC = 60); pendiente la corrección por juego; la región de los `.chd` ya se lee, ADR-0029.)*
 
 **Salida:** matriz de compatibilidad por sistema/core documentada y probada con
 juegos de referencia obtenidos legalmente. No declarar un sistema soportado
@@ -432,9 +432,28 @@ solo porque el core lo anuncie.
 **Salida:** paquete reproducible, instrucciones de instalación y lista de
 compatibilidad verificadas.
 
-### Fase 7 - RetroAchievements (análisis de factibilidad, 2026-11-22; pendiente de decisión del propietario)
+### Fase 7 - RetroAchievements (modo casual implementado, ADR-0028; hardcore para el futuro)
+**Estado (2026-11-22).** Decisiones del propietario: hardcore queda para el futuro; los juegos parcheados no tienen logros; se prueba con una cuenta de pruebas. Con eso se implementó el **modo casual** (ADR-0028):
 
-**Veredicto: es viable en modo casual, pero no se puede entregar al 100 %.** Hay inconvenientes que no dependen del
+- [x] rcheevos en `third_party/rcheevos/` (MIT), `rc_libretro` para leer la memoria de los cores y atención a `SET_MEMORY_MAPS`.
+- [x] Cliente con un mutex (hebra de emulación para cada fotograma, hebra de la interfaz para cuenta, juego y red con Qt Network), user agent propio (`Xfusion/0.1.0 (...) genesis_plus_gx/v1.7.4_4fd32ef rc_client/...`).
+- [x] Inicio de sesión desde Options > Achievements, token cifrado en `settings.json`, inicio de sesión automático.
+- [x] Identificación de cartuchos (también dentro de un zip) y de discos `.cue`/`.iso`; resumen al empezar (`0 of 35 achievements, 0 of 300 points`) y avisos de desbloqueo, marcadores, progreso y reto por el OSD.
+- [x] Probado con la cuenta de pruebas: Sonic the Hedgehog (Genesis, 35 logros), After Burner Complete (32X, 22), Sonic CD `.iso` (100) y Dune `.cue` (44), a 60 fps durante 40 s; una prueba de ajustes y otra del cifrado del token.
+- [x] Desbloqueo real comprobado (ver el punto 1 de la lista de pendientes).
+- [ ] No comprobado: Master System propiamente dicho (los dos juegos probados dieron «Unknown game» y «Unsupported Game Version», que es lo que contesta el servidor para esos archivos, no un fallo del cliente), ni SG-1000.
+- [ ] **Pendiente para tener RetroAchievements completo en casual** (de más a menos valor; tamaño: P pequeño, M medio, G grande):
+  1. ~~Comprobar un desbloqueo real de extremo a extremo~~ **Hecho (2026-11-22):** con la cuenta de pruebas se jugó el primer acto de Green Hill Zone de Sonic the Hedgehog (Genesis) con teclas automáticas y el servidor registró «That Was Easy» (3 puntos) y «Newbie Collector» (2 puntos); la cuenta pasó a 5 puntos en casual. Game Gear (Sonic Chaos, 34 logros) y SG-1000 (Bomb Jack, 24) se comprobaron después con la cuenta de pruebas; un Master System propiamente dicho no (el Alex Kidd local es una copia que RetroAchievements no conoce).
+  2. ~~Guardar el progreso parcial de los logros dentro de los estados~~ **Hecho (2026-11-22):** el progreso (`rc_client_serialize_progress_sized`, unos 7 KB en Sonic 1) va en el encabezado del archivo de estado, tomado en el mismo instante que el estado, y se restaura al cargarlo (también en el estado de deshacer y el de reanudar). Un estado sin progreso (anterior, o con los logros apagados) reinicia el cálculo como antes.
+  3. ~~Discos `.chd`: libchdr, lector propio y `rc_hash_cdreader`~~ **Hecho (2026-11-22, ADR-0029):** Final Fight CD (33 logros) y Dracula Unleashed (35) se identifican; además la región y el título de los `.chd` ya se leen.
+  4. ~~Cambio de disco en caliente~~ **Hecho:** se avisa a rcheevos con `rc_client_begin_identify_and_change_media` (los `.chd` no, por el punto 3).
+  5. ~~Activar los logros con un juego ya abierto~~ **Hecho:** al activarlos (o iniciar sesión) con un juego abierto, se ofrece en ese momento.
+  6. ~~Avisos de error al arrancar~~ **Hecho:** si el inicio de sesión automático falla sale `RetroAchievements: could not sign in (...)`.
+  7. ~~Iconos de los logros en los avisos~~ **Hecho (2026-11-22), como en `snes9xrd`:** el aviso de un logro desbloqueado lleva la insignia del logro y el resumen al empezar lleva la del juego, a la izquierda del texto (se descargan una vez y se guardan en memoria; si no llegan a tiempo el aviso sale sin imagen). **También hecho:** insignias en la lista de logros (en color los ganados y en gris los pendientes), un sonido de desbloqueo propio (`scripts/make-achievement-sound.ps1`, ajuste *Play a Sound When an Achievement Unlocks*) y el aviso de subconjunto completado. La presencia enriquecida no se muestra en pantalla (`snes9xrd` tampoco): `rc_client` la envía al servidor solo.
+  8. ~~Más pruebas automáticas~~ **Hecho en parte:** ids de consola de los seis sistemas y que el hash de un cartucho sea el MD5 de sus bytes (un parche cambia el hash); falta probar la carga de un juego a la espera del inicio de sesión, que necesita una red simulada.
+  9. ~~Ajustes de marcadores~~ **Hecho:** ocultos en la página (solo valen en hardcore) y explicado.
+- [ ] **Solo para hardcore (futuro):** bloquear rebobinado, cámara lenta, avance de fotograma, carga de estados y trucos; reiniciar al pasar a hardcore y que el estado de reanudar caiga a casual; indicar el modo en pantalla; cola de envíos sin conexión guardada en disco; política de privacidad y lista de licencias publicadas; 6 meses de publicación y la solicitud de aprobación a RetroAchievements.
+**Veredicto (análisis previo): es viable en modo casual, pero no se puede entregar al 100 %.** Hay inconvenientes que no dependen del
 código (el modo hardcore exige la aprobación de RetroAchievements y la prueba completa exige una cuenta), así que no se ha
 empezado a implementar. Lo que sigue es lo que se comprobó y lo que habría que decidir.
 
@@ -488,15 +507,22 @@ empezado a implementar. Lo que sigue es lo que se comprobó y lo que habría que
 9. **Mantenimiento y tamaño:** unos 1,2 MB más de fuente propia de terceros (con su aviso en
    `THIRD_PARTY_NOTICES.md`) y una dependencia más que seguir.
 
-**Decisiones que necesito del propietario**
+**Decisiones del propietario (2026-11-22)**
 
-- ¿Solo casual (propuesta) o también hardcore con el mismo aviso que `snes9xrd`?
-- ¿Se hace antes el lector de CHD (libchdr), que sirve también para la región de los `.chd`, o se empieza con `.cue`,
-  `.iso` y cartuchos?
-- ¿Hay una cuenta de RetroAchievements para probar y está bien que los desbloqueos de prueba queden en ella?
-- ¿Se porta la interfaz completa de `snes9xrd` (lista de logros, marcadores, inicio de sesión y ajustes) o una versión
-  mínima (inicio de sesión, avisos y lista)?
+- **Hardcore:** para el futuro; mientras tanto la interfaz no lo ofrece.
+- **Cuenta de pruebas:** facilitada y usada; los desbloqueos de prueba quedan en ella.
+- **Juegos parcheados:** sin logros, y se avisa en pantalla.
+- **Discos `.chd`:** pregunta abierta, ver el coste abajo.
+- **Estados y reinicios:** se explicó (abajo); por ahora el reinicio y la carga de un estado hacen que los logros cuenten otra vez desde ahí.
+- **Multidisco:** se revisó cómo lo resuelve DuckStation y se adaptó (ADR-0026).
 
+**Coste de añadir libchdr (para los `.chd`)**
+
+Es moderado, sin riesgo alto: (1) copiar al repositorio `libchdr` (BSD-3), que ya está en el árbol de Genesis Plus GX: 11 archivos y unos 177 KB, más sus dependencias `lzma` (dominio público), `libFLAC` (BSD-3) y `zlib` (que ya tenemos): unos 1,3 MB de fuente más en `third_party/` con sus avisos; (2) un lector de CHD propio de unas 150 líneas (abrir el archivo, leer el sector pedido de su «hunk» y, para el RA, un `rc_hash_cdreader` con abrir pista, leer sector y cerrar); (3) usarlo en tres sitios: logros de los `.chd`, leer la región y el título de un `.chd` (hoy no se lee) y avisar de un BIOS ausente. El ejecutable crece unos 300 KB. No cubre los CHD con compresión zstd (los hace `chdman` si se pide; la versión de libchdr del árbol de Genesis Plus GX no los trae).
+
+**Estados y reinicios (qué pasa con los logros)**
+
+Un logro de RetroAchievements es un conjunto de condiciones sobre la memoria del juego, y algunas dependen de lo ocurrido antes: «tocar tres veces», «hacerlo sin recibir daño», un valor que ha de subir de un fotograma al siguiente. Para eso rcheevos guarda en su interior contadores, los valores de la memoria del fotograma anterior y qué condiciones llevan cumplidas. Eso **no está en la memoria de la consola**, así que ni los estados guardados de Xfusion ni un reinicio lo tocan: (1) al **reiniciar** (Reset o Hard Reset) la memoria cambia de golpe y rcheevos lo vería como un salto imposible (un contador que pasa de 5 a 0 de un fotograma a otro), así que hay que avisarle con `rc_client_reset` y empezar de cero; (2) al **cargar un estado** pasa lo mismo, y además el progreso parcial que tenía el logro cuando se guardó el estado no vuelve, porque nunca se guardó. Lo correcto, como hace RetroArch, es guardar ese progreso junto al estado (`rc_client_serialize_progress`) y restaurarlo al cargarlo. Hoy solo se hace lo primero (se reinicia el cálculo), así que un logro «a medias» pierde su avance al reiniciar o cargar un estado; los logros que se consiguen de una vez no se ven afectados. Es un cambio acotado: añadir al formato de estados un bloque con ese progreso.
 **Plan propuesto si se aprueba** (cada punto con prueba propia): (1) manejar `SET_MEMORY_MAPS` y exponer la memoria al
 cliente; (2) integrar rcheevos en `third_party/` con su aviso; (3) cliente en el hilo de emulación y red con Qt Network;
 (4) inicio de sesión con el token cifrado en disco (nunca la contraseña); (5) identificación de cartuchos, zips y discos

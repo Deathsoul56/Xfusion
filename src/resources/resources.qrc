@@ -20,6 +20,7 @@
         <file alias="joypad.svg">icons/joypad.svg</file>
         <file alias="keyboard.svg">icons/keyboard.svg</file>
         <file alias="folders.svg">icons/folders.svg</file>
+        <file alias="achievements.svg">icons/achievements.svg</file>
         <file alias="check.svg">icons/check.svg</file>
         <file alias="up.svg">icons/up.svg</file>
         <file alias="down.svg">icons/down.svg</file>
@@ -32,6 +33,9 @@
         <file alias="arrowupblack.svg">icons/arrowupblack.svg</file>
         <file alias="arrowdownwhite.svg">icons/arrowdownwhite.svg</file>
         <file alias="arrowdownblack.svg">icons/arrowdownblack.svg</file>
+    </qresource>
+    <qresource prefix="/sounds">
+        <file alias="achievement.wav">sounds/achievement.wav</file>
     </qresource>
     <qresource prefix="/controllers">
         <file alias="genesis_3button.png">controllers/genesis_3button.png</file>

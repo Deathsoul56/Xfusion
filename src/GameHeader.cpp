@@ -42,6 +42,17 @@ QString GameHeader::regionText() const
     return names.join(" / ");
 }
 
+QString GameHeader::company() const
+{
+    QString text = copyright.simplified();
+    if (text.startsWith("(C)", Qt::CaseInsensitive))
+        text = text.mid(3).trimmed();
+    const QString code = text.section(' ', 0, 0);
+    if (code.isEmpty() || !code[0].isLetterOrNumber())
+        return {};
+    return code.compare("SEGA", Qt::CaseInsensitive) == 0 ? QString("Sega") : code;
+}
+
 unsigned parseRegionField(const QByteArray& field)
 {
     unsigned regions = 0;

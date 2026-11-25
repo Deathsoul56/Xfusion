@@ -299,6 +299,31 @@ private slots:
         QVERIFY(legacy->thumbnail.isNull());
     }
 
+    void theAchievementProgressTravelsWithTheState()
+    {
+        QTemporaryDir dir;
+        const QString path = dir.filePath("with.state");
+        StateHeader header;
+        header.coreId = "genesis_plus_gx";
+        header.gameId = "game";
+        header.rawSize = 4;
+        QByteArray progress(3000, 0);
+        for (int i = 0; i < progress.size(); ++i)
+            progress[i] = char(i * 7); // bytes of any value
+        header.achievements = progress;
+        QString error;
+        QVERIFY2(StateFile::write(path, header, "raw!", QImage(), &error), qPrintable(error));
+        const auto loaded = StateFile::read(path, &error);
+        QVERIFY2(loaded.has_value(), qPrintable(error));
+        QCOMPARE(loaded->header.achievements, progress);
+        QCOMPARE(StateFile::readHeader(path)->achievements, progress);
+
+        // A state saved without achievements has none to restore.
+        header.achievements.clear();
+        QVERIFY(StateFile::write(dir.filePath("without.state"), header, "raw!", QImage(), &error));
+        QVERIFY(StateFile::read(dir.filePath("without.state"), &error)->header.achievements.isEmpty());
+    }
+
     void savingOverAStateKeepsTheOldOneAsABackup()
     {
         QTemporaryDir dir;
