@@ -31,7 +31,7 @@ if ($LASTEXITCODE -ne 0) { throw 'The build failed' }
 
 if (-not $SkipTests) {
     $env:QT_QPA_PLATFORM = 'offscreen'
-    foreach ($test in 'core_tests', 'patch_tests', 'disc_tests', 'library_tests', 'save_tests', 'settings_tests', 'input_tests') {
+    foreach ($test in 'core_tests', 'patch_tests', 'disc_tests', 'library_tests', 'save_tests', 'settings_tests', 'input_tests', 'shader_tests') {
         & (Join-Path $build "$test.exe") | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "$test failed" }
     }
@@ -42,6 +42,7 @@ $name = "Xfusion-$version-win64"
 $stage = Join-Path $build $name
 New-Item -ItemType Directory $stage | Out-Null
 Copy-Item (Join-Path $build 'xfusion.exe') $stage
+Copy-Item (Join-Path $build 'xfusion-shaderc.exe') $stage # compiles the shaders of presets of the user
 foreach ($file in 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md') { Copy-Item (Join-Path $repo $file) $stage }
 Copy-Item (Join-Path $repo 'docs') (Join-Path $stage 'docs') -Recurse
 @"

@@ -1,0 +1,22 @@
+shaders = 4
+
+shader0 = stock.slang
+alias0 = hqx_refpass
+
+shader1 = hqx/pass1.slang
+filter_linear1 = false
+scale_type1 = source
+scale1 = 1.0
+
+shader2 = hqx/hq3x.slang
+filter_linear2 = false
+scale_type2 = source
+scale2 = 3.0
+wrap_mode2 = clamp_to_edge
+
+shader3 = stock.slang
+
+textures = LUT
+LUT = hqx/resources/hq3x.png
+LUT_linear = false
+

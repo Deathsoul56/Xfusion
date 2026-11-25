@@ -25,7 +25,10 @@ Los juegos también pueden estar en `.zip`. Saturn, Dreamcast y los sistemas pos
   turbo, auto-asignar.
 - **Estados guardados** con 1000 espacios, deshacer, vista previa con miniaturas; **rewind**, avance rápido (`Tab` mientras
   lo mantienes), cámara lenta, avance de un fotograma, capturas de pantalla.
-- **22 filtros gráficos** de software (xBRZ, HQx, 2xSaI, EPX, NTSC, scanlines...) y 22 temas de color.
+- **Imagen ajustada a la ventana** manteniendo la proporción (4:3 o la que elijas); *Stretch image* la estira para llenar toda el área y *Use integer scaling* la escala en múltiplos enteros.
+- **Imagen por GPU** (Direct3D 11 por defecto, o D3D12, Vulkan, OpenGL; con respaldo por software) con shaders propios (scanlines, CRT, bilineal nítido, rejilla LCD) y **presets de RetroArch** (`.slangp`: multipasada, texturas, parámetros en vivo en *Options > Shader Parameters*). *Options > Display > Driver* y *GPU Shaders*. Xfusion no trae shaders: pónlos en `shaders\` (por ejemplo la colección libretro/slang-shaders). Para compilarlos, `xfusion-shaderc.exe` tiene que estar junto a `xfusion.exe` (la primera vez que usas un preset tarda unos segundos; después queda en caché).
+- **22 filtros gráficos** (xBRZ, HQx, 2xSaI, EPX, NTSC, scanlines...) y 22 temas de color. Con la GPU, HQx, xBRZ, EPX y los escaladores simples se hacen en la tarjeta gráfica y casi no gastan procesador (HQ4x: de 86 % a 17 % de un núcleo); NTSC, 2xSaI y Super Eagle usan la CPU.
+- **Ajustes de imagen y sonido por sistema**: en *Options > Display* y *Options > Sound*, *Settings for:* elige Global o un sistema; en un sistema cada ajuste tiene una casilla *Global* (la desmarcas para darle un valor propio).
 - **Parches IPS, BPS y UPS** aplicados al abrir el juego, sin tocar el original.
 - **RetroAchievements** (modo casual): inicia sesión con tu cuenta en *Options > Achievements*, con avisos de logros en pantalla y la lista de logros del juego. Los seis sistemas tienen logros en RetroAchievements.
 - **Saves por sistema**: la SRAM y los estados de cada juego viven en carpetas separadas, y no se pisan aunque dos
@@ -162,6 +165,8 @@ $env:QT_QPA_PLATFORM = 'offscreen'
 ## Documentación
 
 - [`frontend_sega_multiemulador.md`](frontend_sega_multiemulador.md): plan del proyecto, fases y estado.
+- [`docs/revision-de-codigo.md`](docs/revision-de-codigo.md): la revisión de código (avisos, código muerto, rendimiento, estructura).
+- [`docs/pendientes.md`](docs/pendientes.md): ideas y detalles aplazados, para decidirlos más adelante.
 - [`docs/compatibilidad.md`](docs/compatibilidad.md): sistemas, formatos, firmware y qué está comprobado.
 - [`docs/sega-cd.md`](docs/sega-cd.md): Sega CD en detalle (formatos, BIOS, audio, saves, limitaciones).
 - [`docs/adr/`](docs/adr): las decisiones de diseño, una por archivo.

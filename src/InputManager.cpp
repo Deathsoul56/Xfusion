@@ -1,7 +1,6 @@
 #include "InputManager.h"
 
 #include <SDL3/SDL.h>
-#include <QtGlobal>
 #include <algorithm>
 #include <cstdio>
 
@@ -164,7 +163,7 @@ bool InputManager::isPressed(const InputBinding& binding, const Device* device, 
         if (binding.value != 0)
             return (GetAsyncKeyState(binding.value) & 0x8000) != 0;
 #endif
-        return m_keysDown.count(binding.code) != 0;
+        return m_keysDown.contains(binding.code);
     }
     if (!device || !pads)
         return false;

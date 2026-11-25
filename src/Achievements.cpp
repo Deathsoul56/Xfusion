@@ -189,12 +189,6 @@ void Achievements::unloadGame()
     emit gameChanged();
 }
 
-bool Achievements::gameLoaded() const
-{
-    std::lock_guard<std::recursive_mutex> lock(m_mutex);
-    return rc_client_is_game_loaded(m_client) != 0;
-}
-
 void Achievements::changeDisc(const QString& path)
 {
     std::lock_guard<std::recursive_mutex> lock(m_mutex);

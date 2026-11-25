@@ -24,7 +24,8 @@ Los estados guardados no se comparten entre cores.
 | Biblioteca con detección por contenido, columnas como `snes9xrd` y ancho automático | Hecho |
 | Estados (1000 espacios, deshacer), SRAM, rewind, avance rápido, cámara lenta, avance de fotograma, capturas | Hecho |
 | Controles de teclado y mando, dos jugadores, mando de 3 o 6 botones, turbo | Hecho |
-| Filtros gráficos de software (22) y temas (22) | Hecho |
+| Filtros gráficos (22; HQx, xBRZ, EPX y escaladores simples en la GPU), shaders de GPU propios (5) y temas (22) | Hecho |
+| Shaders de usuario (presets `.slangp` de RetroArch) | Hecho, solo con la GPU; 460 de 460 presets probados compilan |
 | Parches IPS, BPS y UPS (no en discos) | Hecho |
 | Gestión de cores: descarga, versiones, volver a una anterior | Hecho; la descarga solo está probada en Windows |
 | Región por sistema y por juego | Hecho |

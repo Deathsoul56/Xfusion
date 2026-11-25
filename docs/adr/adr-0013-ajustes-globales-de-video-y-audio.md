@@ -16,6 +16,8 @@ Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
 Aprobado el 2026-11-19 como parte de la Fase 2 (pendiente pedido por el plan: "establecer qué opciones son globales y cuáles dependen del core").
 
+**Sustituido en parte por el ADR-0031 (2026-11-25):** las páginas Display y Sound se pueden fijar por sistema; los valores globales siguen siendo el punto de partida y el valor que sigue cada sistema que no tiene uno propio. El driver de vídeo sigue siendo global.
+
 ## Context
 
 El frontend dibuja la imagen y reproduce el audio; el core solo entrega fotogramas y muestras. Las opciones de presentación (aspecto, filtro, escala) y el volumen no dependen de qué core emula el juego.

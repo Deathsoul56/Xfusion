@@ -14,12 +14,7 @@ QRect displayRect(const QSize& area, const QSize& imageSize, double coreAspect, 
     else if (options.aspect == AspectMode::Square)
         aspect = double(imageSize.width()) / imageSize.height();
 
-    if (!options.stretch) {
-        const int height = imageSize.height();
-        const int width = int(std::lround(height * aspect));
-        return QRect((area.width() - width) / 2, (area.height() - height) / 2, width, height);
-    }
-    if (!options.maintainAspect)
+    if (options.stretch || !options.maintainAspect)
         return QRect(QPoint(0, 0), area);
 
     int width = area.width();

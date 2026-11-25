@@ -4,7 +4,6 @@
 #include <QFileInfo>
 #include <QMessageBox>
 
-#include <QDir>
 
 #include "AppPaths.h"
 #include "CoreRules.h"
@@ -13,7 +12,6 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include <cstdio>
 
 // The exe is a GUI program with no console of its own. Started from a terminal, it borrows that terminal so
 // --stats can print there; redirected output (a file or a pipe) is left alone.

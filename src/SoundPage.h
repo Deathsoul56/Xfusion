@@ -1,8 +1,6 @@
 #pragma once
 
-#include <QWidget>
-
-#include "AppSettings.h"
+#include "ScopedPage.h"
 
 class QCheckBox;
 class QComboBox;
@@ -11,14 +9,14 @@ class QSlider;
 class QSpinBox;
 
 // Settings > Sound: volume, output device, buffer and what to mute.
-class SoundPage : public QWidget {
+class SoundPage : public ScopedPage {
     Q_OBJECT
 public:
     explicit SoundPage(const AppSettings& settings, QWidget* parent = nullptr);
 
-    void setValues(const AppSettings& settings);
-    void applyTo(AppSettings& settings) const;
-    void restoreDefaults() { setValues(AppSettings()); }
+protected:
+    void loadControls(const AppSettings& settings) override;
+    void readControls(AppSettings& settings) const override;
 
 private:
     QSlider* m_volume;

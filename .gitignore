@@ -21,3 +21,5 @@ BIOS/
 *.psd
 build-release/
 dist/
+build-lint/
+build-dbg/

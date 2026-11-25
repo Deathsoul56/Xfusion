@@ -2,7 +2,6 @@
 
 #include <QTimer>
 #include <QWidget>
-#include <functional>
 #include <optional>
 #include <vector>
 

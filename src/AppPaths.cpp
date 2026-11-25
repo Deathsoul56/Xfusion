@@ -35,7 +35,7 @@ QString dataRoot()
     if (!overridePath.isEmpty())
         return ensured(QDir(overridePath).absolutePath());
     static const QString root = [] {
-        const QString beside = QCoreApplication::applicationDirPath();
+        QString beside = QCoreApplication::applicationDirPath();
         if (canWriteIn(beside))
             return beside;
         const QString profile = QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation); // %LOCALAPPDATA% on Windows
@@ -90,6 +90,16 @@ QStringList patchFolders(System system, const QString& romDir)
     return {root + "/" + systemDef(system).folder, root};
 }
 
+QString shadersDir()
+{
+    return ensured(dataRoot() + "/shaders");
+}
+
+QString shaderCacheDir()
+{
+    return ensured(dataRoot() + "/cache/shaders");
+}
+
 QString systemDir()
 {
     if (g_files.biosFolder.location == FileLocation::Custom && !g_files.biosFolder.custom.isEmpty())
@@ -125,7 +135,7 @@ QString libraryPath()
 // The active version installed through the Cores dialog, else the library that sits in the cores folder.
 QString corePath(const QString& coreId)
 {
-    const QString installed = CoreManifest::load(coresDir()).activePath(coreId);
+    QString installed = CoreManifest::load(coresDir()).activePath(coreId);
     if (!installed.isEmpty() && QFileInfo::exists(installed))
         return installed;
     return coresDir() + "/" + coreProfileById(coreId).libraryFileName();

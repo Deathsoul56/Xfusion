@@ -43,7 +43,6 @@ public:
     // and has to run where the core runs. False when the core has no disk control or refuses.
     bool addDisc(const QString& path);
     int discCount() const;
-    int discIndex() const;
     bool swapDisc(int index);
     void run();
     void reset();

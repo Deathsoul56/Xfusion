@@ -1,7 +1,6 @@
 #include "StatePreviewDialog.h"
 
 #include <QComboBox>
-#include <QDateTime>
 #include <QDialogButtonBox>
 #include <QGridLayout>
 #include <QHBoxLayout>

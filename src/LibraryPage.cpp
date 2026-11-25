@@ -108,7 +108,7 @@ public:
             const int base = m_defaults.value(column, 100);
             int width = base;
             if (extra >= 0)
-                width += extra / visible.size() + (i == visible.size() - 1 ? extra % visible.size() : 0);
+                width += extra / int(visible.size()) + (i == visible.size() - 1 ? extra % int(visible.size()) : 0);
             else if (isName(column))
                 width = base - (nameRoom > 0 ? int(qint64(namesGive) * std::max(base - kNamesFloor, 0) / nameRoom) : 0);
             else
@@ -400,7 +400,7 @@ void LibraryPage::stopScan()
         return;
     m_cancel = true;
     m_thread->wait();
-    m_thread = nullptr; // deletes itself once finished() is delivered
+    m_thread.clear(); // deletes itself once finished() is delivered
     m_scanning = false;
 }
 

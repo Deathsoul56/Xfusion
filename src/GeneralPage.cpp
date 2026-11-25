@@ -6,7 +6,6 @@
 #include <QComboBox>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QLabel>
 #include <QSpinBox>
 #include <QVBoxLayout>
 

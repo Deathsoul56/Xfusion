@@ -29,7 +29,10 @@ else()
     set(XFUSION_SDL3 SDL3::SDL3)
 endif()
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets Svg Network Test)
+# The renderer uses the RHI of Qt and its shader baker, which are private APIs: the version of Qt is fixed on purpose (ADR-0032).
+# The baker (Qt Shader Tools with glslang and SPIRV-Cross) is large: only xfusion-shaderc and the tests carry it, xfusion.exe does not.
+set(QT_NO_PRIVATE_MODULE_WARNING ON)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Svg Network Test ShaderTools ShaderToolsPrivate)
 find_package(SDL3 REQUIRED CONFIG)
 find_package(Threads REQUIRED)
 
@@ -40,6 +43,33 @@ if(NOT EXISTS "${LIBRETRO_INCLUDE_DIR}/libretro.h")
 endif()
 
 # Systems, input bindings and joystick reading: no dependency on the window or on any core.
+# RetroArch shader presets (ADR-0032, phase B): reading them, and getting their compiled shaders (from the table baked into the program, the
+# cache, or xfusion-shaderc).
+add_library(xfusion_slang STATIC src/SlangPreset.cpp src/SlangPreset.h src/SlangCompiler.cpp src/SlangCompiler.h src/PresetProgram.cpp src/PresetProgram.h
+    src/GpuFilters.cpp src/GpuFilters.h)
+# The filters that run on the GPU instead of the CPU (xBRZ, HQx, EPX and the plain scalers): small presets of ours, and the shaders
+# of third_party/slang-shaders, are inside the program, as resources under :/gpu-filters/.
+file(GLOB XFUSION_GPU_FILTER_OWN RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu-filters" "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu-filters/*")
+file(GLOB_RECURSE XFUSION_GPU_FILTER_THIRD RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/slang-shaders" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/slang-shaders/*.slang"
+     "${CMAKE_CURRENT_SOURCE_DIR}/third_party/slang-shaders/*.inc" "${CMAKE_CURRENT_SOURCE_DIR}/third_party/slang-shaders/*.png")
+set(XFUSION_GPU_FILTER_FILES)
+foreach(name ${XFUSION_GPU_FILTER_OWN})
+    set(path "${CMAKE_CURRENT_SOURCE_DIR}/src/gpu-filters/${name}")
+    set_source_files_properties("${path}" PROPERTIES QT_RESOURCE_ALIAS "${name}")
+    list(APPEND XFUSION_GPU_FILTER_FILES "${path}")
+endforeach()
+foreach(name ${XFUSION_GPU_FILTER_THIRD})
+    set(path "${CMAKE_CURRENT_SOURCE_DIR}/third_party/slang-shaders/${name}")
+    set_source_files_properties("${path}" PROPERTIES QT_RESOURCE_ALIAS "${name}")
+    list(APPEND XFUSION_GPU_FILTER_FILES "${path}")
+endforeach()
+qt_add_resources(xfusion_slang "gpu_filters" PREFIX "/gpu-filters" FILES ${XFUSION_GPU_FILTER_FILES})
+target_link_libraries(xfusion_slang PUBLIC Qt6::Core Qt6::Gui Qt6::GuiPrivate ${XFUSION_STATIC_LIBS})
+target_include_directories(xfusion_slang PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+# The baker itself, for the programs that compile shaders.
+add_library(xfusion_slang_baker STATIC src/SlangBaker.cpp src/SlangBaker.h)
+target_link_libraries(xfusion_slang_baker PUBLIC xfusion_slang Qt6::ShaderTools Qt6::ShaderToolsPrivate)
+
 add_library(xfusion_input STATIC
     src/PadButton.h
     src/SystemInfo.cpp
@@ -160,6 +190,9 @@ target_link_libraries(xfusion_input PUBLIC Qt6::Gui ${XFUSION_SDL3} ${XFUSION_ST
 add_executable(xfusion
     src/main.cpp
     src/MainWindow.cpp
+    src/MainWindowGames.cpp
+    src/MainWindowStates.cpp
+    src/MainWindowView.cpp
     src/MainWindow.h
     src/LibretroCore.cpp
     src/LibretroCore.h
@@ -210,6 +243,15 @@ add_executable(xfusion
     src/AchievementsPage.h
     src/AchievementsDialogs.cpp
     src/AchievementsDialogs.h
+    src/PasswordDigestor.cpp
+    src/ScopedPage.cpp
+    src/ScopedPage.h
+    src/GpuCanvas.cpp
+    src/GpuCanvas.h
+    src/PresetRenderer.cpp
+    src/PresetRenderer.h
+    src/ShaderParametersDialog.cpp
+    src/ShaderParametersDialog.h
     src/CoresDialog.cpp
     src/CoresDialog.h
 )
@@ -221,11 +263,26 @@ if(WIN32)
     target_sources(xfusion PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/xfusion.rc")
     set_target_properties(xfusion PROPERTIES WIN32_EXECUTABLE ON) # no console window
 endif()
-target_link_libraries(xfusion PRIVATE xfusion_input Qt6::Widgets Qt6::Svg Qt6::Network ${XFUSION_SDL3} Threads::Threads)
+target_link_libraries(xfusion PRIVATE xfusion_input xfusion_slang Qt6::Widgets Qt6::GuiPrivate Qt6::Svg Qt6::Network ${XFUSION_SDL3} Threads::Threads)
+# xfusion-shaderc compiles shaders: the ones of the filters that come with the program, now (they go into xfusion.exe as a resource),
+# and the ones of presets of the user, when xfusion.exe asks it to, from the folder it is in.
+add_executable(xfusion-shaderc tools/shaderc.cpp)
+target_link_libraries(xfusion-shaderc PRIVATE xfusion_slang_baker xfusion_input)
+set(XFUSION_BAKED_SHADERS "${CMAKE_CURRENT_BINARY_DIR}/baked-shaders.bin")
+add_custom_command(OUTPUT "${XFUSION_BAKED_SHADERS}" COMMAND xfusion-shaderc bake "${XFUSION_BAKED_SHADERS}"
+    DEPENDS xfusion-shaderc ${XFUSION_GPU_FILTER_FILES} COMMENT "Compiling the shaders of the GPU filters")
+set_source_files_properties("${XFUSION_BAKED_SHADERS}" PROPERTIES GENERATED TRUE QT_RESOURCE_ALIAS "shaders.bin")
+qt_add_resources(xfusion "baked_shaders" PREFIX "/baked" FILES "${XFUSION_BAKED_SHADERS}")
+add_dependencies(xfusion xfusion-shaderc)
+
+# The shaders of the GPU renderer (ADR-0032), compiled for every backend when the program is built.
+qt_add_shaders(xfusion "video_shaders" PREFIX "/shaders" BASE "${CMAKE_CURRENT_SOURCE_DIR}/src/shaders"
+    FILES src/shaders/video.vert src/shaders/video_plain.frag src/shaders/video_scanlines.frag src/shaders/video_crt.frag
+          src/shaders/video_sharp.frag src/shaders/video_lcd.frag)
 
 # `cmake --install build --prefix build` leaves a runnable build\xfusion.exe; another prefix makes a portable folder.
 if(WIN32)
-    install(TARGETS xfusion RUNTIME DESTINATION .)
+    install(TARGETS xfusion xfusion-shaderc RUNTIME DESTINATION .)
 endif()
 
 # The shared build also needs the Qt plugins and every DLL the exe depends on next to it.
@@ -262,8 +319,16 @@ add_executable(save_tests tests/SaveTests.cpp)
 add_executable(library_tests tests/LibraryTests.cpp)
 add_executable(disc_tests tests/DiscTests.cpp)
 add_executable(patch_tests tests/PatchTests.cpp)
-add_executable(core_tests tests/CoreTests.cpp)
-foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests patch_tests core_tests)
+add_executable(core_tests tests/CoreTests.cpp src/PasswordDigestor.cpp)
+target_link_libraries(core_tests PRIVATE Qt6::Network)
+add_executable(preset_scan tests/PresetScan.cpp)
+target_link_libraries(preset_scan PRIVATE xfusion_slang_baker)
+if(XFUSION_STATIC)
+    target_link_options(preset_scan PRIVATE -static)
+endif()
+add_executable(shader_tests tests/ShaderTests.cpp)
+target_link_libraries(shader_tests PRIVATE xfusion_slang_baker)
+foreach(testTarget input_tests settings_tests save_tests library_tests disc_tests patch_tests core_tests shader_tests)
     target_link_libraries(${testTarget} PRIVATE xfusion_input Qt6::Test)
     add_test(NAME ${testTarget} COMMAND ${testTarget})
     set_tests_properties(${testTarget} PROPERTIES ENVIRONMENT "QT_QPA_PLATFORM=offscreen")
@@ -277,9 +342,11 @@ if(XFUSION_STATIC)
     target_link_options(disc_tests PRIVATE -static)
     target_link_options(patch_tests PRIVATE -static)
     target_link_options(core_tests PRIVATE -static)
+    target_link_options(shader_tests PRIVATE -static)
+    target_link_options(xfusion-shaderc PRIVATE -static $<$<CONFIG:Release>:-s>)
     # Static Qt links its plugins into the exe; take only the ones used instead of every default one
     # (image formats, TLS, ... would pull in more libraries).
-    qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin Qt6::QSvgPlugin Qt6::QSchannelBackendPlugin)
+    qt_import_plugins(xfusion NO_DEFAULT INCLUDE Qt6::QWindowsIntegrationPlugin Qt6::QModernWindowsStylePlugin Qt6::QSvgPlugin Qt6::QSchannelBackendPlugin Qt6::QJpegPlugin)
     qt_import_plugins(input_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(settings_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(save_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
@@ -287,4 +354,7 @@ if(XFUSION_STATIC)
     qt_import_plugins(disc_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(patch_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
     qt_import_plugins(core_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(shader_tests NO_DEFAULT INCLUDE Qt6::QOffscreenIntegrationPlugin)
+    qt_import_plugins(preset_scan NO_DEFAULT INCLUDE Qt6::QJpegPlugin)
+    qt_import_plugins(xfusion-shaderc NO_DEFAULT)
 endif()

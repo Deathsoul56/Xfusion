@@ -3,11 +3,11 @@
 #include <QDialogButtonBox>
 #include <QIcon>
 #include <QPixmap>
+#include <QPushButton>
 #include <QFormLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
-#include <QPushButton>
 #include <QTableWidget>
 #include <QVBoxLayout>
 

@@ -16,6 +16,8 @@ Proposed | **Accepted** | Rejected | Superseded | Deprecated
 
 Aprobado el 2026-11-20. Completa la página Display del ADR-0018.
 
+**Ampliado por el ADR-0032 (2026-11-25):** con el dibujo por GPU, HQx, xBRZ, EPX y los escaladores simples se hacen en la tarjeta gráfica (la CPU conserva NTSC, 2xSaI, Super 2xSaI y Super Eagle y es la ruta del driver de software).
+
 ## Context
 
 `snes9xrd` ofrece 22 filtros de software (Scanlines, Simple, Super Eagle, 2xSaI, Super 2xSaI, EPX, HQ, xBRZ, SharpBilinear4x y cuatro NTSC). Xfusion tenía solo Scanlines y Sharp Bilinear. Los filtros de `snes9xrd` mezclan licencias: xBRZ es GPL-3, snes_ntsc es LGPL-2.1, el de hqx declara ISC y los demás (2xSaI, EPX, Super Eagle, blit, sharpbilinear_flexible) llevan la licencia Snes9x, incompatible con GPL-3 (ADR-0009).

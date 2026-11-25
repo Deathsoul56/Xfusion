@@ -67,12 +67,12 @@ QString decryptToken(const QString& username, const QString& encrypted)
     if (username.isEmpty() || encrypted.isEmpty())
         return {};
     const QByteArray payload = QByteArray::fromBase64(encrypted.toLatin1());
-    if (payload.size() <= int(AES_BLOCKLEN))
+    if (payload.size() <= AES_BLOCKLEN)
         return {};
     const QByteArray key = deriveKey(username);
     AES_ctx context;
     AES_init_ctx_iv(&context, reinterpret_cast<const uint8_t*>(key.constData()), reinterpret_cast<const uint8_t*>(payload.constData()));
-    QByteArray text = payload.mid(int(AES_BLOCKLEN));
+    QByteArray text = payload.mid(AES_BLOCKLEN);
     AES_CTR_xcrypt_buffer(&context, reinterpret_cast<uint8_t*>(text.data()), size_t(text.size()));
     return QString::fromUtf8(text);
 }

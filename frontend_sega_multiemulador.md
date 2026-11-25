@@ -278,7 +278,7 @@ de la ventana.
   bloqueada sin foco; mando desenchufado con un botón apretado y reconectado).
   El cambio entre ventanas se comprobó a mano con el diálogo de ajustes.
 - [x] Establecer qué opciones de video/audio son globales y cuáles dependen del
-  core (ADR-0013: hoy todas son globales; las del core irán con su perfil).
+  core (ADR-0013: las del frontend son globales y las del core van con su perfil; desde el ADR-0031 Display y Sound también se pueden fijar por sistema).
 
 **Salida:** configurar y usar teclado y mando durante sesiones normales, con
 ajustes conservados después de reiniciar la aplicación.
@@ -315,7 +315,11 @@ que Xfusion y `snes9xrd` sean gemelos:
 - [x] Velocidad: avance rápido (10×), Speed Up/Down, frame skip, Frame Advance y
   métodos de sincronización.
 - [x] Pausa al perder el foco, al minimizar y mientras hay diálogos de archivo.
-- [ ] Pendiente: renderizado por GPU y shaders, ajustes por sistema, y probar con dos mandos físicos (RetroAchievements ya está, Fase 7).
+- [x] Ajustes de Display y Sound por sistema (ADR-0031, 2026-11-25): *Settings for:* global o un sistema, con la casilla *Global* en cada ajuste.
+- [x] Mandos físicos: probados por el propietario sin problemas.
+- [x] Renderizado por GPU (Fase A del ADR-0032, 2026-11-25): `QRhiWidget` con cinco shaders propios, driver elegible y respaldo por software.
+- [x] Shaders de usuario (presets `.slangp` de RetroArch con `QShaderBaker` en `xfusion-shaderc`, Fase B del ADR-0032, 2026-11-25): 460 presets de `slang-shaders` compilan; multipasada, texturas, retroalimentación y parámetros en vivo.
+- [x] Filtros grandes en la GPU (2026-11-25): HQx, xBRZ, EPX y los escaladores simples; HQ4x pasa de 86 % a 17 % de un núcleo y xBRZ 6x de 48 % a 14 %. NTSC, 2xSaI, Super 2xSaI y Super Eagle siguen en la CPU (sin licencia clara para sus shaders).
 
 ### Fase 3 — Persistencia y estados
 
@@ -529,6 +533,8 @@ cliente; (2) integrar rcheevos en `third_party/` con su aviso; (3) cliente en el
 (4) inicio de sesión con el token cifrado en disco (nunca la contraseña); (5) identificación de cartuchos, zips y discos
 `.cue`/`.iso`; (6) avisos en pantalla con el mismo estilo que el resto de mensajes y lista de logros; (7) estados, reinicios
 y cambio de disco; (8) CHD con libchdr.
+**Ideas y detalles aplazados:** ver [`docs/pendientes.md`](docs/pendientes.md) (filtros solo de CPU, límites del lector de presets, ajustes por sistema, hardcore, distribución...).
+
 ### Después de la primera versión
 
 Evaluar shaders avanzados, rewind, cheats, RetroAchievements y periféricos
@@ -626,9 +632,9 @@ lo fija al commit `26ecb2b`, lo compila con GCC y copia
   (alternar), `Y` rewind (mantener), `=` / `-` velocidad, `Ctrl+6` cambiar mandos
   1 y 2, `Ctrl+RePág` / `Ctrl+AvPág` volumen. Los avisos salen apilados sobre la
   imagen, porque la barra de estado se oculta en pantalla completa.
-- Ajustes globales (ADR-0013, `config\settings.json`): en `Settings > Display`,
-  relación de aspecto (núcleo, 4:3 o estirar), filtro suave y escalado entero;
-  en `Sound`, volumen y silencio. Se aplican al pulsar OK.
+- Ajustes (ADR-0013 y ADR-0031, `config\settings.json`): en `Settings > Display` el driver (GPU o software), el aspecto,
+  el escalado, los filtros, los shaders de GPU y los mensajes; en `Sound`, volúmenes, silencios y dispositivo. Globales, o de un sistema
+  concreto con *Settings for:*. Se aplican al pulsar OK.
 - Tabla de sistemas única (`src\SystemInfo.*`): carpeta y extensiones de cada
   sistema; la usan el selector de archivos y la ruta de saves.
 - Datos junto al ejecutable (`<carpeta del .exe>\`; configurable con `XFUSION_DATA_DIR`):

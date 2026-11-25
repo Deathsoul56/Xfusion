@@ -2,7 +2,6 @@
 
 #include <QElapsedTimer>
 #include <QImage>
-#include <QStringList>
 #include <QTimer>
 #include <QWidget>
 #include <deque>
@@ -51,7 +50,7 @@ private:
     };
 
     void expire();
-    void drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom, const QImage& icon = QImage());
+    void drawBox(QPainter& painter, const QString& text, const QRectF& area, Qt::Alignment alignment, int& offset, bool fromBottom, const QImage& icon, int pixelSize);
 
     Options m_options;
     std::deque<Message> m_messages;

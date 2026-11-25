@@ -18,6 +18,14 @@ sección 10.3). Esto es una nota técnica, no asesoría legal.
 |---|---|---|---|
 | rcheevos (cliente, API, hash y mapa de memoria de libretro) | `third_party/rcheevos/` | MIT (`LICENSE`), c RetroAchievements.org | Copia, sin cambios, del submódulo `external/rcheevos` de `snes9xrd` (commit `2ad0b86`). Se dejaron fuera la integración con RAIntegration y el cliente externo, que un jugador no necesita. Incluye `src/rhash/aes.c`, tiny-AES-c (Unlicense, dominio público), que Xfusion usa para cifrar el token de la sesión. |
 
+## Shaders
+
+| Componente | Licencia | Nota |
+|---|---|---|
+| Qt Shader Tools (con glslang y SPIRV-Cross) | GPL-3.0 / LGPL-3.0 (Qt), BSD-3 y Apache-2.0 (los compiladores que lleva) | Enlazado estáticamente en xfusion.exe para compilar los presets de usuario. |
+| Shaders propios (src/shaders/) | GPL-3.0-or-later como el resto | Cinco shaders hechos para Xfusion. |
+| Presets y shaders de RetroArch (slang-shaders) | Varias, por shader | **No se distribuyen**; los pone el usuario. |
+
 ## Discos CHD (`third_party/libchdr/`)
 
 | Componente | Carpeta | Licencia | Origen |

@@ -1,11 +1,14 @@
 #pragma once
 
 #include <QJsonObject>
+#include <QJsonValue>
 #include <QMap>
 #include <QString>
 #include <QStringList>
+#include <optional>
 
 #include "Shortcuts.h"
+#include "SystemInfo.h"
 
 // How the picture is fitted into the window.
 enum class AspectMode {
@@ -39,6 +42,12 @@ enum class VideoFilter {
     NTSCSVideo,
     NTSCRGB,
 };
+
+// Shaders the GPU applies when it draws the picture, after the CPU filter (ADR-0032). Without a GPU they have no effect.
+enum class VideoShader { None, Scanlines, Crt, SharpBilinear, Lcd, Preset };
+
+// How the picture is drawn: by the GPU through Qt's RHI (Auto lets Qt choose, Direct3D 11 on Windows), or by the CPU.
+enum class VideoDriver { Auto, Software, Direct3D11, Direct3D12, Vulkan, OpenGL };
 
 enum class MessageMode { Onscreen, None };
 enum class OsdCorner { BottomLeft, BottomRight, TopLeft, TopRight };
@@ -77,7 +86,7 @@ struct AchievementsSettings {
 // because the frontend, not the core, draws, plays and times them; options that belong to one core live with its
 // profile (ADR-0007).
 struct AppSettings {
-    static constexpr int kFileVersion = 3;
+    static constexpr int kFileVersion = 4;
     static constexpr int kMaxVolume = 100;
 
     // General
@@ -97,12 +106,18 @@ struct AppSettings {
     // Display
     AspectMode aspect = AspectMode::Core;
     bool maintainAspect = true;
-    bool stretch = true; // off draws the picture at its own size, centred
+    bool stretch = false; // fills the whole area, ignoring the proportions; off fits the picture inside it
     bool integerScale = false; // whole-number scale factors only, when the window is large enough
     bool smooth = true; // bilinear filtering; off keeps hard pixel edges
     VideoFilter filter = VideoFilter::None;
+    bool gpuFilters = true; // a filter that has a version for the GPU runs there, when the picture is drawn by the GPU
+    VideoShader shader = VideoShader::None;
+    QString shaderPreset; // the .slangp file when the shader is Preset
+    // The values the user gave to the parameters of a preset, by the path of the preset and then the name of the parameter.
+    QMap<QString, QMap<QString, double>> shaderParameters;
+    VideoDriver videoDriver = VideoDriver::Auto; // global only: the window is set up for one at start-up
     MessageMode messages = MessageMode::Onscreen;
-    int osdSize = 24; // points
+    int osdSize = 24; // pixels of the screen, as in snes9xrd
     OsdCorner osdCorner = OsdCorner::BottomLeft;
 
     // Sound
@@ -137,6 +152,18 @@ struct AppSettings {
     QStringList libraryFolders; // searched for games, with their subfolders (the Library page)
 
     AchievementsSettings achievements;
+
+    // What one system sets for itself instead of using the global value, by systemKey(): {"display": {...}, "sound": {...}}
+    // with the same keys and values as the sections of the file, and only the settings that are overridden (ADR-0031).
+    QMap<QString, QJsonObject> systemOverrides;
+    // The keys of the "display" and "sound" sections a system can override.
+    static const QStringList& overridableKeys(const QString& section);
+    // These settings as they are for a game of `system`: the global ones with that system's overrides on top.
+    AppSettings forSystem(System system) const;
+    bool overrides(System system, const QString& section, const QString& key) const;
+    // Sets the volume or the mute of the sound page for `system` (the one of the open game, or none): where the system
+    // overrides it, there; otherwise the global value. Used by the volume shortcuts.
+    void setSoundValue(std::optional<System> system, const QString& key, const QJsonValue& value);
 
     ShortcutMap shortcuts = ShortcutMap::defaults();
 

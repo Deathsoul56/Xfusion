@@ -1,7 +1,9 @@
 #pragma once
 
 #include <QAbstractTableModel>
+#include <QPointer>
 #include <QSortFilterProxyModel>
+#include <QThread>
 #include <QWidget>
 #include <atomic>
 #include <optional>
@@ -16,7 +18,6 @@ class QLineEdit;
 class QStackedWidget;
 class QTableView;
 class QShowEvent;
-class QThread;
 
 // One row per game; the statistics are looked up by game id so that they follow a game around.
 class LibraryModel : public QAbstractTableModel {
@@ -116,7 +117,7 @@ private:
     std::vector<LibraryEntry> m_lastEntries; // as the scan found them, before the user's system choices
     QStringList m_folders;
     QString m_loadError; // reported with the first scan, when something can listen
-    QThread* m_thread = nullptr;
+    QPointer<QThread> m_thread; // deletes itself when it finishes, so a plain pointer would dangle
     std::atomic<bool> m_cancel{false};
     int m_generation = 0;
     bool m_scanning = false;

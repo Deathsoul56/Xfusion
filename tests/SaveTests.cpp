@@ -1,6 +1,5 @@
 #include <QDir>
 #include <QJsonDocument>
-#include <QJsonObject>
 #include <QTemporaryDir>
 #include <QTimeZone>
 #include <QtTest>
